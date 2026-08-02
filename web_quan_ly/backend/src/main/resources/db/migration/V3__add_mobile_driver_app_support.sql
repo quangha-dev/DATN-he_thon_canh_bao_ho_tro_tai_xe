@@ -1,0 +1,43 @@
+CREATE TABLE pre_trip_checklists (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    trip_id BIGINT NOT NULL,
+    driver_id BIGINT NOT NULL,
+    vehicle_id BIGINT NULL,
+    exterior_checked BOOLEAN NOT NULL DEFAULT FALSE,
+    tires_checked BOOLEAN NOT NULL DEFAULT FALSE,
+    brake_checked BOOLEAN NOT NULL DEFAULT FALSE,
+    lights_checked BOOLEAN NOT NULL DEFAULT FALSE,
+    camera_checked BOOLEAN NOT NULL DEFAULT FALSE,
+    gps_checked BOOLEAN NOT NULL DEFAULT FALSE,
+    documents_checked BOOLEAN NOT NULL DEFAULT FALSE,
+    checklist_json JSON NULL,
+    note VARCHAR(500) NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NULL,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT fk_pre_trip_trip FOREIGN KEY (trip_id) REFERENCES trips(id),
+    CONSTRAINT fk_pre_trip_driver FOREIGN KEY (driver_id) REFERENCES drivers(id),
+    CONSTRAINT fk_pre_trip_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id),
+    INDEX idx_pre_trip_trip_driver (trip_id, driver_id),
+    INDEX idx_pre_trip_driver_created (driver_id, created_at)
+);
+
+CREATE TABLE agent_commands (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    driver_id BIGINT NULL,
+    trip_id BIGINT NULL,
+    command_type VARCHAR(30) NOT NULL,
+    transcript VARCHAR(1000) NOT NULL,
+    normalized_command VARCHAR(255) NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'RECEIVED',
+    response_text VARCHAR(1000) NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NULL,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT fk_agent_command_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_agent_command_driver FOREIGN KEY (driver_id) REFERENCES drivers(id),
+    CONSTRAINT fk_agent_command_trip FOREIGN KEY (trip_id) REFERENCES trips(id),
+    INDEX idx_agent_user_created (user_id, created_at),
+    INDEX idx_agent_driver_created (driver_id, created_at)
+);

@@ -1,0 +1,21 @@
+services:
+  backend:
+    environment:
+      SEED_ENABLED: "true"
+      HANOI_DEMO_DATA_ENABLED: "true"
+      APP_LOG_LEVEL: DEBUG
+
+  ai-service:
+    environment:
+      LOG_LEVEL: DEBUG
+
+  adminer:
+    image: adminer:5
+    restart: unless-stopped
+    profiles: ["dev"]
+    ports:
+      - "8081:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [safefleet]

@@ -1,0 +1,5 @@
+# Optional offline training/export dependencies. They are deliberately excluded
+# from the runtime Docker image; the service never trains at container startup.
+numpy>=1.26,<3
+onnx>=1.20,<2
+tensorflow-cpu>=2.18,<3

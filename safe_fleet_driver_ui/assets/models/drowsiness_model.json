@@ -1,0 +1,14 @@
+{
+  "name": "STGT fold 1 drowsiness model",
+  "source_file": "D:/DEV/Project/course/ngugat/best_model_fold_1.pth",
+  "source_sha256": "79CF58033CFD358164F350183839CF2F73D275DAA1BB5271CAABE09DF3F0894C",
+  "runtime_file": "drowsiness_model.tflite",
+  "runtime_sha256": "FCC98759EA99AA33EC7C1C3667E3ECA5AB6F78B91AA35B8C709280A97FBCB108",
+  "input_shape": [1, 1, 75, 12],
+  "output_shape": [1, 1],
+  "base_features": ["EAR", "MAR", "Pitch", "Yaw", "Roll", "Iris"],
+  "feature_extractor": "ML Kit Face Mesh 468 (MediaPipe canonical indices)",
+  "calibration_frames": 1500,
+  "target_fps": 25,
+  "notes": "Android extracts EAR from [362,385,387,263,373,380] and [33,160,158,133,153,144], and MAR from [78,308,13,14], matching the training pipeline. It persists a 1500-valid-frame per-driver baseline, applies Savitzky-Golay smoothing, normalization and six temporal deltas before sending a 75x12 sequence to TFLite. Head pose uses ML Kit Euler angles. ML Kit exposes 0..467 points but not refined iris 468..477, therefore Iris is neutralized instead of replaced with a noisy proxy."
+}

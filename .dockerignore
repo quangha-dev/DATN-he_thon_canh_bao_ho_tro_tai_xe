@@ -1,0 +1,11 @@
+.git
+.env
+**/.git
+**/node_modules
+**/.next
+**/target
+**/.dart_tool
+**/build
+**/__pycache__
+**/.pytest_cache
+**/*.log

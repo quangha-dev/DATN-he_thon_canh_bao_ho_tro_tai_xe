@@ -1,0 +1,33 @@
+server:
+  address: 0.0.0.0
+
+spring:
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:mysql}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:safefleet}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+
+logging:
+  file:
+    name: ""
+  level:
+    root: INFO
+    com.safefleet: ${APP_LOG_LEVEL:INFO}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+    refresh-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:30}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+    allow-localhost-patterns: false
+  seed:
+    enabled: ${SEED_ENABLED:false}
+    hanoi-demo-data-enabled: ${HANOI_DEMO_DATA_ENABLED:false}

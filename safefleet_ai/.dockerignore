@@ -1,0 +1,9 @@
+.git
+.venv
+__pycache__
+.pytest_cache
+*.pyc
+models/*
+!models/safefleet_temporal_rules.json
+!models/calibration.json
+datasets/

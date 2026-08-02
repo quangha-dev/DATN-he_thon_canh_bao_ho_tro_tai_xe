@@ -1,0 +1,6 @@
+{
+  "eyeOpenThreshold": 0.23,
+  "phoneConfidenceThreshold": 0.72,
+  "eyeBalancedAccuracy": 1.0,
+  "phoneBalancedAccuracy": 1.0
+}

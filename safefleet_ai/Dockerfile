@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1.7
+FROM python:3.11-slim AS base
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY requirements.txt .
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-cache-dir -r requirements.txt
+
+FROM base AS test
+COPY requirements-dev.txt .
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-cache-dir -r requirements-dev.txt
+COPY service ./service
+COPY tests ./tests
+COPY training ./training
+COPY models ./models
+CMD ["python", "-m", "pytest", "-q"]
+
+FROM base AS runtime
+RUN groupadd --system safefleet && useradd --system --gid safefleet --home-dir /app safefleet
+COPY service ./service
+RUN mkdir -p /models && chown -R safefleet:safefleet /app /models
+USER safefleet
+EXPOSE 8000
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=5 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+CMD ["uvicorn", "service.main:app", "--host", "0.0.0.0", "--port", "8000"]

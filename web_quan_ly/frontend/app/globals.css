@@ -1,0 +1,216 @@
+@import "tailwindcss";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+/* Tailwind v4 defaults dark: to the OS media query. SafeFleet supports a
+   persisted manual selector, so dark utilities must follow the root class. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ===== DESIGN TOKENS — SafeFleet Command Center ===== */
+:root {
+  --font-inter: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Brand */
+  --sf-primary: #087f73;
+  --sf-primary-hover: #06685f;
+  --sf-primary-light: #e8f8f4;
+  --sf-primary-dark: #12243d;
+  --sf-accent: #0f766e;
+
+  /* Status */
+  --sf-success: #22c55e;
+  --sf-info: #3b82f6;
+  --sf-warning: #f59e0b;
+  --sf-danger-mid: #f97316;
+  --sf-danger: #ef4444;
+  --sf-neutral: #6b7280;
+  --sf-flood: #8b5cf6;
+  --sf-flood-alt: #06b6d4;
+
+  /* Background */
+  --sf-bg: #f7f9fb;
+  --sf-bg-card: #ffffff;
+  --sf-bg-sidebar: #10243d;
+  --sf-bg-header: #ffffff;
+
+  /* Text */
+  --sf-text: #12243d;
+  --sf-text-secondary: #667788;
+  --sf-text-muted: #94a3b8;
+
+  /* Border */
+  --sf-border: #e1e7ec;
+  --sf-border-light: #eef2f5;
+
+  /* Sidebar */
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 72px;
+}
+
+.dark {
+  --sf-bg: #0f172a;
+  --sf-bg-card: #1e293b;
+  --sf-bg-sidebar: #020617;
+  --sf-bg-header: #1e293b;
+  --sf-text: #f1f5f9;
+  --sf-text-secondary: #94a3b8;
+  --sf-text-muted: #64748b;
+  --sf-border: #334155;
+  --sf-border-light: #1e293b;
+}
+
+/* ===== TAILWIND THEME EXTENSIONS ===== */
+@theme inline {
+  --color-background: var(--sf-bg);
+  --color-foreground: var(--sf-text);
+  --font-sans: var(--font-inter);
+
+  /* SafeFleet palette */
+  --color-sf-primary: var(--sf-primary);
+  --color-sf-primary-hover: var(--sf-primary-hover);
+  --color-sf-primary-light: var(--sf-primary-light);
+  --color-sf-accent: var(--sf-accent);
+  --color-sf-success: var(--sf-success);
+  --color-sf-info: var(--sf-info);
+  --color-sf-warning: var(--sf-warning);
+  --color-sf-danger-mid: var(--sf-danger-mid);
+  --color-sf-danger: var(--sf-danger);
+  --color-sf-neutral: var(--sf-neutral);
+  --color-sf-flood: var(--sf-flood);
+  --color-sf-flood-alt: var(--sf-flood-alt);
+  --color-sf-bg: var(--sf-bg);
+  --color-sf-bg-card: var(--sf-bg-card);
+  --color-sf-bg-sidebar: var(--sf-bg-sidebar);
+  --color-sf-bg-header: var(--sf-bg-header);
+  --color-sf-text: var(--sf-text);
+  --color-sf-text-secondary: var(--sf-text-secondary);
+  --color-sf-text-muted: var(--sf-text-muted);
+  --color-sf-border: var(--sf-border);
+  --color-sf-border-light: var(--sf-border-light);
+}
+
+/* ===== BASE STYLES ===== */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--sf-bg);
+  color: var(--sf-text);
+  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse-sos {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  50% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.5); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+.animate-fadeInUp { animation: fadeInUp 0.4s ease-out; }
+.animate-fadeInDown { animation: fadeInDown 0.35s ease-out; }
+.animate-slideInRight { animation: slideInRight 0.3s ease-out; }
+.animate-slideInLeft { animation: slideInLeft 0.3s ease-out; }
+.animate-scaleIn { animation: scaleIn 0.2s ease-out; }
+.animate-pulse-sos { animation: pulse-sos 1.5s infinite; }
+.animate-pulse-dot { animation: pulse-dot 2s infinite; }
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.08) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== GLASSMORPHISM UTILITY ===== */
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.dark .glass {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ===== MAPLIBRE OVERRIDES ===== */
+.maplibregl-map {
+  font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
+}
+.maplibregl-popup-content {
+  border-radius: 12px !important;
+  padding: 0 !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15) !important;
+  overflow: hidden;
+}
+.maplibregl-popup-close-button {
+  font-size: 18px;
+  padding: 4px 8px;
+  color: #64748b;
+}
+.maplibregl-ctrl-attrib {
+  font-size: 10px !important;
+  opacity: 0.6;
+}

@@ -1,0 +1,4 @@
+{"timestampSeconds": 0.0, "speedKph": 40, "leftEyeOpen": 0.1, "rightEyeOpen": 0.1, "expectedDetections": []}
+{"timestampSeconds": 2.1, "speedKph": 40, "leftEyeOpen": 0.1, "rightEyeOpen": 0.1, "expectedDetections": ["DROWSINESS"]}
+{"timestampSeconds": 40.0, "speedKph": 35, "leftEyeOpen": 0.8, "rightEyeOpen": 0.8, "phoneConfidence": 0.9, "expectedDetections": []}
+{"timestampSeconds": 42.1, "speedKph": 35, "leftEyeOpen": 0.8, "rightEyeOpen": 0.8, "phoneConfidence": 0.9, "expectedDetections": ["PHONE_USAGE"]}

@@ -1,0 +1,12 @@
+{"eyeOpen": 0.10, "phoneConfidence": 0.05, "drowsy": true, "phoneUsage": false}
+{"eyeOpen": 0.14, "phoneConfidence": 0.12, "drowsy": true, "phoneUsage": false}
+{"eyeOpen": 0.18, "phoneConfidence": 0.20, "drowsy": true, "phoneUsage": false}
+{"eyeOpen": 0.22, "phoneConfidence": 0.35, "drowsy": true, "phoneUsage": false}
+{"eyeOpen": 0.28, "phoneConfidence": 0.72, "drowsy": false, "phoneUsage": true}
+{"eyeOpen": 0.31, "phoneConfidence": 0.78, "drowsy": false, "phoneUsage": true}
+{"eyeOpen": 0.42, "phoneConfidence": 0.82, "drowsy": false, "phoneUsage": true}
+{"eyeOpen": 0.55, "phoneConfidence": 0.91, "drowsy": false, "phoneUsage": true}
+{"eyeOpen": 0.63, "phoneConfidence": 0.05, "drowsy": false, "phoneUsage": false}
+{"eyeOpen": 0.72, "phoneConfidence": 0.20, "drowsy": false, "phoneUsage": false}
+{"eyeOpen": 0.81, "phoneConfidence": 0.40, "drowsy": false, "phoneUsage": false}
+{"eyeOpen": 0.90, "phoneConfidence": 0.55, "drowsy": false, "phoneUsage": false}

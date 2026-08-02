@@ -1,0 +1,32 @@
+{
+  "modelId": "safefleet-cabin-temporal",
+  "version": "1.0.0",
+  "runtime": "on-device",
+  "privacy": "camera frames are processed locally and are not continuously uploaded",
+  "inputs": [
+    "leftEyeOpen",
+    "rightEyeOpen",
+    "perclos",
+    "headPitchDegrees",
+    "headYawDegrees",
+    "mouthOpenRatio",
+    "phoneConfidence",
+    "speedKph"
+  ],
+  "outputs": ["DROWSINESS", "PHONE_USAGE"],
+  "drowsiness": {
+    "eyeOpenThreshold": 0.25,
+    "eyeClosedDurationSeconds": 2.0,
+    "perclosWindowSeconds": 30,
+    "perclosThreshold": 0.4,
+    "headPoseDegrees": 25,
+    "yawnMouthRatio": 0.09
+  },
+  "phoneUsage": {
+    "labelConfidenceThreshold": 0.65,
+    "minimumSpeedKph": 5,
+    "durationSeconds": 2.0,
+    "fixedDeviceExcluded": true
+  },
+  "eventCooldownSeconds": 30
+}
