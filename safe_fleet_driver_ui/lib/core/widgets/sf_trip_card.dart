@@ -92,8 +92,8 @@ class SfTripCard extends StatelessWidget {
             const SizedBox(height: SfSpace.x8),
             Text(
               [
-                if (driver != null) driver!,
-                if (plate != null) plate!,
+                ?driver,
+                ?plate,
               ].join(' · '),
               style: SfType.meta.copyWith(color: p.textSecondary),
             ),

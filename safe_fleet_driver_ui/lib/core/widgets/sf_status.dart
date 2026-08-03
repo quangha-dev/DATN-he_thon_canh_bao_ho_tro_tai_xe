@@ -104,7 +104,7 @@ class SfSectionLabel extends StatelessWidget {
           style: SfType.label.copyWith(color: context.sf.textSecondary),
         ),
       ),
-      if (trailing != null) trailing!,
+      ?trailing,
     ],
   );
 }

@@ -3480,3 +3480,98 @@ giọng nói/câu đánh thức và giao diện trắng chuyên nghiệp.
   MAR `0.003`, pitch/yaw `-5°/2°`; không có `FATAL EXCEPTION` trong logcat.
 - Chưa tuyên bố đạt độ chính xác production: cần phiên test có nhắm mắt/ngáp thực tế,
   ánh sáng yếu, đeo kính, rung xe và đối chiếu nhãn để hiệu chỉnh threshold/model.
+
+# 26. CHECKPOINT TÁI CẤU TRÚC WEB / CHỨNG TỪ — 2026-08-03 01:15
+
+## Đã triển khai
+
+- Theme web có ba chế độ sáng/tối/theo hệ thống, lưu lựa chọn, áp theme trước hydrate
+  để không nháy màu. Sidebar và header dùng chung một nguồn trạng thái.
+- Điều hướng đã gom lại theo nghiệp vụ; mục chuyến đi đổi thành `Chuyến đi & chứng từ`,
+  thiết bị không còn chiếm một mục menu độc lập.
+- Flyway V8 tạo mô hình phiếu xuất kho chuẩn hóa gồm phiếu, dòng hàng, xác nhận và
+  audit log; không còn nhét phiếu vào JSON `plannedRoute`.
+- API phiếu xuất kho hỗ trợ tạo/sửa nháp, phát hành, tra cứu theo chuyến và xác nhận
+  tài xế/người nhận. Mobile đọc phiếu chuẩn hóa và vẫn fallback được dữ liệu cũ.
+- Trang điều phối có đủ trường chính theo phiếu giấy: đơn vị/địa chỉ/lý do, kho/lô,
+  công trình/hạng mục, người nhận/điện thoại, nhiều dòng vật tư, các cột số lượng,
+  tình trạng, ghi chú và tổng số lượng bằng chữ.
+- Luồng nháp đã sửa để không tạo chuyến trùng: chuyến nháp không phân công nên mobile
+  không thấy; lưu lại cập nhật đúng chuyến/phiếu cũ; phát hành sẽ phân công cặp 001–001,
+  đồng bộ tài xế/xe vào chứng từ rồi mới đổi phiếu sang `ISSUED`.
+- Báo cáo đã bỏ toàn bộ số liệu minh họa và nhận định giả. Biểu đồ chỉ dùng API thật,
+  nhận định được tính từ dữ liệu trả về và nút xuất tạo file CSV thật có UTF-8 BOM.
+- Trang bảo trì đã được bổ sung đầy đủ màu nền, bảng, input và chữ cho dark mode.
+
+## Kiểm thử đã qua
+
+- Backend `mvn test`: PASS; MySQL 8.4 Testcontainers khởi tạo sạch, Flyway áp đủ 8
+  migration và toàn bộ test kết thúc mã 0.
+- Frontend `npm run lint`: PASS.
+- Frontend `npm run build`: PASS, 20 trang được prerender/type-check thành công.
+- Docker rebuild backend/frontend: PASS; các container backend/frontend và dependency
+  chính healthy.
+- Browser local: Command Center chuyển dark → light đúng; trang điều phối tải đúng
+  duy nhất `Tài xế 001 · Nguyen Van An — Xe 001 · 001` và toàn bộ trường chứng từ.
+- API live với trip id 33:
+  - tạo `DRAFT`, mobile driver001 nhìn thấy 0 bản ghi;
+  - PUT cập nhật đúng cùng id;
+  - assign driverId 1 + vehicleId 1 và phát hành phiếu;
+  - mobile nhìn thấy đúng 1 bản ghi, phiếu `ISSUED`, driverId 1, vehicleId 1, 1 dòng hàng.
+
+## Dữ liệu kiểm thử chứng từ thật hiện có
+
+- Trip 25 / `DEMO-001-M09`: phiếu `PXK-001-M09`, 2 dòng vật tư, tài xế đã xác nhận,
+  trạng thái `DRIVER_RECEIVED`, có audit đầy đủ.
+- Trip 33 / `TRIP-20260803011013-9644`: bản ghi kiểm thử vòng đời nháp → phát hành,
+  trạng thái chuyến `ASSIGNED`, phiếu `ISSUED`, chuyển đúng tới driver001.
+- Maintenance id 4 / `MTN-20260803011932-8909`: bảo dưỡng định kỳ xe 001, lịch
+  2026-08-10, trạng thái `SCHEDULED`, chi phí dự kiến 1.500.000 VND.
+
+## Bước tiếp theo ưu tiên
+
+1. Tạo endpoint điều phối tổng hợp có transaction/idempotency để create/assign/issue
+   là một giao dịch duy nhất, tránh trạng thái dở dang nếu mạng ngắt giữa các API.
+2. Bổ sung tạo/sửa/đóng phiếu bảo trì trên UI; hiện trang đã đọc/lọc dữ liệu thật nhưng
+   chưa có form thao tác vòng đời.
+3. Bổ sung xuất PDF phiếu xuất kho ở backend từ dữ liệu chuẩn hóa; CSV báo cáo đã thật
+   nhưng chưa thay thế nhu cầu bản in chứng từ.
+4. Hoàn thiện bộ lọc khoảng ngày và KPI theo tài xế 001 cho báo cáo web.
+5. Chạy lại E2E trên điện thoại Android thật sau khi các endpoint tổng hợp hoàn tất.
+
+# 27. CHECKPOINT UI HAI THEME / KẾ HOẠCH NGHIỆM THU — 2026-08-03 07:25
+
+## Nâng cấp giao diện
+
+- Light mode dùng sidebar trắng, surface sáng và teal làm điểm nhấn; dark mode dùng nền
+  navy sâu, surface riêng và viền trong suốt. Hai theme không còn chỉ đổi nền nội dung
+  trong khi sidebar giữ nguyên màu tối.
+- Khung ứng dụng có radial background rất nhẹ, semantic design token và shadow khác
+  nhau theo theme, giữ phong cách trắng chủ đạo và không lạm dụng màu.
+- Sidebar đổi toàn bộ nhóm sang tiếng Việt, active state rõ, logo gradient có chiều sâu.
+- Header tinh gọn, search surface đồng nhất và có nút menu trên mobile.
+- Responsive có drawer 260 px, overlay đóng menu và không còn ép margin desktop lên
+  viewport nhỏ. Browser test 390×844 xác nhận `scrollWidth <= innerWidth`, drawer ẩn
+  tại `left=-260`, mở về `left=0` và overlay xuất hiện.
+- Trang đăng nhập có nút đổi light/dark ngay trước khi đăng nhập.
+
+## Tài liệu khách hàng
+
+- Thêm file gốc `KE_HOACH_KIEM_THU_NGHIEM_THU_SAFEFLEET.md`.
+- Bao phủ test web, mobile, GPS/camera nền, offline/recovery và 20 tình huống DMS.
+- Có protocol so sánh người–máy, ground truth hai chuyên gia, đồng bộ timestamp, các
+  chỉ số precision/recall/F1/FAR/latency và ngưỡng PASS/K-PASS.
+- Công bố trung thực: repository có ST-GT + ML Kit Temporal nhưng chưa có TranMIL;
+  TranMIL được đánh `K-PASS/BLOCKED` cho tới khi có checkpoint/runtime thật.
+
+## Kết quả vòng test cuối
+
+- Frontend ESLint: PASS.
+- Frontend Next.js production build: PASS, 20 route.
+- Backend Maven test: PASS; MySQL 8.4 Testcontainers và Flyway V1–V8 PASS.
+- Flutter analyze: PASS, `No issues found` (đã sửa 4 lint info cũ).
+- Flutter test: PASS 15/15.
+- Python AI pytest trong container: PASS 11/11.
+- Temporal rule benchmark 10.000 observation: mean 0,00345 ms; p95 0,00524 ms;
+  max 0,20226 ms. Đây không phải latency camera/ST-GT end-to-end.
+- Docker frontend/backend/AI service được rebuild và healthy.

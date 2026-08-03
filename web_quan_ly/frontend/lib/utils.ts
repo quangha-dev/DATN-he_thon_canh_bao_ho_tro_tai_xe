@@ -31,6 +31,7 @@ export const TRIP_STATUS_LABELS: Record<string, string> = {
 
 export const ALERT_TYPE_LABELS: Record<string, string> = {
   drowsy: 'Ngủ gật',
+  drowsiness: 'Ngủ gật',
   phone_usage: 'Dùng điện thoại',
   distraction: 'Mất tập trung',
   overtime: 'Quá giờ lái',
@@ -38,7 +39,9 @@ export const ALERT_TYPE_LABELS: Record<string, string> = {
   route_deviation: 'Lệch tuyến',
   abnormal_stop: 'Dừng bất thường',
   connection_lost: 'Mất kết nối',
+  gps_lost: 'Mất GPS',
   near_flood: 'Gần điểm ngập',
+  flood_risk: 'Rủi ro ngập',
 };
 
 export const ALERT_SEVERITY_LABELS: Record<string, string> = {

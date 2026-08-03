@@ -99,17 +99,7 @@ public class TripService {
         validateSchedule(request.plannedStartTime(), request.estimatedEndTime());
         Trip trip = new Trip();
         trip.setTripCode(CodeGenerator.code("TRIP"));
-        trip.setStartLocation(request.startLocation());
-        trip.setStartLat(request.startLat());
-        trip.setStartLng(request.startLng());
-        trip.setEndLocation(request.endLocation());
-        trip.setEndLat(request.endLat());
-        trip.setEndLng(request.endLng());
-        trip.setWaypoints(request.waypoints());
-        trip.setPlannedRoute(request.plannedRoute());
-        trip.setPlannedStartTime(request.plannedStartTime());
-        trip.setEstimatedEndTime(request.estimatedEndTime());
-        trip.setRiskLevel(request.riskLevel() == null ? RiskLevel.LOW : request.riskLevel());
+        applyDraftFields(trip, request);
 
         if (request.vehicleId() != null && request.driverId() != null) {
             Vehicle vehicle = findVehicle(request.vehicleId());
@@ -128,6 +118,30 @@ public class TripService {
             addTimeline(saved, "ASSIGNED", "Trip assigned at creation");
         }
         return TripMapper.toResponse(saved);
+    }
+
+    @Transactional
+    public TripResponse updateDraft(Long id, CreateTripRequest request) {
+        Trip trip = findTrip(id);
+        requireStatus(trip, TripStatus.DRAFT);
+        validateSchedule(request.plannedStartTime(), request.estimatedEndTime());
+        applyDraftFields(trip, request);
+        addTimeline(trip, "DRAFT_UPDATED", "Trip draft updated");
+        return TripMapper.toResponse(trip);
+    }
+
+    private void applyDraftFields(Trip trip, CreateTripRequest request) {
+        trip.setStartLocation(request.startLocation());
+        trip.setStartLat(request.startLat());
+        trip.setStartLng(request.startLng());
+        trip.setEndLocation(request.endLocation());
+        trip.setEndLat(request.endLat());
+        trip.setEndLng(request.endLng());
+        trip.setWaypoints(request.waypoints());
+        trip.setPlannedRoute(request.plannedRoute());
+        trip.setPlannedStartTime(request.plannedStartTime());
+        trip.setEstimatedEndTime(request.estimatedEndTime());
+        trip.setRiskLevel(request.riskLevel() == null ? RiskLevel.LOW : request.riskLevel());
     }
 
     @Transactional

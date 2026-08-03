@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { useTheme } from "@/context/ThemeContext";
 import { motion } from "framer-motion";
 import {
   Shield,
@@ -12,6 +13,8 @@ import {
   Truck,
   MapPin,
   AlertTriangle,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 const SHOW_DEMO_CREDENTIALS =
@@ -20,6 +23,7 @@ const SHOW_DEMO_CREDENTIALS =
 export default function LoginPage() {
   const { login, isLoading } = useAuth();
   const { showToast } = useToast();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -155,7 +159,16 @@ export default function LoginPage() {
       </div>
 
       {/* Right Panel — Login Form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-slate-50 dark:bg-slate-900">
+      <div className="relative flex-1 flex items-center justify-center px-6 py-12 bg-[radial-gradient(circle_at_85%_10%,rgba(13,148,136,0.10),transparent_22rem)] bg-slate-50 dark:bg-[radial-gradient(circle_at_85%_10%,rgba(45,212,191,0.08),transparent_24rem)] dark:bg-[#07111f]">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="absolute right-5 top-5 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-bold text-slate-600 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+          aria-label={resolvedTheme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
+        >
+          {resolvedTheme === "dark" ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
+          {resolvedTheme === "dark" ? "Giao diện sáng" : "Giao diện tối"}
+        </button>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

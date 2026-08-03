@@ -20,6 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -60,6 +61,14 @@ public class TripController {
     @PreAuthorize("hasAnyRole('ADMIN','FLEET_MANAGER','DISPATCHER','SAFETY_OFFICER') or hasRole('DRIVER')")
     public ApiResponse<TripResponse> get(@PathVariable Long id) {
         return ApiResponse.ok(tripService.get(id));
+    }
+
+    @Operation(summary = "Update a draft trip")
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','FLEET_MANAGER','DISPATCHER')")
+    public ApiResponse<TripResponse> updateDraft(@PathVariable Long id,
+                                                  @Valid @RequestBody CreateTripRequest request) {
+        return ApiResponse.ok("Trip draft updated", tripService.updateDraft(id, request));
     }
 
     @Operation(summary = "Assign trip to vehicle and driver")

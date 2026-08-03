@@ -22,7 +22,7 @@ const PAGE_META: Record<string, { title: string; description?: string }> = {
   "/flood-map": { title: "Điểm ngập", description: "Bản đồ thông tin ngập lụt" },
   "/devices": { title: "Quản lý thiết bị", description: "GPS, camera, cảm biến" },
   "/maintenance": { title: "Bảo trì", description: "Lịch bảo trì và sửa chữa" },
-  "/reports": { title: "Báo cáo", description: "Thống kê và phân tích AI Insight" },
+  "/reports": { title: "Báo cáo", description: "Số liệu vận hành và an toàn từ backend" },
   "/accounts": { title: "Tài khoản", description: "Quản lý người dùng hệ thống" },
   "/permissions": { title: "Phân quyền", description: "Vai trò và ma trận quyền" },
   "/settings": { title: "Cấu hình", description: "Cài đặt hệ thống" },
@@ -35,6 +35,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const { user } = useAuth();
 
@@ -51,28 +52,33 @@ export default function DashboardLayout({
   const canAccess = user ? canAccessPath(user.role, pathname) : true;
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="sf-app-shell flex min-h-screen overflow-x-hidden">
+      {mobileMenuOpen && (
+        <button type="button" aria-label="Đóng menu điều hướng" onClick={() => setMobileMenuOpen(false)} className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] lg:hidden" />
+      )}
       {/* Sidebar */}
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
       />
 
       {/* Main content area */}
       <div
         className={cn(
-          "flex-1 flex flex-col transition-all duration-300",
-          sidebarCollapsed ? "ml-[72px]" : "ml-[260px]"
+          "min-w-0 flex-1 flex flex-col transition-all duration-300",
+          sidebarCollapsed ? "lg:ml-[72px]" : "lg:ml-[260px]"
         )}
       >
         {/* Header */}
-        <Header title={pageMeta.title} description={pageMeta.description} />
+        <Header title={pageMeta.title} description={pageMeta.description} onMenuClick={() => setMobileMenuOpen(true)} />
 
         {/* Page content */}
         <main
           className={cn(
-            "flex-1 overflow-y-auto",
-            isFullScreen ? "" : "p-6"
+            "min-w-0 flex-1 overflow-x-hidden overflow-y-auto",
+            isFullScreen ? "" : "p-4 sm:p-6"
           )}
         >
           {canAccess ? (

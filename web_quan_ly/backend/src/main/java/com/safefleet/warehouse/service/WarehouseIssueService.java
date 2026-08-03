@@ -99,11 +99,22 @@ public class WarehouseIssueService {
     public WarehouseIssueResponse issue(Long id) {
         WarehouseIssueDocument document = find(id);
         requireDraft(document);
+        syncTripAssignment(document);
         WarehouseIssueStatus previous = document.getStatus();
         document.setStatus(WarehouseIssueStatus.ISSUED);
         document.setIssuedAt(LocalDateTime.now());
         addAudit(document, "ISSUED", previous, document.getStatus(), "Phát hành phiếu xuất kho");
         return response(document);
+    }
+
+    private void syncTripAssignment(WarehouseIssueDocument document) {
+        Trip trip = document.getTrip();
+        if (trip == null) return;
+        document.setDriver(trip.getDriver());
+        document.setVehicle(trip.getVehicle());
+        if (trip.getDriver() != null) {
+            document.setDeliveryPersonName(trip.getDriver().getFullName());
+        }
     }
 
     @Transactional

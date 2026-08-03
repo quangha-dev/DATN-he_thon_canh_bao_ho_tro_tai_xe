@@ -6,6 +6,7 @@ import {
   DispatchSuggestion,
   LocationSuggestion,
   RouteSummary,
+  WarehouseIssueInput,
   safeFleetApi,
 } from "@/lib/safeFleetApi";
 import { cn, formatDrivingTime } from "@/lib/utils";
@@ -239,6 +240,8 @@ export default function DispatchPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [tripCode, setTripCode] = useState("Sẽ cấp tự động khi lưu");
+  const [draftTripId, setDraftTripId] = useState<string | null>(null);
+  const [draftWarehouseIssueId, setDraftWarehouseIssueId] = useState<number | null>(null);
   const [tripType, setTripType] = useState("delivery");
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
@@ -477,9 +480,7 @@ export default function DispatchPage() {
 
     setIsSubmitting(true);
     try {
-      const trip = await safeFleetApi.createTrip({
-        vehicleId: selectedVehicleId,
-        driverId: selectedDriverId,
+      const tripInput = {
         startLocation: selectedOrigin!.address,
         startLat: selectedOrigin!.lat,
         startLng: selectedOrigin!.lng,
@@ -488,15 +489,29 @@ export default function DispatchPage() {
         endLng: selectedDestination!.lng,
         plannedStartTime: scheduledStart,
         estimatedEndTime: scheduledEnd,
-        riskLevel: routeSummary?.fallback ? "medium" : "low",
+        riskLevel: routeSummary?.fallback ? ("medium" as const) : ("low" as const),
         plannedRoute: JSON.stringify({
           tripType,
           notes,
           dispatchedBy: user ? { id: user.id, fullName: user.fullName } : null,
           route: routeSummary,
         }),
-      });
-      const warehouseIssue = await safeFleetApi.createWarehouseIssue({
+      };
+      let trip;
+      if (draftTripId) {
+        trip = await safeFleetApi.updateTripDraft(draftTripId, tripInput);
+        if (issueDocument) {
+          trip = await safeFleetApi.assignTrip(draftTripId, selectedDriverId, selectedVehicleId);
+        }
+      } else {
+        trip = await safeFleetApi.createTrip({
+          ...tripInput,
+          vehicleId: issueDocument ? selectedVehicleId : undefined,
+          driverId: issueDocument ? selectedDriverId : undefined,
+        });
+      }
+
+      const warehouseInput: WarehouseIssueInput = {
         tripId: Number(trip.id),
         issueNumber: warehouseIssueNumber.trim(),
         issueDate: scheduledStart.slice(0, 10),
@@ -525,9 +540,17 @@ export default function DispatchPage() {
           conditionNote: item.conditionNote.trim() || undefined,
           confirmationNote: item.confirmation.trim() || undefined,
         })),
-      });
+      };
+      const warehouseIssue = draftWarehouseIssueId
+        ? await safeFleetApi.updateWarehouseIssue(draftWarehouseIssueId, warehouseInput)
+        : await safeFleetApi.createWarehouseIssue(warehouseInput);
       if (issueDocument) {
         await safeFleetApi.issueWarehouseIssue(warehouseIssue.id);
+        setDraftTripId(null);
+        setDraftWarehouseIssueId(null);
+      } else {
+        setDraftTripId(trip.id);
+        setDraftWarehouseIssueId(warehouseIssue.id);
       }
       setTripCode(trip.code);
       showToast(

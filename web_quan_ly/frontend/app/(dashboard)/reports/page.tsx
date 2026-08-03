@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -21,35 +21,13 @@ import {
 } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 import { safeFleetApi } from "@/lib/safeFleetApi";
-import { ALERT_TYPE_LABELS, cn } from "@/lib/utils";
-
-// =============================================================================
-// MOCK CHART DATA
-// =============================================================================
-const ALERT_BY_TYPE_DATA = [
-  { name: "Ngủ gật", count: 24, fill: "#ef4444" },
-  { name: "Điện thoại", count: 48, fill: "#f97316" },
-  { name: "Mất tập trung", count: 32, fill: "#f59e0b" },
-  { name: "Quá giờ lái", count: 12, fill: "#8b5cf6" },
-  { name: "Vượt tốc độ", count: 18, fill: "#3b82f6" },
-  { name: "Điểm ngập", count: 15, fill: "#06b6d4" },
-];
-
-const TRIP_TREND_DATA = [
-  { date: "T2", totalTrips: 0 },
-  { date: "T3", totalTrips: 0 },
-  { date: "T4", totalTrips: 0 },
-  { date: "T5", totalTrips: 0 },
-  { date: "T6", totalTrips: 0 },
-  { date: "T7", totalTrips: 0 },
-];
+import { ALERT_TYPE_LABELS } from "@/lib/utils";
 
 export default function ReportsPage() {
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState("overview");
   const [isClient, setIsClient] = useState(false);
-  const [alertByTypeData, setAlertByTypeData] = useState(ALERT_BY_TYPE_DATA);
-  const [tripTrendData, setTripTrendData] = useState(TRIP_TREND_DATA);
+  const [alertByTypeData, setAlertByTypeData] = useState<{ name: string; count: number; fill: string }[]>([]);
+  const [tripTrendData, setTripTrendData] = useState<{ date: string; totalTrips: number }[]>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(true);
 
   // Fix Recharts SSR issue
@@ -74,14 +52,12 @@ export default function ReportsPage() {
             count,
             fill: fills[index % fills.length],
           }));
-          setAlertByTypeData(nextAlerts.length > 0 ? nextAlerts : ALERT_BY_TYPE_DATA);
+          setAlertByTypeData(nextAlerts);
           setTripTrendData(
-            tripsByDay.length > 0
-              ? tripsByDay.map((item) => ({
-                  date: new Date(item.date).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }),
-                  totalTrips: item.totalTrips,
-                }))
-              : TRIP_TREND_DATA
+            tripsByDay.map((item) => ({
+              date: new Date(item.date).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }),
+              totalTrips: item.totalTrips,
+            }))
           );
         }
       } catch (error) {
@@ -99,43 +75,43 @@ export default function ReportsPage() {
     };
   }, [showToast]);
 
+  const summary = useMemo(() => {
+    const totalAlerts = alertByTypeData.reduce((sum, item) => sum + item.count, 0);
+    const totalTrips = tripTrendData.reduce((sum, item) => sum + item.totalTrips, 0);
+    const topAlert = [...alertByTypeData].sort((a, b) => b.count - a.count)[0];
+    return { totalAlerts, totalTrips, topAlert };
+  }, [alertByTypeData, tripTrendData]);
+
   const handleExport = () => {
-    showToast("Đang chuẩn bị xuất dữ liệu báo cáo PDF...", "info");
-    setTimeout(() => {
-      showToast("Đã tải xuống báo cáo Fleet Intelligence!", "success");
-    }, 1500);
+    const rows = [
+      ["Nhóm dữ liệu", "Chỉ tiêu", "Giá trị"],
+      ...alertByTypeData.map((item) => ["Cảnh báo", item.name, String(item.count)]),
+      ...tripTrendData.map((item) => ["Chuyến đi", item.date, String(item.totalTrips)]),
+    ];
+    const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `bao-cao-safefleet-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast("Đã xuất báo cáo từ dữ liệu backend.", "success");
   };
 
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* ===== Toolbar header ===== */}
       <div className="flex items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex-shrink-0">
-        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 p-1 rounded-lg border border-slate-200/50 dark:border-slate-700/50">
-          {[
-            { key: "overview", label: "Tổng quan" },
-            { key: "safety", label: "Chỉ số an toàn" },
-            { key: "operations", label: "Vận hành" },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "px-4 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer",
-                activeTab === tab.key
-                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Báo cáo vận hành & an toàn</h2>
+          <p className="mt-1 text-xs text-slate-500">Dữ liệu tổng hợp trực tiếp từ backend, không dùng số liệu minh họa.</p>
         </div>
 
         <button
           onClick={handleExport}
           className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow transition cursor-pointer"
         >
-          <Download className="w-3.5 h-3.5" /> Xuất báo cáo PDF
+          <Download className="w-3.5 h-3.5" /> Xuất dữ liệu CSV
         </button>
       </div>
 
@@ -145,7 +121,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* ===== AI Insight Box ===== */}
+      {/* ===== Data insight ===== */}
       <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-lg shadow-blue-500/25 relative overflow-hidden">
         {/* Decorative background grid */}
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] bg-[length:24px_24px]" />
@@ -156,8 +132,8 @@ export default function ReportsPage() {
               <Sparkles className="w-4.5 h-4.5 text-blue-100 animate-pulse" />
             </div>
             <div>
-              <h3 className="font-bold text-sm leading-none">SafeFleet AI Insight</h3>
-              <p className="text-[10px] text-blue-200 mt-1 leading-none">Báo cáo phân tích tự động tuần này</p>
+              <h3 className="font-bold text-sm leading-none">Nhận định từ dữ liệu hiện tại</h3>
+              <p className="text-[10px] text-blue-200 mt-1 leading-none">Tính trực tiếp từ báo cáo backend</p>
             </div>
           </div>
 
@@ -166,13 +142,13 @@ export default function ReportsPage() {
               <p className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
                 <span>
-                  <strong className="text-white">Cảnh báo mất tập trung tăng 18%</strong> so với tuần trước, đặc biệt lặp lại vào khung giờ chiều <span className="underline">13:00 - 15:00</span>. Đề xuất bố trí thời gian nghỉ ngắn cho tài xế.
+                  Đã ghi nhận <strong className="text-white">{summary.totalAlerts} cảnh báo</strong> trong kỳ dữ liệu hiện có.
                 </span>
               </p>
               <p className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0" />
                 <span>
-                  <strong className="text-white">Điểm an toàn trung bình đạt 91/100</strong>, tăng 3 điểm nhờ cải thiện hành vi giảm thiểu sử dụng điện thoại khi lái xe.
+                  Loại cần ưu tiên theo dõi: <strong className="text-white">{summary.topAlert ? `${summary.topAlert.name} (${summary.topAlert.count})` : "chưa có cảnh báo"}</strong>.
                 </span>
               </p>
             </div>
@@ -181,13 +157,13 @@ export default function ReportsPage() {
               <p className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-400 mt-1.5 flex-shrink-0" />
                 <span>
-                  <strong className="text-white">Tuyến Hà Đông - Cầu Giấy</strong> ghi nhận tần suất xuất hiện 4 điểm ngập nghiêm trọng gây tắc nghẽn. AI khuyến nghị định tuyến lại qua Đại lộ Thăng Long.
+                  Tổng số chuyến trong chuỗi thời gian: <strong className="text-white">{summary.totalTrips} chuyến</strong>.
                 </span>
               </p>
               <p className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
                 <span>
-                  <strong className="text-white">Xe container 30E-22222</strong> có số lần mất tín hiệu GPS 4 lần trong tuần. Đề nghị bộ phận kỹ thuật kiểm tra cổng kết nối OBD.
+                  Hệ thống hiện chỉ tổng hợp dữ liệu của <strong className="text-white">xe 001 và tài xế 001</strong> theo cấu hình kiểm thử.
                 </span>
               </p>
             </div>

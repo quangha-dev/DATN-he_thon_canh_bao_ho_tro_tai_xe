@@ -979,6 +979,45 @@ export const safeFleetApi = {
     return tripFromBackend(trip);
   },
 
+  async updateTripDraft(id: string | number, input: {
+    startLocation: string;
+    startLat?: number;
+    startLng?: number;
+    endLocation: string;
+    endLat?: number;
+    endLng?: number;
+    plannedStartTime: string;
+    estimatedEndTime: string;
+    riskLevel?: RiskLevel;
+    waypoints?: string[];
+    plannedRoute?: string;
+  }): Promise<Trip> {
+    const trip = await putData<BackendTrip>(`/trips/${id}`, {
+      vehicleId: null,
+      driverId: null,
+      startLocation: input.startLocation,
+      startLat: input.startLat,
+      startLng: input.startLng,
+      endLocation: input.endLocation,
+      endLat: input.endLat,
+      endLng: input.endLng,
+      plannedStartTime: input.plannedStartTime,
+      estimatedEndTime: input.estimatedEndTime,
+      riskLevel: (input.riskLevel ?? "low").toUpperCase(),
+      waypoints: input.waypoints?.join(", "),
+      plannedRoute: input.plannedRoute,
+    });
+    return tripFromBackend(trip);
+  },
+
+  async assignTrip(id: string | number, driverId: string, vehicleId: string): Promise<Trip> {
+    const trip = await postData<BackendTrip>(`/trips/${id}/assign`, {
+      driverId: Number(driverId),
+      vehicleId: Number(vehicleId),
+    });
+    return tripFromBackend(trip);
+  },
+
   async createWarehouseIssue(input: WarehouseIssueInput): Promise<WarehouseIssue> {
     return postData<WarehouseIssue>("/warehouse-issues", input);
   },

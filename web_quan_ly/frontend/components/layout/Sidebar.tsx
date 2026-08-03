@@ -48,21 +48,21 @@ interface MenuGroup {
 
 const MENU: MenuGroup[] = [
   {
-    title: "COMMAND",
+    title: "ĐIỀU HÀNH",
     items: [
       { key: "command-center", label: "Trung tâm điều hành", icon: LayoutDashboard, path: "/command-center" },
       { key: "realtime-map", label: "Bản đồ realtime", icon: Map, path: "/realtime-map" },
     ],
   },
   {
-    title: "OPERATIONS",
+    title: "VẬN HÀNH",
     items: [
       { key: "dispatch", label: "Điều phối chuyến", icon: Route, path: "/dispatch" },
       { key: "trips", label: "Chuyến đi & chứng từ", icon: Navigation, path: "/trips" },
     ],
   },
   {
-    title: "SAFETY",
+    title: "AN TOÀN",
     items: [
       { key: "alerts", label: "Cảnh báo AI", icon: ShieldAlert, path: "/alerts", badgeColor: "bg-amber-500" },
       { key: "incidents", label: "SOS / Sự cố", icon: Siren, path: "/incidents", badgeColor: "bg-red-500" },
@@ -70,7 +70,7 @@ const MENU: MenuGroup[] = [
     ],
   },
   {
-    title: "FLEET",
+    title: "ĐỘI XE",
     items: [
       { key: "vehicles", label: "Phương tiện", icon: Car, path: "/vehicles" },
       { key: "drivers", label: "Tài xế", icon: Users, path: "/drivers" },
@@ -78,13 +78,13 @@ const MENU: MenuGroup[] = [
     ],
   },
   {
-    title: "INTELLIGENCE",
+    title: "PHÂN TÍCH",
     items: [
       { key: "reports", label: "Báo cáo", icon: BarChart3, path: "/reports" },
     ],
   },
   {
-    title: "SYSTEM",
+    title: "HỆ THỐNG",
     items: [
       { key: "accounts", label: "Tài khoản", icon: UserCog, path: "/accounts" },
       { key: "settings", label: "Cấu hình", icon: Settings, path: "/settings" },
@@ -98,9 +98,11 @@ const MENU: MenuGroup[] = [
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }
 
-export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { resolvedTheme, toggleTheme } = useTheme();
@@ -153,28 +155,29 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     <aside
       className={cn(
         "fixed top-0 left-0 h-screen flex flex-col z-50 transition-all duration-300 ease-in-out",
-        "bg-[var(--sf-bg-sidebar)] border-r border-slate-800",
-        collapsed ? "w-[72px]" : "w-[260px]"
+        "bg-white/95 dark:bg-[#07111f]/96 backdrop-blur-xl border-r border-slate-200 dark:border-white/8 shadow-[12px_0_36px_rgba(15,23,42,0.05)] dark:shadow-[12px_0_36px_rgba(0,0,0,0.18)]",
+        mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+        collapsed ? "w-[260px] lg:w-[72px]" : "w-[260px]"
       )}
     >
       {/* ===== Header ===== */}
-      <div className="flex items-center justify-between px-4 h-16 border-b border-slate-800 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 h-16 border-b border-slate-200 dark:border-white/8 flex-shrink-0">
         {!collapsed && (
           <button
             type="button"
             onClick={onToggle}
-            className="flex items-center gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+            className="flex items-center gap-2.5 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
             title="Thu gọn thanh điều hướng"
             aria-label="Thu gọn thanh điều hướng"
           >
-            <div className="w-9 h-9 rounded-lg bg-teal-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-700 flex items-center justify-center shadow-lg shadow-teal-600/20">
               <Shield className="w-5 h-5 text-white" />
             </div>
             <div className="overflow-hidden">
-              <h1 className="text-sm font-bold text-white tracking-tight leading-none">
+              <h1 className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
                 SafeFleet
               </h1>
-              <p className="text-[9px] text-blue-400 font-medium tracking-wider uppercase leading-none mt-0.5">
+              <p className="text-[9px] text-teal-700 dark:text-teal-300 font-bold tracking-[0.16em] uppercase leading-none mt-1">
                 Command Center
               </p>
             </div>
@@ -188,7 +191,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             title="Mở rộng thanh điều hướng"
             aria-label="Mở rộng thanh điều hướng"
           >
-            <div className="w-9 h-9 rounded-lg bg-teal-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-700 flex items-center justify-center shadow-lg shadow-teal-600/20">
               <Shield className="w-5 h-5 text-white" />
             </div>
           </button>
@@ -201,12 +204,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <div key={group.title}>
             {/* Group title */}
             {!collapsed && (
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.12em] px-2.5 mb-2">
+              <p className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-[0.18em] px-2.5 mb-2">
                 {group.title}
               </p>
             )}
             {collapsed && (
-              <div className="w-6 h-px bg-slate-700 mx-auto mb-2" />
+              <div className="w-6 h-px bg-slate-200 dark:bg-slate-700 mx-auto mb-2" />
             )}
 
             {/* Items */}
@@ -220,11 +223,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     key={item.key}
                     href={item.path}
                     title={collapsed ? item.label : undefined}
+                    onClick={onMobileClose}
                     className={cn(
-                      "flex items-center gap-3 px-2.5 py-2 rounded-lg font-medium text-sm transition-all duration-150 group relative",
+                      "flex items-center gap-3 px-2.5 py-2 rounded-xl font-semibold text-[13px] transition-all duration-150 group relative",
                       active
-                        ? "bg-teal-500/15 text-teal-300"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60",
+                        ? "bg-teal-50 text-teal-800 shadow-[inset_0_0_0_1px_rgba(13,148,136,0.10)] dark:bg-teal-400/10 dark:text-teal-200"
+                        : "text-slate-600 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-white/5",
                       collapsed && "justify-center px-0"
                     )}
                   >
@@ -236,7 +240,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     <Icon
                       className={cn(
                         "w-[18px] h-[18px] flex-shrink-0 transition-colors",
-                        active ? "text-blue-400" : "text-slate-500 group-hover:text-slate-300"
+                        active ? "text-teal-600 dark:text-teal-300" : "text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300"
                       )}
                     />
 
@@ -276,12 +280,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </nav>
 
       {/* ===== Footer ===== */}
-      <div className="border-t border-slate-800 p-2.5 space-y-1.5 flex-shrink-0">
+      <div className="border-t border-slate-200 dark:border-white/8 p-2.5 space-y-1.5 flex-shrink-0 bg-slate-50/70 dark:bg-white/[0.02]">
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
           className={cn(
-            "flex items-center gap-3 w-full px-2.5 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all",
+            "flex items-center gap-3 w-full px-2.5 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-950 hover:bg-white dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-white/5 transition-all",
             collapsed && "justify-center px-0"
           )}
           title={resolvedTheme === "dark" ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối"}
