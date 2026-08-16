@@ -1,0 +1,373 @@
+{
+  "dataset": "safefleet-agent-gold-v2-live-20260815",
+  "referenceDatetime": "2026-08-15T07:10:59+07:00",
+  "mode": "RAG",
+  "semanticMetric": "Vietnamese normalized word cosine 62% + character trigram cosine 38%",
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "passRate": 1.0,
+    "durationSeconds": 0.028,
+    "averageLatencySeconds": 0.005,
+    "classificationCounts": {
+      "PASS": 6
+    },
+    "averageScores": {
+      "answerRelevancy": 0.4632,
+      "coherence": 1.0,
+      "completeness": 1.0,
+      "contextPrecision": 0.75,
+      "contextRecall": 1.0,
+      "correctness": 1.0,
+      "faithfulness": 1.0,
+      "relevance": 0.7479,
+      "taskCompletion": 1.0,
+      "toolF1": 1.0
+    },
+    "categories": {
+      "rag_mock": {
+        "total": 6,
+        "passed": 6,
+        "passRate": 1.0,
+        "averageScores": {
+          "answerRelevancy": 0.4632,
+          "coherence": 1.0,
+          "completeness": 1.0,
+          "contextPrecision": 0.75,
+          "contextRecall": 1.0,
+          "correctness": 1.0,
+          "faithfulness": 1.0,
+          "relevance": 0.7479,
+          "taskCompletion": 1.0,
+          "toolF1": 1.0
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "SFV2-025",
+      "category": "rag_mock",
+      "question": "Một ca làm đủ 6 giờ được hỗ trợ ăn ca bao nhiêu?",
+      "expectedAnswer": "Tài xế làm đủ 6 giờ trong một ca được hỗ trợ 35.000 đồng cho mỗi ca.",
+      "actualAnswer": "Tài xế làm việc từ đủ 06 giờ trong một ca được hỗ trợ 35.000 đồng cho mỗi ca làm việc (Nguồn: MEAL-A02-C01). Tài xế làm thêm từ đủ 02 giờ ngay sau ca làm việc được hỗ trợ thêm 30.000 đồng tiền ăn làm thêm (Nguồn: MEAL-A02-C02).",
+      "expectedChunks": [
+        "MEAL-A02-C01"
+      ],
+      "retrievedChunks": [
+        "MEAL-A02-C01",
+        "MEAL-A02-C02"
+      ],
+      "retrieval": [
+        {
+          "chunk_id": "MEAL-A02-C01",
+          "document": "01/2026/QĐ-SF",
+          "article": 2,
+          "clause": 1,
+          "title": "Mức hỗ trợ ăn ca",
+          "text": "Tài xế làm việc từ đủ 06 giờ trong một ca được hỗ trợ 35.000 đồng cho mỗi ca làm việc.",
+          "retrieval_score": 3.078
+        },
+        {
+          "chunk_id": "MEAL-A02-C02",
+          "document": "01/2026/QĐ-SF",
+          "article": 2,
+          "clause": 2,
+          "title": "Hỗ trợ ăn làm thêm",
+          "text": "Tài xế làm thêm từ đủ 02 giờ ngay sau ca làm việc được hỗ trợ thêm 30.000 đồng tiền ăn làm thêm.",
+          "retrieval_score": 1.283
+        }
+      ],
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.7005,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "faithfulness": 1.0,
+        "answerRelevancy": 0.5416,
+        "contextRecall": 1.0,
+        "contextPrecision": 0.5
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "01",
+          "02",
+          "06",
+          "30"
+        ]
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.005
+    },
+    {
+      "id": "SFV2-026",
+      "category": "rag_mock",
+      "question": "Làm thêm 2 giờ sau ca thì tiền ăn thêm là bao nhiêu, có được nhận nếu đối tác đã cho ăn không?",
+      "expectedAnswer": "Làm thêm từ đủ 2 giờ ngay sau ca được hỗ trợ thêm 30.000 đồng; không thanh toán trùng nếu đối tác đã bố trí bữa ăn miễn phí trong cùng thời gian.",
+      "actualAnswer": "Tài xế làm thêm từ đủ 02 giờ ngay sau ca làm việc được hỗ trợ thêm 30.000 đồng tiền ăn làm thêm (Nguồn: MEAL-A02-C02). Không thanh toán trùng hỗ trợ ăn nếu khách hàng, đối tác hoặc đơn vị công tác đã bố trí bữa ăn miễn phí trong cùng khoảng thời gian (Nguồn: MEAL-A02-C03).",
+      "expectedChunks": [
+        "MEAL-A02-C02",
+        "MEAL-A02-C03"
+      ],
+      "retrievedChunks": [
+        "MEAL-A02-C02",
+        "MEAL-A02-C03"
+      ],
+      "retrieval": [
+        {
+          "chunk_id": "MEAL-A02-C02",
+          "document": "01/2026/QĐ-SF",
+          "article": 2,
+          "clause": 2,
+          "title": "Hỗ trợ ăn làm thêm",
+          "text": "Tài xế làm thêm từ đủ 02 giờ ngay sau ca làm việc được hỗ trợ thêm 30.000 đồng tiền ăn làm thêm.",
+          "retrieval_score": 2.7486
+        },
+        {
+          "chunk_id": "MEAL-A02-C03",
+          "document": "01/2026/QĐ-SF",
+          "article": 2,
+          "clause": 3,
+          "title": "Không thanh toán trùng",
+          "text": "Không thanh toán trùng hỗ trợ ăn nếu khách hàng, đối tác hoặc đơn vị công tác đã bố trí bữa ăn miễn phí trong cùng khoảng thời gian.",
+          "retrieval_score": 1.8622
+        }
+      ],
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.7938,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "faithfulness": 1.0,
+        "answerRelevancy": 0.5413,
+        "contextRecall": 1.0,
+        "contextPrecision": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "02",
+          "03"
+        ]
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.004
+    },
+    {
+      "id": "SFV2-027",
+      "category": "rag_mock",
+      "question": "Hồ sơ xin thanh toán tiền ăn ca gồm gì và nộp chậm nhất khi nào?",
+      "expectedAnswer": "Hồ sơ gồm mã chuyến, bảng xác nhận thời gian làm việc và xác nhận của quản lý trực tiếp; nộp chậm nhất ngày 10 của tháng kế tiếp.",
+      "actualAnswer": "Hồ sơ gồm mã chuyến, bảng xác nhận thời gian làm việc và xác nhận của quản lý trực tiếp; phải gửi chậm nhất ngày 10 của tháng kế tiếp (Nguồn: MEAL-A03-C01). Khoản hỗ trợ hợp lệ được chi trả cùng kỳ lương gần nhất sau khi hồ sơ được quản lý phê duyệt (Nguồn: MEAL-A04-C01).",
+      "expectedChunks": [
+        "MEAL-A03-C01"
+      ],
+      "retrievedChunks": [
+        "MEAL-A03-C01",
+        "MEAL-A04-C01"
+      ],
+      "retrieval": [
+        {
+          "chunk_id": "MEAL-A03-C01",
+          "document": "01/2026/QĐ-SF",
+          "article": 3,
+          "clause": 1,
+          "title": "Hồ sơ và thời hạn",
+          "text": "Hồ sơ gồm mã chuyến, bảng xác nhận thời gian làm việc và xác nhận của quản lý trực tiếp; phải gửi chậm nhất ngày 10 của tháng kế tiếp.",
+          "retrieval_score": 3.0782
+        },
+        {
+          "chunk_id": "MEAL-A04-C01",
+          "document": "01/2026/QĐ-SF",
+          "article": 4,
+          "clause": 1,
+          "title": "Thời điểm chi trả",
+          "text": "Khoản hỗ trợ hợp lệ được chi trả cùng kỳ lương gần nhất sau khi hồ sơ được quản lý phê duyệt.",
+          "retrieval_score": 1.6008
+        }
+      ],
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.735,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "faithfulness": 1.0,
+        "answerRelevancy": 0.3238,
+        "contextRecall": 1.0,
+        "contextPrecision": 0.5
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "01",
+          "03",
+          "04"
+        ]
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.004
+    },
+    {
+      "id": "SFV2-028",
+      "category": "rag_mock",
+      "question": "Vá lốp trên đường được thanh toán tối đa bao nhiêu và phải báo trong bao lâu?",
+      "expectedAnswer": "Chi phí vá lốp hoặc sửa săm được thanh toán tối đa 200.000 đồng mỗi sự cố và phải báo quản lý hoặc điều phối trong vòng 15 phút sau khi dừng xe an toàn.",
+      "actualAnswer": "Chi phí vá lốp hoặc sửa săm được thanh toán theo thực tế nhưng không quá 200.000 đồng mỗi sự cố; phải báo quản lý hoặc điều phối trong vòng 15 phút sau khi dừng an toàn (Nguồn: TIRE-A03-C01). Hồ sơ gồm mã chuyến, biển số xe, thời gian và vị trí sự cố, ảnh lốp hỏng, ảnh đồng hồ công-tơ-mét, hóa đơn hợp lệ và xác nhận của quản lý (Nguồn: TIRE-A04-C01).",
+      "expectedChunks": [
+        "TIRE-A03-C01"
+      ],
+      "retrievedChunks": [
+        "TIRE-A03-C01",
+        "TIRE-A04-C01"
+      ],
+      "retrieval": [
+        {
+          "chunk_id": "TIRE-A03-C01",
+          "document": "02/2026/QĐ-SF",
+          "article": 3,
+          "clause": 1,
+          "title": "Vá lốp và sửa săm",
+          "text": "Chi phí vá lốp hoặc sửa săm được thanh toán theo thực tế nhưng không quá 200.000 đồng mỗi sự cố; phải báo quản lý hoặc điều phối trong vòng 15 phút sau khi dừng an toàn.",
+          "retrieval_score": 2.8043
+        },
+        {
+          "chunk_id": "TIRE-A04-C01",
+          "document": "02/2026/QĐ-SF",
+          "article": 4,
+          "clause": 1,
+          "title": "Hồ sơ thanh toán",
+          "text": "Hồ sơ gồm mã chuyến, biển số xe, thời gian và vị trí sự cố, ảnh lốp hỏng, ảnh đồng hồ công-tơ-mét, hóa đơn hợp lệ và xác nhận của quản lý.",
+          "retrieval_score": 1.589
+        }
+      ],
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.7163,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "faithfulness": 1.0,
+        "answerRelevancy": 0.3611,
+        "contextRecall": 1.0,
+        "contextPrecision": 0.5
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "01",
+          "03",
+          "04"
+        ]
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.005
+    },
+    {
+      "id": "SFV2-029",
+      "category": "rag_mock",
+      "question": "Nếu phải thay lốp khẩn cấp khi mất tín hiệu thì tôi cần làm gì để được thanh toán?",
+      "expectedAnswer": "Thông thường thay lốp phải được phê duyệt trước. Khi khẩn cấp mất tín hiệu, tài xế được xử lý để bảo đảm an toàn nhưng phải bổ sung mã chuyến, biển số, vị trí và thời gian sự cố, ảnh hiện trường và lốp hỏng, ảnh công-tơ-mét, hóa đơn cùng xác nhận quản lý khi có kết nối.",
+      "actualAnswer": "Thay lốp phải được quản lý phê duyệt trước. Nếu khẩn cấp không có tín hiệu, tài xế được xử lý để bảo đảm an toàn nhưng phải bổ sung ảnh hiện trường, ảnh lốp hỏng, đồng hồ công-tơ-mét và hóa đơn khi có kết nối (Nguồn: TIRE-A03-C02). Hồ sơ gồm mã chuyến, biển số xe, thời gian và vị trí sự cố, ảnh lốp hỏng, ảnh đồng hồ công-tơ-mét, hóa đơn hợp lệ và xác nhận của quản lý (Nguồn: TIRE-A04-C01).",
+      "expectedChunks": [
+        "TIRE-A03-C02",
+        "TIRE-A04-C01"
+      ],
+      "retrievedChunks": [
+        "TIRE-A03-C02",
+        "TIRE-A04-C01"
+      ],
+      "retrieval": [
+        {
+          "chunk_id": "TIRE-A03-C02",
+          "document": "02/2026/QĐ-SF",
+          "article": 3,
+          "clause": 2,
+          "title": "Thay lốp",
+          "text": "Thay lốp phải được quản lý phê duyệt trước. Nếu khẩn cấp không có tín hiệu, tài xế được xử lý để bảo đảm an toàn nhưng phải bổ sung ảnh hiện trường, ảnh lốp hỏng, đồng hồ công-tơ-mét và hóa đơn khi có kết nối.",
+          "retrieval_score": 2.2824
+        },
+        {
+          "chunk_id": "TIRE-A04-C01",
+          "document": "02/2026/QĐ-SF",
+          "article": 4,
+          "clause": 1,
+          "title": "Hồ sơ thanh toán",
+          "text": "Hồ sơ gồm mã chuyến, biển số xe, thời gian và vị trí sự cố, ảnh lốp hỏng, ảnh đồng hồ công-tơ-mét, hóa đơn hợp lệ và xác nhận của quản lý.",
+          "retrieval_score": 1.5103
+        }
+      ],
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.8267,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "faithfulness": 1.0,
+        "answerRelevancy": 0.3237,
+        "contextRecall": 1.0,
+        "contextPrecision": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "01",
+          "02",
+          "03",
+          "04"
+        ]
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.005
+    },
+    {
+      "id": "SFV2-030",
+      "category": "rag_mock",
+      "question": "Tôi có bao nhiêu ngày nghỉ phép năm theo quy định công ty?",
+      "expectedAnswer": "Hai tài liệu hiện có không quy định số ngày nghỉ phép năm, vì vậy chưa đủ căn cứ để trả lời.",
+      "actualAnswer": "Hai tài liệu nội bộ hiện có không quy định nội dung của câu hỏi “Tôi có bao nhiêu ngày nghỉ phép năm theo quy định công ty?”; chưa đủ căn cứ để trả lời.",
+      "expectedChunks": [],
+      "retrievedChunks": [],
+      "retrieval": [],
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.7152,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "faithfulness": 1.0,
+        "answerRelevancy": 0.6875,
+        "contextRecall": 1.0,
+        "contextPrecision": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.005
+    }
+  ]
+}

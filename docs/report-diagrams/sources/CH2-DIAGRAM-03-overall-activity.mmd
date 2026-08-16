@@ -1,0 +1,26 @@
+flowchart TD
+    A(["Tạo và giao chuyến"]) --> B["Tài xế nhận chuyến"]
+    B --> C["Hoàn thành checklist trước chuyến"]
+    C --> D{"Checklist hợp lệ?"}
+    D -- "Không" --> E["Bổ sung hoặc từ chối khởi hành"] --> C
+    D -- "Có" --> F["Khởi tạo Trip + Driving Session + Navigation Session"]
+    F --> G["Bật GPS, AI cabin và trợ lý rảnh tay"]
+    G --> H["Theo dõi hành vi, vị trí và trạng thái chuyến"]
+    H --> I{"Phát sinh sự kiện?"}
+    I -- "Không" --> J{"Tới điểm giao?"}
+    I -- "Rủi ro an toàn" --> K["Tổng hợp theo thời gian và chấm điểm rủi ro"]
+    I -- "SOS / hỏng xe / ngập" --> L["Tạo yêu cầu ưu tiên cao"]
+    K --> M{"Mức rủi ro"}
+    M -- "NORMAL" --> H
+    M -- "WARNING / HIGH" --> N["Cảnh báo tại chỗ và yêu cầu phản hồi"]
+    N --> O{"Tài xế phản hồi an toàn?"}
+    O -- "Có" --> P["Ghi nhận và tiếp tục giám sát"] --> H
+    O -- "Không / nguy cơ kéo dài" --> Q["CRITICAL: tạo incident, gắn GPS và thông báo trung tâm"]
+    M -- "CRITICAL" --> Q
+    L --> Q
+    Q --> R["Điều phối viên / cứu hộ tiếp nhận và cập nhật timeline"]
+    R --> H
+    J -- "Chưa" --> H
+    J -- "Rồi" --> S["Hoàn tất chuyến và chốt nhật trình"]
+    S --> T["OCR / đối chiếu chứng từ và tổng hợp báo cáo"]
+    T --> U(["Kết thúc"])

@@ -17,9 +17,10 @@ export default function RootLayout({
   return (
     <html lang="vi" className="h-full" suppressHydrationWarning>
       <head>
+        <meta name="theme-color" content="#eef2f4" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var m=localStorage.getItem('safefleet-theme')||'system';var d=m==='dark'||(m==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.toggle('dark',d);r.dataset.theme=d?'dark':'light';r.style.colorScheme=d?'dark':'light'}catch(e){}})();`,
+            __html: `(function(){try{var m=localStorage.getItem('safefleet-theme')||'system';var d=m==='dark'||(m==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.toggle('dark',d);r.dataset.theme=d?'dark':'light';r.style.colorScheme=d?'dark':'light';var t=document.querySelector('meta[name="theme-color"]');if(t)t.setAttribute('content',d?'#060e14':'#eef2f4')}catch(e){}})();`,
           }}
         />
       </head>

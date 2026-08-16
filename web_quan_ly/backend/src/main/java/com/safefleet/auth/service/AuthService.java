@@ -3,6 +3,7 @@ package com.safefleet.auth.service;
 import com.safefleet.account.entity.UserAccount;
 import com.safefleet.account.repository.UserAccountRepository;
 import com.safefleet.auth.dto.request.LoginRequest;
+import com.safefleet.auth.dto.request.ChangePasswordRequest;
 import com.safefleet.auth.dto.request.RefreshTokenRequest;
 import com.safefleet.auth.dto.response.AuthResponse;
 import com.safefleet.auth.dto.response.CurrentUserResponse;
@@ -18,6 +19,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,7 @@ public class AuthService {
     private final UserAccountRepository userAccountRepository;
     private final DriverRepository driverRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final PasswordEncoder passwordEncoder;
 
     @Value("${app.jwt.refresh-expiration-days:30}")
     private long refreshExpirationDays;
@@ -112,6 +115,27 @@ public class AuthService {
                 user.getStatus(),
                 user.getRole().getName()
         );
+    }
+
+    @Transactional
+    public void changePassword(ChangePasswordRequest request) {
+        Long userId = SecurityUtils.currentUserId();
+        UserAccount user = userAccountRepository.findById(userId)
+                .filter(item -> !item.isDeleted())
+                .orElseThrow(() -> new NotFoundException("User", userId));
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new UnauthorizedException("Mật khẩu hiện tại không đúng");
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new UnauthorizedException("Mật khẩu mới phải khác mật khẩu hiện tại");
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        jdbcTemplate.update("""
+                UPDATE refresh_tokens
+                SET revoked_at = COALESCE(revoked_at, CURRENT_TIMESTAMP),
+                    last_used_at = CURRENT_TIMESTAMP
+                WHERE user_id = ? AND revoked_at IS NULL
+                """, userId);
     }
 
     private AuthResponse issueTokenPair(UserAccount user) {

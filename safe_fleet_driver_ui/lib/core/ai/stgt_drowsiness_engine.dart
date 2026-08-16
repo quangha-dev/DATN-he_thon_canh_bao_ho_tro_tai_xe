@@ -9,11 +9,23 @@ import 'temporal_safety_engine.dart';
 
 typedef StgtScorePredictor = double Function(List<List<double>> rows);
 
+int drowsinessRiskLevel(double score) {
+  if (!score.isFinite) return 1;
+  return score.clamp(0.0, 10.0).ceil().clamp(1, 10).toInt();
+}
+
+String drowsinessRiskLabel(int level) => switch (level.clamp(1, 10)) {
+  <= 3 => 'Tỉnh táo',
+  <= 5 => 'Cần chú ý',
+  <= 7 => 'Nguy hiểm',
+  _ => 'Báo động',
+};
+
 class StgtDrowsinessEngine {
   StgtDrowsinessEngine({
     this.scorePredictor,
     this.baselineStorage,
-    this.calibrationFrames = 1500,
+    this.calibrationFrames = 75,
     this.windowSize = 75,
     this.inferenceInterval = 5,
     this.dangerScore = 6,
@@ -22,8 +34,11 @@ class StgtDrowsinessEngine {
 
   static const assetPath = 'assets/models/drowsiness_model.tflite';
   static const modelSource = 'stgt-fold-1-tflite';
-  static const _baselineKey = 'cabin_mesh468_baseline_v1';
-  static const _minimumStandardDeviation = [0.015, 0.04, 2.0, 2.0, 2.0, 0.01];
+  static const _baselineKey = 'cabin_mesh468_stgt25_baseline_v3';
+  static const _featureExtractorVersion = 'mlkit-face-mesh-468-stgt25-v3';
+  static const _samplePeriod = Duration(milliseconds: 40);
+  static const _maximumInterpolationGap = Duration(milliseconds: 440);
+  static const _minimumStandardDeviation = [0.003, 0.01, 0.5, 0.5, 0.5, 0.003];
 
   final int calibrationFrames;
   final int windowSize;
@@ -41,7 +56,11 @@ class StgtDrowsinessEngine {
   List<double>? _standardDeviation;
   DateTime? _lastDetection;
   DateTime? _holdUntil;
+  DateTime? _lastObservationAt;
+  DateTime? _nextSampleAt;
+  List<double>? _lastObservedFeatures;
   int _framesSinceCalibration = 0;
+  int _lastInferenceFrame = 0;
   double _rawScore = 0;
   double _smoothedScore = 0;
   double _predictedScore = 0;
@@ -73,7 +92,7 @@ class StgtDrowsinessEngine {
       final interpreter = await Interpreter.fromAsset(assetPath);
       final inputShape = interpreter.getInputTensor(0).shape;
       final outputShape = interpreter.getOutputTensor(0).shape;
-      if (!_sameShape(inputShape, [1, 1, windowSize, 12]) ||
+      if (!_sameShape(inputShape, [1, windowSize, 12]) ||
           !_sameShape(outputShape, [1, 1])) {
         interpreter.close();
         throw StateError(
@@ -99,19 +118,18 @@ class StgtDrowsinessEngine {
         if (_calibration.length >= calibrationFrames) _finishCalibration();
       } else {
         _statusText = features == null
-            ? 'Đưa khuôn mặt vào giữa khung hình'
+            ? 'Không tìm thấy đủ landmark khuôn mặt'
             : 'Nhìn thẳng, mở mắt tự nhiên để hiệu chuẩn';
       }
       return const [];
     }
 
-    _window.add(features);
-    if (_window.length > windowSize) _window.removeAt(0);
-    _framesSinceCalibration++;
+    _appendResampledFeatures(observation.at, features);
     if (_window.length < windowSize ||
-        _framesSinceCalibration % inferenceInterval != 0) {
+        _framesSinceCalibration - _lastInferenceFrame < inferenceInterval) {
       return const [];
     }
+    _lastInferenceFrame = _framesSinceCalibration;
 
     final input = _buildModelInput();
     if (input == null) {
@@ -121,20 +139,23 @@ class StgtDrowsinessEngine {
 
     var rawScore = _predict(input.rows).clamp(0.0, 10.0);
     var logicSeverity = 0;
-    var logicMessage = 'Tỉnh táo · tập trung';
+    var logicMessage = 'Tỉnh táo · STGT đang theo dõi';
 
+    // Same safety guardrails as the desktop pipeline. The desktop z-score
+    // comparison used the wrong sign: a drooping eyelid lowers EAR, therefore
+    // the normalized value must be negative.
     if (input.recentEar < 0.10) {
       rawScore = 10;
       logicSeverity = 3;
-      logicMessage = 'Nguy hiểm · mắt nhắm lâu';
+      logicMessage = 'Báo động · mắt nhắm sâu';
     } else if (input.recentMar > 0.60) {
       rawScore = math.max(rawScore, 6);
       logicSeverity = 2;
       logicMessage = 'Cảnh báo · phát hiện ngáp';
-    } else if (input.recentEarZScore < -2.2 && !input.headTurning) {
+    } else if (input.recentEarZScore <= -2.2 && !input.headTurning) {
       rawScore = math.max(rawScore, 5);
       logicSeverity = 2;
-      logicMessage = 'Cảnh báo · mắt có dấu hiệu cụp';
+      logicMessage = 'Cảnh báo · mí mắt sụp kéo dài';
     } else if (input.recentEarZScore > -0.5 && rawScore > 6) {
       rawScore = 2;
     }
@@ -146,10 +167,7 @@ class StgtDrowsinessEngine {
     return [
       SafetyDetection(
         type: SafetyDetectionType.drowsiness,
-        confidence: (math.max(_smoothedScore, _predictedScore) / 10).clamp(
-          0.0,
-          1.0,
-        ),
+        confidence: (_smoothedScore / 10).clamp(0.0, 1.0),
         severity: _severity >= 3 ? 'CRITICAL' : 'HIGH',
         reason: _statusText,
         detectedAt: observation.at,
@@ -166,7 +184,11 @@ class StgtDrowsinessEngine {
     _standardDeviation = null;
     _lastDetection = null;
     _holdUntil = null;
+    _lastObservationAt = null;
+    _nextSampleAt = null;
+    _lastObservedFeatures = null;
     _framesSinceCalibration = 0;
+    _lastInferenceFrame = 0;
     _rawScore = 0;
     _smoothedScore = 0;
     _predictedScore = 0;
@@ -199,7 +221,7 @@ class StgtDrowsinessEngine {
   }
 
   bool _validCalibrationFrame(List<double> features) =>
-      features[0] >= 0.14 &&
+      features[0] >= 0.18 &&
       features[0] <= 0.45 &&
       features[1] >= 0 &&
       features[1] < 0.55 &&
@@ -230,7 +252,8 @@ class StgtDrowsinessEngine {
           value: jsonEncode({
             'mean': _mean,
             'std': _standardDeviation,
-            'featureExtractor': 'mlkit-face-mesh-468-v1',
+            'featureExtractor': _featureExtractorVersion,
+            'samplePeriodMs': _samplePeriod.inMilliseconds,
           }),
         ),
       );
@@ -245,7 +268,8 @@ class StgtDrowsinessEngine {
       if (raw == null) return;
       final decoded = jsonDecode(raw);
       if (decoded is! Map ||
-          decoded['featureExtractor'] != 'mlkit-face-mesh-468-v1') {
+          decoded['featureExtractor'] != _featureExtractorVersion ||
+          decoded['samplePeriodMs'] != _samplePeriod.inMilliseconds) {
         return;
       }
       final mean = (decoded['mean'] as List?)
@@ -255,6 +279,10 @@ class StgtDrowsinessEngine {
           ?.map((value) => (value as num).toDouble())
           .toList();
       if (mean?.length != 6 || deviation?.length != 6) return;
+      if (mean!.any((value) => !value.isFinite) ||
+          deviation!.any((value) => !value.isFinite || value <= 0)) {
+        return;
+      }
       _mean = mean;
       _standardDeviation = deviation;
       _statusText = 'Đã tải hiệu chuẩn cá nhân · đang giám sát';
@@ -277,9 +305,12 @@ class StgtDrowsinessEngine {
             _standardDeviation![column],
       );
     });
-    final recentEarZ = _meanOf(normalized, 0, 5);
-    final recentPitchZ = _meanOf(normalized, 2, 5);
-    final recentYawZ = _meanOf(normalized, 3, 5);
+    // Roughly 0.8 seconds at the fixed 25 FPS input rate. This ignores a
+    // normal blink but reacts to the sustained partial closure requested by
+    // the desktop behavior.
+    final recentEarZScore = _meanOf(normalized, 0, 20);
+    final recentPitchZScore = _meanOf(normalized, 2, 20);
+    final recentYawZScore = _meanOf(normalized, 3, 20);
     final rows = List.generate(windowSize, (row) {
       final delta = List.generate(
         6,
@@ -293,8 +324,8 @@ class StgtDrowsinessEngine {
       rows: rows,
       recentEar: recentEar,
       recentMar: recentMar,
-      recentEarZScore: recentEarZ,
-      headTurning: recentPitchZ.abs() > 1.5 || recentYawZ.abs() > 1.5,
+      recentEarZScore: recentEarZScore,
+      headTurning: recentPitchZScore.abs() > 1.5 || recentYawZScore.abs() > 1.5,
     );
   }
 
@@ -307,16 +338,14 @@ class StgtDrowsinessEngine {
     _rawScore = rawScore;
     if (_smoothedScore == 0) {
       _smoothedScore = rawScore;
-    } else if (logicSeverity == 3) {
-      _smoothedScore = 10;
+    } else if (logicSeverity >= 2 && rawScore > _smoothedScore) {
+      // A sustained eyelid/yawn guardrail must be visible immediately on the
+      // 1-10 gauge, not only in an invisible alert flag.
+      _smoothedScore = rawScore;
     } else {
-      final up = _smoothedScore >= 4.5
-          ? 0.05
-          : _smoothedScore >= 4
-          ? 0.02
-          : 0.01;
-      final down = _smoothedScore >= 4.5 ? 0.85 : 0.60;
-      final factor = rawScore < _smoothedScore ? down : up;
+      // React within a few inference cycles. The former 0.01 upward factor
+      // could hide a model score of 8/10 for tens of seconds.
+      final factor = rawScore >= _smoothedScore ? 0.35 : 0.25;
       _smoothedScore = factor * rawScore + (1 - factor) * _smoothedScore;
     }
 
@@ -345,23 +374,23 @@ class StgtDrowsinessEngine {
             .clamp(0.0, 10.0);
 
     var calculatedSeverity = logicSeverity;
-    var calculatedStatus = logicMessage;
-    if (calculatedSeverity == 0) {
-      if (_smoothedScore >= dangerScore) {
-        calculatedSeverity = 3;
-        calculatedStatus = 'Nguy hiểm · nguy cơ ngủ gật';
-      } else if (_predictedScore >= 6.6 && _smoothedScore >= 3.5) {
-        calculatedSeverity = 2;
-        calculatedStatus = 'Cảnh báo sớm · nguy cơ tăng nhanh';
-      } else if (_smoothedScore >= 4 && _trend > 0.15) {
-        calculatedSeverity = 1;
-        calculatedStatus = 'Chú ý · mức tỉnh táo đang giảm';
-      } else if (_smoothedScore >= 3.5) {
-        calculatedSeverity = 1;
-        calculatedStatus = 'Chú ý · có dấu hiệu lơ mơ';
-      } else {
-        calculatedStatus = 'Tỉnh táo · tập trung';
-      }
+    var calculatedStatus = logicSeverity > 0
+        ? logicMessage
+        : 'Tỉnh táo · STGT ${_smoothedScore.toStringAsFixed(1)}/10';
+    if (logicSeverity == 0 && _smoothedScore >= dangerScore) {
+      calculatedSeverity = 3;
+      calculatedStatus = 'Nguy hiểm · STGT phát hiện nguy cơ ngủ gật';
+    } else if (logicSeverity == 0 &&
+        _predictedScore >= 6.6 &&
+        _smoothedScore >= 3.5) {
+      calculatedSeverity = 2;
+      calculatedStatus = 'Cảnh báo sớm · nguy cơ STGT tăng nhanh';
+    } else if (logicSeverity == 0 && _smoothedScore >= 4 && _trend > 0.15) {
+      calculatedSeverity = 1;
+      calculatedStatus = 'Chú ý · điểm STGT đang tăng';
+    } else if (logicSeverity == 0 && _smoothedScore >= 3.5) {
+      calculatedSeverity = 1;
+      calculatedStatus = 'Chú ý · STGT ghi nhận dấu hiệu lơ mơ';
     }
 
     if (calculatedSeverity > _severity) {
@@ -372,6 +401,59 @@ class StgtDrowsinessEngine {
       _severity = calculatedSeverity;
       _statusText = calculatedStatus;
     }
+  }
+
+  void _appendResampledFeatures(DateTime at, List<double>? features) {
+    final previousAt = _lastObservationAt;
+    final previousFeatures = _lastObservedFeatures;
+    if (previousAt == null ||
+        _nextSampleAt == null ||
+        at.isBefore(previousAt)) {
+      _appendWindowValue(features);
+      _lastObservationAt = at;
+      _lastObservedFeatures = features;
+      _nextSampleAt = at.add(_samplePeriod);
+      return;
+    }
+
+    final gap = at.difference(previousAt);
+    if (gap > _maximumInterpolationGap) {
+      // Do not fabricate a long sequence after camera stalls or face loss.
+      _appendWindowValue(null);
+      _appendWindowValue(features);
+      _lastObservationAt = at;
+      _lastObservedFeatures = features;
+      _nextSampleAt = at.add(_samplePeriod);
+      return;
+    }
+
+    var next = _nextSampleAt!;
+    while (!next.isAfter(at)) {
+      List<double>? sampled;
+      if (previousFeatures != null &&
+          features != null &&
+          gap.inMicroseconds > 0) {
+        final ratio =
+            next.difference(previousAt).inMicroseconds / gap.inMicroseconds;
+        sampled = List.generate(
+          6,
+          (column) =>
+              previousFeatures[column] +
+              (features[column] - previousFeatures[column]) * ratio,
+        );
+      }
+      _appendWindowValue(sampled);
+      next = next.add(_samplePeriod);
+    }
+    _lastObservationAt = at;
+    _lastObservedFeatures = features;
+    _nextSampleAt = next;
+  }
+
+  void _appendWindowValue(List<double>? features) {
+    _window.add(features);
+    if (_window.length > windowSize) _window.removeAt(0);
+    _framesSinceCalibration++;
   }
 
   List<List<double>>? _interpolateWindow() {
@@ -436,9 +518,7 @@ class StgtDrowsinessEngine {
 
   double _predict(List<List<double>> rows) {
     if (scorePredictor != null) return scorePredictor!(rows);
-    final input = [
-      [rows],
-    ];
+    final input = [rows];
     final output = [List<double>.filled(1, 0)];
     _interpreter!.run(input, output);
     return output[0][0];

@@ -24,6 +24,8 @@ import {
   Vehicle,
   VehicleStatus,
   VehicleType,
+  DocumentPlateReview,
+  DocumentPlateReviewStatus,
 } from "@/types";
 
 type BackendApiResponse<T> = {
@@ -140,6 +142,15 @@ type BackendTrip = {
   status: string;
   progress?: number | null;
   riskLevel?: string | null;
+};
+
+type BackendDocumentPlateReview = Omit<
+  DocumentPlateReview,
+  "id" | "driverId" | "tripId"
+> & {
+  id: number;
+  driverId?: number | null;
+  tripId?: number | null;
 };
 
 type BackendSafetyEvent = {
@@ -284,6 +295,63 @@ export type SystemSetting = {
   updatedAt?: string | null;
 };
 
+export type AgentAiConfiguration = {
+  enabled: boolean;
+  apiKeyConfigured: boolean;
+  apiKeyHint?: string | null;
+  model: "gpt-4o-mini" | string;
+  maxSteps: number;
+  source: "DATABASE" | "ENVIRONMENT" | string;
+  updatedAt?: string | null;
+};
+
+/* ---- Thông báo ---- */
+export type NotificationKind =
+  | "AI_ALERT"
+  | "SOS"
+  | "FLOOD"
+  | "GPS_LOST"
+  | "DRIVING_TIME"
+  | "TRIP_ASSIGNED"
+  | "TRIP_DELAYED"
+  | "MAINTENANCE"
+  | "SYSTEM";
+
+type BackendNotification = {
+  id: number;
+  type: NotificationKind;
+  title: string;
+  content: string;
+  referenceType?: string | null;
+  referenceId?: number | null;
+  read: boolean;
+  createdAt: string;
+};
+
+export type AppNotification = {
+  id: number;
+  kind: NotificationKind;
+  title: string;
+  content: string;
+  referenceType?: string | null;
+  referenceId?: number | null;
+  read: boolean;
+  createdAt: string;
+};
+
+function notificationFromBackend(n: BackendNotification): AppNotification {
+  return {
+    id: n.id,
+    kind: n.type ?? "SYSTEM",
+    title: n.title,
+    content: n.content,
+    referenceType: n.referenceType,
+    referenceId: n.referenceId,
+    read: Boolean(n.read),
+    createdAt: n.createdAt,
+  };
+}
+
 export type FleetDevice = {
   id: number;
   deviceCode: string;
@@ -313,6 +381,20 @@ export type MaintenanceOrder = {
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   assignedTo?: number | null;
   assignedToName?: string | null;
+  note?: string | null;
+};
+
+export type MaintenanceOrderInput = {
+  vehicleId: number;
+  type: MaintenanceOrder["type"];
+  title: string;
+  description?: string | null;
+  scheduledDate?: string | null;
+  completedDate?: string | null;
+  cost?: number | null;
+  status: MaintenanceOrder["status"];
+  priority: MaintenanceOrder["priority"];
+  assignedTo?: number | null;
   note?: string | null;
 };
 
@@ -590,28 +672,55 @@ function vehicleFromBackend(vehicle: BackendVehicle): Vehicle {
     currentDriverId: toId(vehicle.currentDriverId) || undefined,
     currentDriverName: vehicle.currentDriverName || undefined,
     currentSpeed: toNumber(vehicle.lastSpeed),
-    lat: vehicle.lastLat ?? HANOI.lat,
-    lng: vehicle.lastLng ?? HANOI.lng,
-    lastUpdated: vehicle.lastUpdatedAt || new Date().toISOString(),
+    lat: vehicle.lastLat ?? null,
+    lng: vehicle.lastLng ?? null,
+    lastUpdated: vehicle.lastUpdatedAt ?? null,
     registrationExpiry: vehicle.inspectionExpiredAt || "",
     insuranceExpiry: vehicle.insuranceExpiredAt || "",
     totalTrips: 0,
     totalKm: 0,
     totalAlerts: 0,
     nextMaintenanceKm: status === "maintenance" ? 0 : 2000,
+    backendType: vehicle.vehicleType,
+    backendStatus: vehicle.status,
+    fuelType: vehicle.fuelType || undefined,
+    seatCount: vehicle.seatCount ?? undefined,
+    gpsDeviceId: toId(vehicle.gpsDeviceId) || undefined,
+    cameraDeviceId: toId(vehicle.cameraDeviceId) || undefined,
   };
 }
+
+export type VehicleMutationInput = {
+  plateNumber?: string;
+  vehicleType: string;
+  brand?: string;
+  model?: string;
+  year?: number | null;
+  loadCapacity?: number | null;
+  seatCount?: number | null;
+  fuelType?: string | null;
+  status: string;
+  currentDriverId?: number | null;
+  gpsDeviceId?: number | null;
+  cameraDeviceId?: number | null;
+  inspectionExpiredAt?: string | null;
+  insuranceExpiredAt?: string | null;
+};
 
 function driverFromBackend(driver: BackendDriver): Driver {
   return {
     id: toId(driver.id),
+    userId: toId(driver.userId) || undefined,
     code: driver.licenseNumber || String(driver.id).padStart(3, "0"),
     fullName: driver.fullName,
     phone: driver.phone || "Chưa cập nhật",
     email: driver.email || "Chưa cập nhật",
+    address: driver.address || undefined,
+    licenseNumber: driver.licenseNumber || undefined,
     licenseClass: driver.licenseClass || "-",
     licenseExpiry: driver.licenseExpiredAt || "",
     status: mapDriverStatus(driver.status),
+    backendStatus: driver.status,
     currentVehicleId: toId(driver.currentVehicleId) || undefined,
     currentVehiclePlate: driver.currentVehiclePlateNumber || undefined,
     safetyScore: driver.safetyScore ?? 100,
@@ -627,6 +736,17 @@ function driverFromBackend(driver: BackendDriver): Driver {
     joinDate: "",
   };
 }
+
+export type DriverMutationInput = {
+  fullName: string;
+  phone: string;
+  email?: string | null;
+  address?: string | null;
+  licenseClass: string;
+  licenseExpiredAt: string;
+  status: string;
+  currentVehicleId?: number | null;
+};
 
 function parseWaypoints(value?: string | null): string[] {
   if (!value) return [];
@@ -660,6 +780,17 @@ function tripFromBackend(trip: BackendTrip): Trip {
     riskLevel: mapRiskLevel(trip.riskLevel),
     totalKm: 0,
     notes: trip.plannedRoute || undefined,
+  };
+}
+
+function documentPlateReviewFromBackend(
+  review: BackendDocumentPlateReview
+): DocumentPlateReview {
+  return {
+    ...review,
+    id: toId(review.id),
+    driverId: toId(review.driverId) || undefined,
+    tripId: toId(review.tripId) || undefined,
   };
 }
 
@@ -804,6 +935,18 @@ export const safeFleetApi = {
     return page.items.map(vehicleFromBackend);
   },
 
+  async createVehicle(input: VehicleMutationInput & { plateNumber: string }): Promise<Vehicle> {
+    return vehicleFromBackend(await postData<BackendVehicle>("/vehicles", input));
+  },
+
+  async updateVehicle(id: string, input: VehicleMutationInput): Promise<Vehicle> {
+    return vehicleFromBackend(await putData<BackendVehicle>(`/vehicles/${id}`, input));
+  },
+
+  async deleteVehicle(id: string): Promise<void> {
+    await apiClient.delete(`/vehicles/${id}`);
+  },
+
   async devices(): Promise<FleetDevice[]> {
     const page = await getData<BackendPage<FleetDevice>>("/devices", pageParams(200));
     return page.items;
@@ -817,14 +960,67 @@ export const safeFleetApi = {
     return page.items;
   },
 
+  async createMaintenanceOrder(input: MaintenanceOrderInput): Promise<MaintenanceOrder> {
+    return postData<MaintenanceOrder>("/maintenance-orders", input);
+  },
+
+  async updateMaintenanceOrder(id: number, input: MaintenanceOrderInput): Promise<MaintenanceOrder> {
+    return putData<MaintenanceOrder>(`/maintenance-orders/${id}`, input);
+  },
+
   async drivers(): Promise<Driver[]> {
     const page = await getData<BackendPage<BackendDriver>>("/drivers", pageParams(200));
     return page.items.map(driverFromBackend);
   },
 
+  async updateDriver(id: string, input: DriverMutationInput): Promise<Driver> {
+    return driverFromBackend(await putData<BackendDriver>(`/drivers/${id}`, input));
+  },
+
   async trips(): Promise<Trip[]> {
     const page = await getData<BackendPage<BackendTrip>>("/trips", pageParams(200));
     return page.items.map(tripFromBackend);
+  },
+
+  async driverTrips(driverId: string): Promise<Trip[]> {
+    const page = await getData<BackendPage<BackendTrip>>(
+      `/drivers/${driverId}/trips`,
+      pageParams(200)
+    );
+    return page.items.map(tripFromBackend);
+  },
+
+  async documentPlateReviews(
+    status: DocumentPlateReviewStatus = "REVIEW_REQUIRED"
+  ): Promise<DocumentPlateReview[]> {
+    const page = await getData<BackendPage<BackendDocumentPlateReview>>(
+      "/document-reviews",
+      { ...pageParams(200), status }
+    );
+    return page.items.map(documentPlateReviewFromBackend);
+  },
+
+  async approveDocumentPlateReview(id: string, note?: string): Promise<DocumentPlateReview> {
+    const review = await postData<BackendDocumentPlateReview>(
+      `/document-reviews/${id}/approve`,
+      { note: note?.trim() || null }
+    );
+    return documentPlateReviewFromBackend(review);
+  },
+
+  async rejectDocumentPlateReview(id: string, note?: string): Promise<DocumentPlateReview> {
+    const review = await postData<BackendDocumentPlateReview>(
+      `/document-reviews/${id}/reject`,
+      { note: note?.trim() || null }
+    );
+    return documentPlateReviewFromBackend(review);
+  },
+
+  async documentPlateReviewImage(id: string): Promise<Blob> {
+    const response = await apiClient.get(`/document-reviews/${id}/image`, {
+      responseType: "blob",
+    });
+    return response.data as Blob;
   },
 
   async safetyEvents(): Promise<Alert[]> {
@@ -890,9 +1086,50 @@ export const safeFleetApi = {
     return floodFromBackend(report);
   },
 
+  async warnNearbyFloodPoint(id: string): Promise<{ floodReportId: number; recipientCount: number; radiusKm: number }> {
+    return postData<{ floodReportId: number; recipientCount: number; radiusKm: number }>(`/flood-reports/${id}/warn-nearby`, {});
+  },
+
   async accounts(): Promise<Account[]> {
     const page = await getData<BackendPage<BackendAccount>>("/accounts", pageParams(200));
     return page.items.map(accountFromBackend);
+  },
+
+  async createManagerAccount(input: {
+    username: string;
+    email: string;
+    password: string;
+    fullName: string;
+    phone?: string;
+  }): Promise<Account> {
+    const account = await postData<BackendAccount>("/accounts", {
+      ...input,
+      role: "FLEET_MANAGER",
+    });
+    return accountFromBackend(account);
+  },
+
+  async createDriverAccount(input: {
+    username: string;
+    email: string;
+    password: string;
+    fullName: string;
+    phone: string;
+    address?: string;
+    licenseNumber: string;
+    licenseClass: string;
+    licenseExpiredAt: string;
+  }): Promise<Account> {
+    const account = await postData<BackendAccount>("/accounts/drivers", input);
+    return accountFromBackend(account);
+  },
+
+  async resetAccountPassword(id: number, newPassword: string): Promise<void> {
+    await postData<void>(`/accounts/${id}/reset-password`, { newPassword });
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await postData<void>("/auth/change-password", { currentPassword, newPassword });
   },
 
   async updateAccountStatus(id: number, status: Account["status"]): Promise<Account> {
@@ -1018,6 +1255,10 @@ export const safeFleetApi = {
     return tripFromBackend(trip);
   },
 
+  async cancelTrip(id: string | number, reason: string): Promise<Trip> {
+    return tripFromBackend(await postData<BackendTrip>(`/trips/${id}/cancel`, { reason }));
+  },
+
   async createWarehouseIssue(input: WarehouseIssueInput): Promise<WarehouseIssue> {
     return postData<WarehouseIssue>("/warehouse-issues", input);
   },
@@ -1040,6 +1281,38 @@ export const safeFleetApi = {
 
   async reportTripsByDay(): Promise<{ date: string; totalTrips: number }[]> {
     return getData<{ date: string; totalTrips: number }[]>("/reports/trips/by-day");
+  },
+
+  /* ---- Thông báo (GET /api/v1/notifications) ---- */
+  async notifications(): Promise<AppNotification[]> {
+    const page = await getData<BackendPage<BackendNotification>>(
+      "/notifications",
+      pageParams(50)
+    );
+    return page.items.map(notificationFromBackend);
+  },
+
+  async markNotificationRead(id: number | string): Promise<void> {
+    await patchData<unknown>(`/notifications/${id}/read`, {});
+  },
+
+  async markAllNotificationsRead(): Promise<void> {
+    await patchData<unknown>("/notifications/read-all", {});
+  },
+
+  /* ---- Báo cáo bổ sung ---- */
+  async reportVehicleStatus(): Promise<Record<string, number>> {
+    return getData<Record<string, number>>("/reports/vehicles/status");
+  },
+
+  async reportHighRiskDrivers(): Promise<
+    { driverId: number; fullName: string; safetyScore: number; totalEvents?: number }[]
+  > {
+    return getData("/reports/drivers/high-risk");
+  },
+
+  async maintenanceDueAlerts(): Promise<MaintenanceOrder[]> {
+    return getData<MaintenanceOrder[]>("/maintenance-orders/due-alerts");
   },
 
   async settings(): Promise<SystemSetting[]> {
@@ -1071,5 +1344,27 @@ export const safeFleetApi = {
       description: updated.description,
       updatedAt: updated.updatedAt,
     };
+  },
+
+  async agentAiConfiguration(): Promise<AgentAiConfiguration> {
+    return getData<AgentAiConfiguration>("/agent/config");
+  },
+
+  async updateAgentAiConfiguration(input: {
+    enabled: boolean;
+    apiKey?: string;
+    clearApiKey?: boolean;
+    maxSteps: number;
+  }): Promise<AgentAiConfiguration> {
+    return putData<AgentAiConfiguration>("/agent/config", {
+      enabled: input.enabled,
+      apiKey: input.apiKey || null,
+      clearApiKey: input.clearApiKey ?? false,
+      maxSteps: input.maxSteps,
+    });
+  },
+
+  async testAgentAiConfiguration(): Promise<void> {
+    await postData<void>("/agent/config/test");
   },
 };

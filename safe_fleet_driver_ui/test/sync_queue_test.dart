@@ -20,7 +20,12 @@ class _FakeApiClient extends ApiClient {
   final calls = <_ApiCall>[];
 
   @override
-  Future<T> post<T>(String path, {Object? data}) async {
+  Future<T> post<T>(
+    String path, {
+    Object? data,
+    Duration? receiveTimeout,
+    Duration? sendTimeout,
+  }) async {
     calls.add(_ApiCall(path, data));
     if (failingPaths.contains(path)) {
       throw const ApiFailure('offline');

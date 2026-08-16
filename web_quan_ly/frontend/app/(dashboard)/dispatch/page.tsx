@@ -9,13 +9,13 @@ import {
   WarehouseIssueInput,
   safeFleetApi,
 } from "@/lib/safeFleetApi";
-import { cn, formatDrivingTime } from "@/lib/utils";
+import { formatDrivingTime } from "@/lib/utils";
 import MapView from "@/components/map/MapView";
 import {
   Route,
   Calendar,
   Sparkles,
-  CheckCircle,
+  CheckCircle2,
   MapPin,
   Compass,
   Clock,
@@ -23,9 +23,19 @@ import {
   PackagePlus,
   Plus,
   Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
+import {
+  Badge,
+  Button,
+  Callout,
+  Card,
+  CardHeader,
+  Field,
+  TextInput,
+} from "@/components/ui";
 
 interface Recommendation {
   vehicle: Vehicle;
@@ -164,11 +174,11 @@ function LocationAutocomplete({
 
   return (
     <div className="relative">
-      <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">
-        {label} *
-      </label>
+      <span className="mb-1.5 block text-[12.5px] font-bold text-sf-text-secondary">
+        {label} <Req />
+      </span>
       <div className="relative">
-        <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sf-text-muted" />
         <input
           type="text"
           value={value}
@@ -178,28 +188,34 @@ function LocationAutocomplete({
           }}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
-          className={cn(
-            "w-full pl-9 pr-9 py-2 border rounded-lg text-xs bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2",
+          className="sf-input pl-9 pr-9"
+          style={
             error
-              ? "border-red-400 focus:ring-red-500/20"
+              ? { borderColor: "var(--sf-danger)" }
               : selected
-                ? "border-emerald-300 dark:border-emerald-800 focus:ring-emerald-500/20"
-                : "border-slate-200 dark:border-slate-800 focus:ring-blue-500/20"
-          )}
+                ? { borderColor: "var(--sf-success)" }
+                : undefined
+          }
           required
         />
         {isLoading && (
-          <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" />
+          <Loader2
+            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-sf-spin"
+            style={{ color: "var(--sf-primary)" }}
+          />
         )}
         {!isLoading && selected && (
-          <CheckCircle className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
+          <CheckCircle2
+            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
+            style={{ color: "var(--sf-success)" }}
+          />
         )}
       </div>
 
-      {error && <p className="mt-1 text-[11px] font-medium text-red-500">{error}</p>}
+      {error && <ErrorText>{error}</ErrorText>}
 
       {isOpen && value.trim().length >= 2 && !selected && (
-        <div className="absolute z-40 mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
+        <div className="sf-glass-panel absolute z-40 mt-1.5 w-full animate-sf-drop overflow-hidden">
           {suggestions.length > 0 ? (
             suggestions.map((suggestion) => (
               <button
@@ -210,24 +226,56 @@ function LocationAutocomplete({
                   onSelect(suggestion);
                   setIsOpen(false);
                 }}
-                className="w-full text-left px-3 py-2.5 hover:bg-blue-50 dark:hover:bg-slate-800 transition border-b last:border-b-0 border-slate-100 dark:border-slate-800"
+                className="w-full border-b border-[var(--sf-border-light)] px-3.5 py-2.5 text-left transition-colors last:border-0 hover:bg-[var(--sf-primary-soft)] cursor-pointer"
               >
-                <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                  {suggestion.name}
-                </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                <p className="truncate text-[12.5px] font-bold text-sf-text">{suggestion.name}</p>
+                <p className="mt-0.5 truncate text-[12.5px] text-sf-text-muted">
                   {suggestion.address}
                 </p>
               </button>
             ))
           ) : (
-            <div className="px-3 py-3 text-[11px] text-slate-500 dark:text-slate-400">
-              {isLoading ? "Đang tìm địa điểm..." : "Không tìm được địa điểm phù hợp"}
-            </div>
+            <p className="px-3.5 py-3 text-[12.5px] text-sf-text-muted">
+              {isLoading ? "Đang tìm địa điểm…" : "Không tìm được địa điểm phù hợp"}
+            </p>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+function Req() {
+  return <span style={{ color: "var(--sf-danger)" }}>*</span>;
+}
+
+function ErrorText({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mt-1 text-[12px] font-bold" style={{ color: "var(--sf-danger)" }}>
+      {children}
+    </p>
+  );
+}
+
+function MiniField({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[12px] font-extrabold uppercase tracking-wide text-sf-text-muted">
+        {label} {required && <Req />}
+      </span>
+      {children}
+      {error && <ErrorText>{error}</ErrorText>}
+    </label>
   );
 }
 
@@ -575,89 +623,97 @@ export default function DispatchPage() {
   const routeDuration = routeSummary ? formatDuration(routeSummary.durationMinutes) : "-- giờ -- phút";
 
   return (
-    <div className="flex flex-col h-[calc(100vh-130px)] animate-fadeIn">
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0 overflow-y-auto lg:overflow-hidden pb-4">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm flex flex-col min-h-0 overflow-y-auto">
-          <div className="flex items-center justify-between mb-5 flex-shrink-0">
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-              <Route className="w-4.5 h-4.5 text-blue-500" />
-              Thiết lập thông tin chuyến đi
-            </h3>
-            <button
+    <div className="flex h-[calc(100vh-116px)] flex-col gap-4">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-y-auto pb-1 lg:grid-cols-2 lg:overflow-hidden">
+        {/* ===== Cột trái: biểu mẫu ===== */}
+        <Card padding="none" className="flex min-h-0 flex-col">
+          <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-[var(--sf-border)] px-5 py-3.5">
+            <CardHeader
+              title="Thiết lập chuyến đi"
+              subtitle="Thông tin lộ trình và phiếu xuất kho"
+              icon={Route}
+            />
+            <Button
               type="button"
+              size="xs"
+              variant="accent"
+              icon={Sparkles}
+              loading={isRecommending}
               onClick={handleAiSuggest}
-              disabled={isRecommending}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-[11px] font-bold text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition cursor-pointer disabled:opacity-60"
             >
-              {isRecommending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              AI đề xuất xe & tài xế
-            </button>
+              AI đề xuất
+            </Button>
           </div>
 
-          <form onSubmit={handleDispatch} className="space-y-4 flex-1">
+          <form
+            onSubmit={handleDispatch}
+            className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5"
+          >
             {recommendation && (
-              <div className="p-4 rounded-xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-200/50 dark:border-blue-800/50 space-y-3 animate-fadeIn">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" /> Gợi ý tối ưu nhất từ AI
+              <div
+                className="animate-sf-scale space-y-3 rounded-[var(--sf-r-md)] border-l-[3px] p-4"
+                style={{
+                  background: "var(--sf-accent-soft)",
+                  borderLeftColor: "var(--sf-accent)",
+                }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className="flex items-center gap-1.5 text-[12px] font-extrabold"
+                    style={{ color: "var(--sf-accent-hover)" }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" /> Gợi ý tối ưu từ AI
                   </span>
-                  <div className="flex gap-2">
-                    <button
+                  <div className="flex gap-1.5">
+                    <Button
                       type="button"
+                      size="xs"
+                      variant="ghost"
                       onClick={() => setRecommendation(null)}
-                      className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-medium"
                     >
                       Bỏ qua
-                    </button>
-                    <button
-                      type="button"
-                      onClick={applyRecommendation}
-                      className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline"
-                    >
+                    </Button>
+                    <Button type="button" size="xs" onClick={applyRecommendation}>
                       Áp dụng
-                    </button>
+                    </Button>
                   </div>
                 </div>
-                <div className="text-xs space-y-1 text-slate-700 dark:text-slate-300">
+                <div className="space-y-1 text-[12px] text-sf-text-secondary">
                   <p>
-                    <span className="font-semibold">Xe:</span> {recommendation.vehicle.plate} ({recommendation.vehicle.brand})
+                    <span className="font-bold text-sf-text">Xe:</span>{" "}
+                    {recommendation.vehicle.plate} ({recommendation.vehicle.brand})
                   </p>
                   <p>
-                    <span className="font-semibold">Tài xế:</span> {recommendation.driver.fullName} (Safety Score: {recommendation.driver.safetyScore})
+                    <span className="font-bold text-sf-text">Tài xế:</span>{" "}
+                    {recommendation.driver.fullName} · điểm an toàn{" "}
+                    {recommendation.driver.safetyScore}
                   </p>
-                  <div className="pt-2 pl-3 border-l border-blue-300 dark:border-blue-800 space-y-1">
+                  <ul className="mt-2 space-y-1 border-l border-[var(--sf-border-strong)] pl-3">
                     {recommendation.reasons.map((reason) => (
-                      <p key={reason} className="text-[11px] text-slate-500 dark:text-slate-400">
-                        • {reason}
-                      </p>
+                      <li key={reason} className="text-[12.5px] text-sf-text-muted">
+                        {reason}
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Mã chuyến đi *</label>
-                <input
-                  type="text"
-                  value={tripCode}
-                  readOnly
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Loại chuyến đi *</label>
+              <Field label="Mã chuyến đi">
+                <TextInput value={tripCode} readOnly mono className="opacity-70" />
+              </Field>
+              <Field label="Loại chuyến đi">
                 <select
                   value={tripType}
                   onChange={(event) => setTripType(event.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="sf-input sf-select cursor-pointer font-semibold"
                 >
                   <option value="delivery">Vận chuyển hàng hóa</option>
                   <option value="passenger">Vận chuyển hành khách</option>
                   <option value="transfer">Trung chuyển nội bộ</option>
                 </select>
-              </div>
+              </Field>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -701,9 +757,11 @@ export default function DispatchPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Khởi hành dự kiến *</label>
+                <span className="mb-1.5 block text-[12.5px] font-bold text-sf-text-secondary">
+                  Khởi hành dự kiến <Req />
+                </span>
                 <div className="relative">
-                  <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sf-text-muted" />
                   <input
                     type="datetime-local"
                     value={scheduledStart}
@@ -717,23 +775,25 @@ export default function DispatchPage() {
                         scheduledEnd: scheduleErrors.scheduledEnd,
                       }));
                     }}
-                    className={cn(
-                      "w-full pl-9 pr-3 py-2 border rounded-lg text-xs bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2",
+                    className="sf-input pl-9"
+                    style={
                       fieldErrors.scheduledStart
-                        ? "border-red-400 focus:ring-red-500/20"
-                        : "border-slate-200 dark:border-slate-800 focus:ring-blue-500/20"
-                    )}
+                        ? { borderColor: "var(--sf-danger)" }
+                        : undefined
+                    }
                     required
                   />
                 </div>
                 {fieldErrors.scheduledStart && (
-                  <p className="mt-1 text-[11px] font-medium text-red-500">{fieldErrors.scheduledStart}</p>
+                  <ErrorText>{fieldErrors.scheduledStart}</ErrorText>
                 )}
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Kết thúc dự kiến *</label>
+                <span className="mb-1.5 block text-[12.5px] font-bold text-sf-text-secondary">
+                  Kết thúc dự kiến <Req />
+                </span>
                 <div className="relative">
-                  <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sf-text-muted" />
                   <input
                     type="datetime-local"
                     value={scheduledEnd}
@@ -747,23 +807,21 @@ export default function DispatchPage() {
                         scheduledEnd: scheduleErrors.scheduledEnd,
                       }));
                     }}
-                    className={cn(
-                      "w-full pl-9 pr-3 py-2 border rounded-lg text-xs bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2",
-                      fieldErrors.scheduledEnd
-                        ? "border-red-400 focus:ring-red-500/20"
-                        : "border-slate-200 dark:border-slate-800 focus:ring-blue-500/20"
-                    )}
+                    className="sf-input pl-9"
+                    style={
+                      fieldErrors.scheduledEnd ? { borderColor: "var(--sf-danger)" } : undefined
+                    }
                     required
                   />
                 </div>
-                {fieldErrors.scheduledEnd && (
-                  <p className="mt-1 text-[11px] font-medium text-red-500">{fieldErrors.scheduledEnd}</p>
-                )}
+                {fieldErrors.scheduledEnd && <ErrorText>{fieldErrors.scheduledEnd}</ErrorText>}
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Tài xế + xe được phân công *</label>
+              <span className="mb-1.5 block text-[12.5px] font-bold text-sf-text-secondary">
+                Tài xế + xe được phân công <Req />
+              </span>
               <select
                 value={selectedFleetPair}
                 onChange={(event) => {
@@ -771,251 +829,448 @@ export default function DispatchPage() {
                   setSelectedDriverId(driverId || "");
                   setSelectedVehicleId(vehicleId || "");
                 }}
-                className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="sf-input sf-select cursor-pointer font-semibold"
                 required
               >
-                <option value="">-- Chọn cặp tài xế + xe --</option>
-                {isLoadingOptions && <option value="">Đang tải phân công...</option>}
+                <option value="">— Chọn cặp tài xế + xe —</option>
+                {isLoadingOptions && <option value="">Đang tải phân công…</option>}
                 {fleetPairs.map(({ driver, vehicle }) => (
                   <option key={`${driver.id}:${vehicle.id}`} value={`${driver.id}:${vehicle.id}`}>
-                    Tài xế {driver.code || driver.id} · {driver.fullName} — Xe {vehicle.code || vehicle.id} · {vehicle.plate}
+                    Tài xế {driver.code || driver.id} · {driver.fullName} — Xe{" "}
+                    {vehicle.code || vehicle.id} · {vehicle.plate}
                   </option>
                 ))}
               </select>
 
               {!isLoadingOptions && fleetPairs.length === 0 && (
-                <p className="mt-1.5 text-[11px] font-medium text-amber-600">
+                <Callout tone="warning" icon={AlertTriangle} className="mt-2">
                   Chưa có tài xế và xe nào được liên kết cố định.
-                </p>
+                </Callout>
               )}
 
               {selectedDriver && selectedVehicle && (
-                <div className="mt-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/50 animate-fadeIn">
+                <div className="sf-inset mt-2.5 animate-sf-scale p-3.5">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-600">Phân công cố định</p>
-                      <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
-                        Tài xế {selectedDriver.code || selectedDriver.id} <span className="text-slate-400">×</span> Xe {selectedVehicle.code || selectedVehicle.id}
+                    <div className="min-w-0">
+                      <p className="sf-eyebrow" style={{ color: "var(--sf-primary)" }}>
+                        Phân công cố định
                       </p>
-                      <p className="mt-0.5 text-[11px] text-slate-500">
-                        {selectedDriver.fullName} · {selectedVehicle.plate} · {selectedVehicle.type} {selectedVehicle.brand}
+                      <p className="mt-1 text-[13.5px] font-extrabold text-sf-text">
+                        Tài xế {selectedDriver.code || selectedDriver.id}{" "}
+                        <span className="text-sf-text-muted">×</span> Xe{" "}
+                        {selectedVehicle.code || selectedVehicle.id}
+                      </p>
+                      <p className="mt-0.5 truncate text-[12.5px] text-sf-text-muted">
+                        {selectedDriver.fullName} · {selectedVehicle.plate} ·{" "}
+                        {selectedVehicle.type} {selectedVehicle.brand}
                       </p>
                     </div>
-                    <span className={cn(
-                      "rounded-full px-2 py-1 text-[9px] font-bold uppercase",
-                      selectedDriver.status === "available" && selectedVehicle.status === "idle"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-amber-100 text-amber-700"
-                    )}>
-                      {selectedDriver.status === "available" && selectedVehicle.status === "idle" ? "Sẵn sàng" : "Cần kiểm tra"}
-                    </span>
+                    <Badge
+                      tone={
+                        selectedDriver.status === "available" && selectedVehicle.status === "idle"
+                          ? "success"
+                          : "warning"
+                      }
+                      size="sm"
+                    >
+                      {selectedDriver.status === "available" && selectedVehicle.status === "idle"
+                        ? "Sẵn sàng"
+                        : "Cần kiểm tra"}
+                    </Badge>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-500 dark:text-slate-400">
-                    <p className="flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> GPS kết nối</p>
-                    <p className="flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> Bằng {selectedDriver.licenseClass} hợp lệ</p>
-                    <p className="col-span-2 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Đã lái {formatDrivingTime(selectedDriver.drivingTimeToday)} hôm nay</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[12px] text-sf-text-muted">
+                    <p className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5" style={{ color: "var(--sf-success)" }} />
+                      GPS kết nối
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5" style={{ color: "var(--sf-success)" }} />
+                      Bằng {selectedDriver.licenseClass} hợp lệ
+                    </p>
+                    <p className="col-span-2 flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      Đã lái {formatDrivingTime(selectedDriver.drivingTimeToday)} hôm nay
+                    </p>
                   </div>
                 </div>
               )}
             </div>
 
-            <section className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4 dark:border-blue-900/50 dark:bg-blue-950/20 space-y-4">
+            {/* ===== Phiếu xuất kho ===== */}
+            <section
+              className="space-y-4 rounded-[var(--sf-r-lg)] border p-4"
+              style={{
+                background: "var(--sf-primary-soft)",
+                borderColor: "color-mix(in srgb, var(--sf-primary) 22%, transparent)",
+              }}
+            >
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <PackagePlus className="h-4.5 w-4.5 text-blue-600" />
-                  <div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">Phiếu xuất kho điện tử</p>
-                    <p className="text-[10px] text-slate-500">Thông tin bàn giao sẽ chuyển nguyên vẹn tới app tài xế</p>
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)]"
+                    style={{ background: "var(--sf-primary)", color: "var(--sf-primary-contrast)" }}
+                  >
+                    <PackagePlus className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[12.5px] font-extrabold text-sf-text">
+                      Phiếu xuất kho điện tử
+                    </p>
+                    <p className="text-[12px] text-sf-text-muted">
+                      Chuyển nguyên vẹn tới app tài xế
+                    </p>
                   </div>
                 </div>
-                <span className="rounded-full bg-white px-2 py-1 text-[9px] font-bold text-blue-700 shadow-sm dark:bg-slate-900 dark:text-blue-300">CHỜ XÁC NHẬN</span>
+                <Badge tone="accent" size="sm">
+                  Chờ xác nhận
+                </Badge>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Đơn vị/doanh nghiệp</label>
-                  <input value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="Tên đơn vị xuất kho" className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Địa chỉ đơn vị</label>
-                  <input value={companyAddress} onChange={(event) => setCompanyAddress(event.target.value)} placeholder="Địa chỉ doanh nghiệp" className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Lý do/căn cứ xuất kho</label>
-                  <input value={issueReason} onChange={(event) => setIssueReason(event.target.value)} placeholder="Xuất hàng cho công trình/đơn hàng..." className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Ngăn/lô/vị trí kho</label>
-                  <input value={warehouseLocation} onChange={(event) => setWarehouseLocation(event.target.value)} placeholder="Ví dụ: Kho A · Lô 03" className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900" />
-                </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <MiniField label="Đơn vị / doanh nghiệp">
+                  <TextInput
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Tên đơn vị xuất kho"
+                  />
+                </MiniField>
+                <MiniField label="Địa chỉ đơn vị">
+                  <TextInput
+                    value={companyAddress}
+                    onChange={(e) => setCompanyAddress(e.target.value)}
+                    placeholder="Địa chỉ doanh nghiệp"
+                  />
+                </MiniField>
+                <MiniField label="Lý do / căn cứ xuất kho">
+                  <TextInput
+                    value={issueReason}
+                    onChange={(e) => setIssueReason(e.target.value)}
+                    placeholder="Xuất hàng cho công trình/đơn hàng…"
+                  />
+                </MiniField>
+                <MiniField label="Ngăn / lô / vị trí kho">
+                  <TextInput
+                    value={warehouseLocation}
+                    onChange={(e) => setWarehouseLocation(e.target.value)}
+                    placeholder="Ví dụ: Kho A · Lô 03"
+                  />
+                </MiniField>
+                <MiniField
+                  label="Số phiếu xuất kho"
+                  required
+                  error={fieldErrors.warehouseIssueNumber}
+                >
+                  <TextInput
+                    mono
+                    value={warehouseIssueNumber}
+                    onChange={(e) => setWarehouseIssueNumber(e.target.value)}
+                    style={
+                      fieldErrors.warehouseIssueNumber
+                        ? { borderColor: "var(--sf-danger)" }
+                        : undefined
+                    }
+                  />
+                </MiniField>
+                <MiniField label="Kho xuất hàng" required error={fieldErrors.warehouseName}>
+                  <TextInput
+                    value={warehouseName}
+                    onChange={(e) => setWarehouseName(e.target.value)}
+                    placeholder="Kho/ngăn/lô xuất hàng"
+                    style={
+                      fieldErrors.warehouseName ? { borderColor: "var(--sf-danger)" } : undefined
+                    }
+                  />
+                </MiniField>
+                <MiniField label="Công trình / đơn vị nhận" required error={fieldErrors.projectName}>
+                  <TextInput
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    placeholder="Tên công trình hoặc đơn vị nhận"
+                    style={
+                      fieldErrors.projectName ? { borderColor: "var(--sf-danger)" } : undefined
+                    }
+                  />
+                </MiniField>
+                <MiniField label="Hạng mục">
+                  <TextInput
+                    value={workItem}
+                    onChange={(e) => setWorkItem(e.target.value)}
+                    placeholder="Hạng mục thi công/sử dụng"
+                  />
+                </MiniField>
+                <MiniField label="Người nhận hàng" required error={fieldErrors.recipientName}>
+                  <TextInput
+                    value={recipientName}
+                    onChange={(e) => setRecipientName(e.target.value)}
+                    placeholder="Họ tên người nhận"
+                    style={
+                      fieldErrors.recipientName ? { borderColor: "var(--sf-danger)" } : undefined
+                    }
+                  />
+                </MiniField>
+                <MiniField label="SĐT người nhận">
+                  <TextInput
+                    type="tel"
+                    value={recipientPhone}
+                    onChange={(e) => setRecipientPhone(e.target.value)}
+                    placeholder="Ví dụ: 0912 345 678"
+                  />
+                </MiniField>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Số phiếu xuất kho *</label>
-                  <input value={warehouseIssueNumber} onChange={(event) => setWarehouseIssueNumber(event.target.value)} className={cn("w-full px-3 py-2 border rounded-lg text-xs bg-white dark:bg-slate-900", fieldErrors.warehouseIssueNumber ? "border-red-400" : "border-slate-200 dark:border-slate-800")} />
-                  {fieldErrors.warehouseIssueNumber && <p className="mt-1 text-[10px] text-red-500">{fieldErrors.warehouseIssueNumber}</p>}
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Kho xuất hàng *</label>
-                  <input value={warehouseName} onChange={(event) => setWarehouseName(event.target.value)} placeholder="Kho/ngăn/lô xuất hàng" className={cn("w-full px-3 py-2 border rounded-lg text-xs bg-white dark:bg-slate-900", fieldErrors.warehouseName ? "border-red-400" : "border-slate-200 dark:border-slate-800")} />
-                  {fieldErrors.warehouseName && <p className="mt-1 text-[10px] text-red-500">{fieldErrors.warehouseName}</p>}
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Công trình/đơn vị nhận *</label>
-                  <input value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder="Tên công trình hoặc đơn vị nhận" className={cn("w-full px-3 py-2 border rounded-lg text-xs bg-white dark:bg-slate-900", fieldErrors.projectName ? "border-red-400" : "border-slate-200 dark:border-slate-800")} />
-                  {fieldErrors.projectName && <p className="mt-1 text-[10px] text-red-500">{fieldErrors.projectName}</p>}
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Hạng mục</label>
-                  <input value={workItem} onChange={(event) => setWorkItem(event.target.value)} placeholder="Hạng mục thi công/sử dụng" className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Người nhận hàng *</label>
-                  <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Họ tên người nhận" className={cn("w-full px-3 py-2 border rounded-lg text-xs bg-white dark:bg-slate-900", fieldErrors.recipientName ? "border-red-400" : "border-slate-200 dark:border-slate-800")} />
-                  {fieldErrors.recipientName && <p className="mt-1 text-[10px] text-red-500">{fieldErrors.recipientName}</p>}
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Số điện thoại người nhận</label>
-                  <input type="tel" value={recipientPhone} onChange={(event) => setRecipientPhone(event.target.value)} placeholder="Ví dụ: 0912 345 678" className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900" />
-                </div>
-              </div>
-
+              {/* Danh sách hàng hóa */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Danh sách vật tư/hàng hóa *</p>
-                  <button type="button" onClick={addCargoItem} className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-[10px] font-bold text-white hover:bg-blue-700"><Plus className="h-3 w-3" /> Thêm dòng</button>
+                  <p className="sf-eyebrow">
+                    Danh sách vật tư / hàng hóa <Req />
+                  </p>
+                  <Button type="button" size="xs" icon={Plus} onClick={addCargoItem}>
+                    Thêm dòng
+                  </Button>
                 </div>
+
                 {cargoItems.map((item, index) => (
-                  <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+                  <div
+                    key={item.id}
+                    className="rounded-[var(--sf-r-md)] border border-[var(--sf-border)] bg-[var(--sf-bg-card)] p-3"
+                  >
                     <div className="mb-2 flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-blue-600">MẶT HÀNG {index + 1}</span>
-                      <button type="button" disabled={cargoItems.length === 1} onClick={() => removeCargoItem(item.id)} className="text-slate-400 hover:text-red-500 disabled:opacity-30" aria-label={`Xóa mặt hàng ${index + 1}`}><Trash2 className="h-3.5 w-3.5" /></button>
+                      <span
+                        className="text-[12px] font-extrabold uppercase tracking-wide"
+                        style={{ color: "var(--sf-primary)" }}
+                      >
+                        Mặt hàng {index + 1}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={cargoItems.length === 1}
+                        onClick={() => removeCargoItem(item.id)}
+                        aria-label={`Xóa mặt hàng ${index + 1}`}
+                        className="grid h-6 w-6 place-items-center rounded-[var(--sf-r-xs)] text-sf-text-muted transition-colors hover:bg-[var(--sf-danger-soft)] disabled:opacity-30 cursor-pointer"
+                        style={{ color: cargoItems.length === 1 ? undefined : "var(--sf-danger)" }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                      <input value={item.itemCode} onChange={(event) => updateCargoItem(item.id, "itemCode", event.target.value)} placeholder="Mã số" className="px-2.5 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] bg-slate-50 dark:bg-slate-800" />
-                      <input value={item.description} onChange={(event) => updateCargoItem(item.id, "description", event.target.value)} placeholder="Tên, nhãn hiệu *" className="col-span-2 px-2.5 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] bg-slate-50 dark:bg-slate-800" />
-                      <input value={item.specification} onChange={(event) => updateCargoItem(item.id, "specification", event.target.value)} placeholder="Quy cách/phẩm chất" className="col-span-2 px-2.5 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] bg-slate-50 dark:bg-slate-800" />
-                      <input value={item.unit} onChange={(event) => updateCargoItem(item.id, "unit", event.target.value)} placeholder="Đơn vị *" className="px-2.5 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] bg-slate-50 dark:bg-slate-800" />
+
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
+                      <TextInput
+                        value={item.itemCode}
+                        onChange={(e) => updateCargoItem(item.id, "itemCode", e.target.value)}
+                        placeholder="Mã số"
+                      />
+                      <TextInput
+                        className="col-span-2"
+                        value={item.description}
+                        onChange={(e) => updateCargoItem(item.id, "description", e.target.value)}
+                        placeholder="Tên, nhãn hiệu *"
+                      />
+                      <TextInput
+                        className="col-span-2"
+                        value={item.specification}
+                        onChange={(e) => updateCargoItem(item.id, "specification", e.target.value)}
+                        placeholder="Quy cách/phẩm chất"
+                      />
+                      <TextInput
+                        value={item.unit}
+                        onChange={(e) => updateCargoItem(item.id, "unit", e.target.value)}
+                        placeholder="Đơn vị *"
+                      />
                     </div>
-                    <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
-                      <input type="number" min="0" step="0.01" value={item.quantityRequested} onChange={(event) => updateCargoItem(item.id, "quantityRequested", event.target.value)} placeholder="SL theo chứng từ" className="px-2.5 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] bg-slate-50 dark:bg-slate-800" />
-                      <input type="number" min="0.01" step="0.01" value={item.quantityIssued} onChange={(event) => updateCargoItem(item.id, "quantityIssued", event.target.value)} placeholder="SL thực xuất *" className="px-2.5 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] bg-slate-50 dark:bg-slate-800" />
-                      <input type="number" min="0" step="0.01" value={item.quantityReturned} onChange={(event) => updateCargoItem(item.id, "quantityReturned", event.target.value)} placeholder="SL trả về" className="px-2.5 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] bg-slate-50 dark:bg-slate-800" />
-                      <input type="number" min="0" step="0.01" value={item.quantityDelivered} onChange={(event) => updateCargoItem(item.id, "quantityDelivered", event.target.value)} placeholder="SL thực giao" className="px-2.5 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] bg-slate-50 dark:bg-slate-800" />
+
+                    <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                      <TextInput
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.quantityRequested}
+                        onChange={(e) =>
+                          updateCargoItem(item.id, "quantityRequested", e.target.value)
+                        }
+                        placeholder="SL chứng từ"
+                      />
+                      <TextInput
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={item.quantityIssued}
+                        onChange={(e) => updateCargoItem(item.id, "quantityIssued", e.target.value)}
+                        placeholder="SL thực xuất *"
+                      />
+                      <TextInput
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.quantityReturned}
+                        onChange={(e) =>
+                          updateCargoItem(item.id, "quantityReturned", e.target.value)
+                        }
+                        placeholder="SL trả về"
+                      />
+                      <TextInput
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.quantityDelivered}
+                        onChange={(e) =>
+                          updateCargoItem(item.id, "quantityDelivered", e.target.value)
+                        }
+                        placeholder="SL thực giao"
+                      />
                     </div>
-                    <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <input value={item.conditionNote} onChange={(event) => updateCargoItem(item.id, "conditionNote", event.target.value)} placeholder="Tình trạng hàng khi xuất" className="w-full px-2.5 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] bg-slate-50 dark:bg-slate-800" />
-                      <input value={item.confirmation} onChange={(event) => updateCargoItem(item.id, "confirmation", event.target.value)} placeholder="Xác nhận/ghi chú" className="w-full px-2.5 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] bg-slate-50 dark:bg-slate-800" />
+
+                    <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                      <TextInput
+                        value={item.conditionNote}
+                        onChange={(e) => updateCargoItem(item.id, "conditionNote", e.target.value)}
+                        placeholder="Tình trạng hàng khi xuất"
+                      />
+                      <TextInput
+                        value={item.confirmation}
+                        onChange={(e) => updateCargoItem(item.id, "confirmation", e.target.value)}
+                        placeholder="Xác nhận / ghi chú"
+                      />
                     </div>
                   </div>
                 ))}
-                {fieldErrors.cargoItems && <p className="text-[10px] font-medium text-red-500">{fieldErrors.cargoItems}</p>}
+
+                {fieldErrors.cargoItems && <ErrorText>{fieldErrors.cargoItems}</ErrorText>}
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Tổng số lượng bằng chữ</label>
-                <input value={quantityInWords} onChange={(event) => setQuantityInWords(event.target.value)} placeholder="Ví dụ: Hai trăm tám mươi mét" className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-900" />
-              </div>
+              <MiniField label="Tổng số lượng bằng chữ">
+                <TextInput
+                  value={quantityInWords}
+                  onChange={(e) => setQuantityInWords(e.target.value)}
+                  placeholder="Ví dụ: Hai trăm tám mươi mét"
+                />
+              </MiniField>
 
               <div className="grid grid-cols-2 gap-3">
-                <div><p className="text-[10px] uppercase text-slate-500">Người lập phiếu</p><p className="mt-1 text-xs font-bold text-slate-800 dark:text-slate-100">{user?.fullName || "Đang xác định..."}</p></div>
-                <div><p className="text-[10px] uppercase text-slate-500">Người giao hàng</p><p className="mt-1 text-xs font-bold text-slate-800 dark:text-slate-100">{selectedDriver?.fullName || "Chọn tài xế"}</p></div>
+                <div>
+                  <p className="sf-eyebrow">Người lập phiếu</p>
+                  <p className="mt-1 text-[12.5px] font-bold text-sf-text">
+                    {user?.fullName || "Đang xác định…"}
+                  </p>
+                </div>
+                <div>
+                  <p className="sf-eyebrow">Người giao hàng</p>
+                  <p className="mt-1 text-[12.5px] font-bold text-sf-text">
+                    {selectedDriver?.fullName || "Chọn tài xế"}
+                  </p>
+                </div>
               </div>
             </section>
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Ghi chú điều phối</label>
-              <input
-                type="text"
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Lưu ý lộ trình, trạm dừng..."
-                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
-              />
-            </div>
-          </form>
-        </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm flex flex-col">
-          <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Compass className="w-4.5 h-4.5 text-blue-500" />
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white">Xem trước tuyến lộ trình</h3>
-            </div>
+            <Field label="Ghi chú điều phối">
+              <TextInput
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Lưu ý lộ trình, trạm dừng…"
+              />
+            </Field>
+          </form>
+        </Card>
+
+        {/* ===== Cột phải: xem trước tuyến ===== */}
+        <Card padding="none" className="flex flex-col">
+          <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-[var(--sf-border)] px-5 py-3.5">
+            <CardHeader
+              title="Xem trước tuyến lộ trình"
+              subtitle={routeSummary ? `Nguồn: ${routeSummary.provider}` : "Khu vực Hà Nội"}
+              icon={Compass}
+            />
             {isRouting && (
-              <span className="text-[11px] text-blue-500 font-semibold flex items-center gap-1">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang tính tuyến
+              <span className="flex flex-shrink-0 items-center gap-1.5 text-[12.5px] font-bold text-sf-text-muted">
+                <Loader2 className="h-3.5 w-3.5 animate-sf-spin" /> Đang tính tuyến
               </span>
             )}
           </div>
-          <div className="flex-1 relative bg-slate-100 dark:bg-slate-950">
+
+          <div className="sf-map-dark relative min-h-[18rem] flex-1">
             <MapView
               interactive={false}
               routeCoordinates={routeCoordinates}
-              routeStart={selectedOrigin ? { lat: selectedOrigin.lat, lng: selectedOrigin.lng, label: selectedOrigin.name } : null}
-              routeEnd={selectedDestination ? { lat: selectedDestination.lat, lng: selectedDestination.lng, label: selectedDestination.name } : null}
+              routeStart={
+                selectedOrigin
+                  ? { lat: selectedOrigin.lat, lng: selectedOrigin.lng, label: selectedOrigin.name }
+                  : null
+              }
+              routeEnd={
+                selectedDestination
+                  ? {
+                      lat: selectedDestination.lat,
+                      lng: selectedDestination.lng,
+                      label: selectedDestination.name,
+                    }
+                  : null
+              }
             />
-            <div className="absolute inset-0 bg-slate-900/10 pointer-events-none" />
-            <div className="absolute bottom-4 left-4 right-4 sm:right-auto sm:max-w-md p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-xl border border-slate-200/50 dark:border-slate-800/50 text-[10px] text-slate-500 dark:text-slate-400 space-y-1 shadow shadow-slate-950/10">
-              <span className="font-semibold text-slate-700 dark:text-slate-300 block">
-                {routeSummary ? `Tuyến ${routeSummary.provider}` : "Khu vực Hà Nội"}
-              </span>
+            <div className="sf-glass-panel absolute bottom-4 left-4 right-4 space-y-1 p-3 text-[12.5px] sm:right-auto sm:max-w-md">
               {selectedOrigin && selectedDestination ? (
-                <p className="line-clamp-2">
+                <p className="line-clamp-2 font-bold text-sf-text">
                   {selectedOrigin.name} → {selectedDestination.name}
                 </p>
               ) : (
-                <p>Nhập và chọn điểm đi/đến từ gợi ý để tính tuyến.</p>
+                <p className="text-sf-text-muted">
+                  Nhập và chọn điểm đi/đến từ gợi ý để tính tuyến.
+                </p>
               )}
-              {routeError && <p className="text-amber-500 font-medium">{routeError}</p>}
+              {routeError && (
+                <p className="font-bold" style={{ color: "var(--sf-accent-hover)" }}>
+                  {routeError}
+                </p>
+              )}
             </div>
           </div>
-        </div>
+        </Card>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-6">
-          <div>
-            <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">Tổng quãng đường</span>
-            <span className="text-base font-bold text-slate-900 dark:text-white">
-              {routeSummary ? `${routeSummary.distanceKm.toFixed(1)} km` : "-- km"}
-            </span>
+      {/* ===== Thanh tổng kết ===== */}
+      <Card padding="sm" className="flex-shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-5">
+            <div>
+              <p className="sf-eyebrow">Tổng quãng đường</p>
+              <p className="sf-metric mt-1 text-[19px]">
+                {routeSummary ? `${routeSummary.distanceKm.toFixed(1)} km` : "— km"}
+              </p>
+            </div>
+            <span className="h-9 w-px bg-[var(--sf-border)]" />
+            <div>
+              <p className="sf-eyebrow">Thời gian dự kiến</p>
+              <p className="sf-metric mt-1 text-[19px]">{routeDuration}</p>
+            </div>
+            <span className="h-9 w-px bg-[var(--sf-border)]" />
+            <div>
+              <p className="sf-eyebrow">Mức rủi ro tuyến</p>
+              <Badge tone={routeSummary?.fallback ? "warning" : "success"} className="mt-1.5">
+                {routeSummary?.fallback ? "Trung bình" : "Thấp"}
+              </Badge>
+            </div>
           </div>
-          <div className="w-px h-8 bg-slate-200 dark:bg-slate-800" />
-          <div>
-            <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">Thời gian dự kiến (ETA)</span>
-            <span className="text-base font-bold text-slate-900 dark:text-white">
-              {routeDuration}
-            </span>
-          </div>
-          <div className="w-px h-8 bg-slate-200 dark:bg-slate-800" />
-          <div>
-            <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">Mức rủi ro tuyến đường</span>
-            <span className="text-xs font-bold text-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-full mt-0.5 inline-block">
-              Thấp
-            </span>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => submitDispatch(false)}
-            disabled={isSubmitting}
-            className="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer"
-          >
-            {isSubmitting ? "Đang lưu..." : "Lưu nháp"}
-          </button>
-          <button
-            onClick={() => submitDispatch(true)}
-            type="button"
-            disabled={isSubmitting}
-            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-md shadow-blue-500/10 transition cursor-pointer disabled:opacity-60"
-          >
-            {isSubmitting ? "Đang phát hành..." : "Phát hành & giao chuyến"}
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              loading={isSubmitting}
+              onClick={() => submitDispatch(false)}
+            >
+              Lưu nháp
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              icon={CheckCircle2}
+              loading={isSubmitting}
+              onClick={() => submitDispatch(true)}
+            >
+              Phát hành &amp; giao chuyến
+            </Button>
+          </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

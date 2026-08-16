@@ -1,29 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
-import { useTheme } from "@/context/ThemeContext";
-import { motion } from "framer-motion";
 import {
   Shield,
   Eye,
   EyeOff,
-  Loader2,
-  Truck,
-  MapPin,
-  AlertTriangle,
-  Sun,
-  Moon,
+  ArrowRight,
+  ArrowDown,
+  User,
+  Lock,
+  ScanFace,
+  Siren,
+  Droplets,
+  MapPinned,
+  Route,
+  BarChart3,
+  Check,
+  type LucideIcon,
 } from "lucide-react";
+import FleetCanvas from "@/components/auth/FleetCanvas";
+import ThemeSwitch from "@/components/layout/ThemeSwitch";
 
-const SHOW_DEMO_CREDENTIALS =
-  process.env.NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS === "true";
+const SHOW_DEMO_CREDENTIALS = process.env.NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS === "true";
+
+/* ==========================================================================
+   MÀN 1 — ĐĂNG NHẬP (tối giản, tương phản cao)
+   ========================================================================== */
 
 export default function LoginPage() {
   const { login, isLoading } = useAuth();
   const { showToast } = useToast();
-  const { resolvedTheme, toggleTheme } = useTheme();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -39,294 +47,457 @@ export default function LoginPage() {
       await login(username, password);
       showToast("Đăng nhập thành công!", "success");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Đăng nhập thất bại";
-      showToast(message, "error");
+      showToast(err instanceof Error ? err.message : "Đăng nhập thất bại", "error");
     }
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Panel — Branding */}
-      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden bg-[#10243d]">
-        {/* Background pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)",
-              backgroundSize: "40px 40px",
-            }}
-          />
-        </div>
-
-        {/* Floating elements */}
-        <motion.div
-          animate={{ y: [0, -15, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[15%] left-[10%] w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center"
-        >
-          <Truck className="w-8 h-8 text-teal-300" />
-        </motion.div>
-
-        <motion.div
-          animate={{ y: [0, 12, 0] }}
-          transition={{
-            duration: 5,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 1,
-          }}
-          className="absolute top-[35%] right-[15%] w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center"
-        >
-          <MapPin className="w-7 h-7 text-teal-300" />
-        </motion.div>
-
-        <motion.div
-          animate={{ y: [0, -10, 0] }}
-          transition={{
-            duration: 4,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 2,
-          }}
-          className="absolute bottom-[25%] left-[20%] w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center"
-        >
-          <AlertTriangle className="w-6 h-6 text-amber-400" />
-        </motion.div>
-
-        {/* Main content */}
-        <div className="relative z-10 flex flex-col justify-center px-16 xl:px-24">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            {/* Logo */}
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-12 h-12 rounded-xl bg-teal-600 flex items-center justify-center">
-                <Shield className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">
-                  SafeFleet
-                </h1>
-                <p className="text-xs text-teal-200 font-medium tracking-wider uppercase">
-                  Command Center
-                </p>
-              </div>
-            </div>
-
-            {/* Title */}
-            <h2 className="text-4xl xl:text-5xl font-bold text-white leading-tight mb-6">
-              Trung tâm điều hành
-              <br />
-              <span className="text-teal-300">
-                đội xe thông minh
-              </span>
-            </h2>
-
-            <p className="text-lg text-slate-400 max-w-md leading-relaxed mb-10">
-              Giám sát realtime, cảnh báo AI, hỗ trợ an toàn tài xế và cứu hộ
-              tự động — tất cả trong một nền tảng duy nhất.
-            </p>
-
-            {/* Features */}
-            <div className="space-y-4">
-              {[
-                "Theo dõi đội xe realtime trên bản đồ",
-                "AI nhận diện hành vi ngủ gật, mất tập trung",
-                "Cảnh báo SOS & cứu hộ tự động",
-                "Báo cáo điểm ngập thông minh",
-              ].map((feature, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + i * 0.15 }}
-                  className="flex items-center gap-3"
-                >
-                  <div className="w-2 h-2 rounded-full bg-teal-400" />
-                  <span className="text-slate-300 text-sm">{feature}</span>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Bottom gradient fade */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-[#10243d]/80" />
-      </div>
-
-      {/* Right Panel — Login Form */}
-      <div className="relative flex-1 flex items-center justify-center px-6 py-12 bg-[radial-gradient(circle_at_85%_10%,rgba(13,148,136,0.10),transparent_22rem)] bg-slate-50 dark:bg-[radial-gradient(circle_at_85%_10%,rgba(45,212,191,0.08),transparent_24rem)] dark:bg-[#07111f]">
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="absolute right-5 top-5 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-bold text-slate-600 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
-          aria-label={resolvedTheme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
-        >
-          {resolvedTheme === "dark" ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
-          {resolvedTheme === "dark" ? "Giao diện sáng" : "Giao diện tối"}
-        </button>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full max-w-md"
-        >
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-            <div className="w-11 h-11 rounded-xl bg-teal-600 flex items-center justify-center">
-              <Shield className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+    <div className="sf-auth-page min-h-screen">
+      {/* ===== Thanh trên ===== */}
+      <header className="sticky top-0 z-30 border-b border-[var(--sf-border)] bg-[var(--sf-bg-elevated)]/95 backdrop-blur-lg">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 sm:px-8">
+          <div className="flex items-center gap-3">
+            <span
+              className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-[var(--sf-r-sm)]"
+              style={{ background: "var(--sf-primary)" }}
+            >
+              <Shield className="h-5 w-5" style={{ color: "var(--sf-primary-contrast)" }} />
+            </span>
+            <span>
+              <span className="block text-[16px] font-extrabold leading-tight tracking-tight text-sf-text">
                 SafeFleet
-              </h1>
-              <p className="text-[10px] text-teal-700 dark:text-teal-400 font-medium tracking-wider uppercase">
+              </span>
+              <span
+                className="block text-[12.5px] font-bold leading-tight"
+                style={{ color: "var(--sf-primary)" }}
+              >
                 Command Center
-              </p>
-            </div>
+              </span>
+            </span>
           </div>
 
-          {/* Header */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <ThemeSwitch />
+        </div>
+      </header>
+
+      {/* ===== MÀN 1 ===== */}
+      <section className="sf-auth-hero flex min-h-[calc(100vh-4.5rem)] flex-col items-center justify-center px-5 py-12">
+        <div className="w-full max-w-[26rem]">
+          <div className="mb-7 text-center">
+            <h1 className="text-[30px] font-black leading-tight tracking-tight text-sf-text">
               Đăng nhập
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 mt-1">
-              Truy cập vào hệ thống điều hành đội xe
+            </h1>
+            <p className="mt-2.5 text-[15px] leading-relaxed text-sf-text-secondary">
+              Truy cập trung tâm điều hành đội xe SafeFleet.
             </p>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Username */}
-            <div>
-              <label
-                htmlFor="login-username"
-                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5"
-              >
-                Username hoặc email
-              </label>
-              <input
+          {/* Thẻ đăng nhập — nền đặc, viền rõ, không có hoạ tiết phía dưới */}
+          <div
+            className="rounded-[var(--sf-r-lg)] border p-6 sm:p-7"
+            style={{
+              background: "var(--sf-bg-card)",
+              borderColor: "var(--sf-border-strong)",
+              boxShadow: "var(--sf-shadow-md)",
+            }}
+          >
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <TextField
                 id="login-username"
-                type="text"
+                label="Username hoặc email"
+                icon={User}
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Nhập username hoặc email..."
+                onChange={setUsername}
                 autoComplete="username"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 transition-all"
+                placeholder="admin"
               />
-            </div>
 
-            {/* Password */}
-            <div>
-              <label
-                htmlFor="login-password"
-                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5"
-              >
-                Mật khẩu
-              </label>
-              <div className="relative">
-                <input
-                  id="login-password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Nhập mật khẩu..."
-                  autoComplete="current-password"
-                  className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 transition-all"
-                />
+              <TextField
+                id="login-password"
+                label="Mật khẩu"
+                icon={Lock}
+                value={password}
+                onChange={setPassword}
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="Nhập mật khẩu"
+                trailing={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    className="grid h-9 w-9 place-items-center rounded-[var(--sf-r-xs)] text-sf-text-secondary transition-colors hover:bg-[var(--sf-bg-inset)] hover:text-sf-text cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                }
+              />
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-0.5">
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition"
+                  onClick={() => setRemember(!remember)}
+                  aria-pressed={remember}
+                  className="group flex items-center gap-2.5 cursor-pointer"
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
+                  <span
+                    className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-[5px] border-2 transition-colors duration-[var(--sf-dur-fast)]"
+                    style={{
+                      borderColor: remember ? "var(--sf-primary)" : "var(--sf-border-strong)",
+                      background: remember ? "var(--sf-primary)" : "transparent",
+                    }}
+                  >
+                    {remember && (
+                      <Check
+                        className="h-3.5 w-3.5"
+                        strokeWidth={3.5}
+                        style={{ color: "var(--sf-primary-contrast)" }}
+                      />
+                    )}
+                  </span>
+                  <span className="text-[14px] font-semibold text-sf-text-secondary group-hover:text-sf-text">
+                    Ghi nhớ đăng nhập
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className="text-[14px] font-bold underline-offset-4 hover:underline cursor-pointer"
+                  style={{ color: "var(--sf-primary)" }}
+                >
+                  Quên mật khẩu?
                 </button>
               </div>
-            </div>
 
-            {/* Remember + Forgot */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-teal-600 focus:ring-teal-500/30"
-                />
-                <span className="text-sm text-slate-600 dark:text-slate-400">
-                  Ghi nhớ đăng nhập
-                </span>
-              </label>
               <button
-                type="button"
-                className="text-sm text-teal-700 dark:text-teal-400 hover:text-teal-800 font-medium transition"
+                type="submit"
+                disabled={isLoading}
+                className="mt-1 flex w-full items-center justify-center gap-2.5 rounded-[var(--sf-r-md)] text-[15px] font-extrabold tracking-tight transition-[filter,transform] duration-[var(--sf-dur-fast)] hover:brightness-110 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60 cursor-pointer"
+                style={{
+                  height: "3.25rem",
+                  background: "var(--sf-primary)",
+                  color: "var(--sf-primary-contrast)",
+                }}
               >
-                Quên mật khẩu?
+                {isLoading ? (
+                  <>
+                    <span
+                      aria-hidden
+                      className="h-4 w-4 animate-sf-spin rounded-full border-2 border-current border-t-transparent"
+                    />
+                    Đang xác thực…
+                  </>
+                ) : (
+                  <>
+                    Đăng nhập
+                    <ArrowRight className="h-[18px] w-[18px]" />
+                  </>
+                )}
               </button>
-            </div>
+            </form>
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold shadow-sm disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Đang đăng nhập...
-                </>
-              ) : (
-                "Đăng nhập"
-              )}
-            </button>
-          </form>
-
-          {SHOW_DEMO_CREDENTIALS && (
-            <div className="mt-8 p-4 rounded-xl bg-teal-50 dark:bg-teal-950/30 border border-teal-100 dark:border-teal-900/50">
-              <p className="text-xs text-teal-800 dark:text-teal-400 font-medium mb-2">
-                Tài khoản seed backend:
-              </p>
-              <div className="space-y-1 text-xs text-teal-700 dark:text-teal-400/80">
-                <p>
-                  <span className="font-mono bg-teal-100 dark:bg-teal-900/50 px-1.5 py-0.5 rounded">
-                    admin
-                  </span>{" "}
-                  /{" "}
-                  <span className="font-mono bg-teal-100 dark:bg-teal-900/50 px-1.5 py-0.5 rounded">
-                    123456
-                  </span>{" "}
-                  — Quản trị viên
-                </p>
-                <p>
-                  <span className="font-mono bg-teal-100 dark:bg-teal-900/50 px-1.5 py-0.5 rounded">
-                    dispatcher
-                  </span>{" "}
-                  /{" "}
-                  <span className="font-mono bg-teal-100 dark:bg-teal-900/50 px-1.5 py-0.5 rounded">
-                    123456
-                  </span>{" "}
-                  — Điều phối viên
-                </p>
+            {SHOW_DEMO_CREDENTIALS && (
+              <div
+                className="mt-5 rounded-[var(--sf-r-md)] border p-4"
+                style={{
+                  background: "var(--sf-bg-inset)",
+                  borderColor: "var(--sf-border)",
+                }}
+              >
+                <p className="mb-2 text-[13px] font-bold text-sf-text">Tài khoản seed backend</p>
+                <div className="space-y-1.5 text-[13px] text-sf-text-secondary">
+                  <p>
+                    <Code>admin</Code> / <Code>123456</Code> — Quản trị viên
+                  </p>
+                  <p>
+                    <Code>dispatcher</Code> / <Code>123456</Code> — Điều phối viên
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Footer */}
-          <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-6">
-            © 2026 SafeFleet Agentic AI — Đồ án tốt nghiệp
+          {/* Gợi ý cuộn xuống */}
+          <div className="mt-9 flex justify-center">
+            <a
+              href="#tinh-nang"
+              className="flex items-center gap-2 rounded-[var(--sf-r-pill)] border px-4 py-2.5 text-[14px] font-bold transition-colors hover:bg-[var(--sf-bg-inset)]"
+              style={{ borderColor: "var(--sf-border-strong)", color: "var(--sf-text-secondary)" }}
+            >
+              Hệ thống làm được gì
+              <ArrowDown className="h-4 w-4" />
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== MÀN 2 — TÍNH NĂNG ===== */}
+      <FeaturesSection />
+
+      {/* ===== MÀN 3 — QUY TRÌNH ===== */}
+      <FlowSection />
+
+      <footer className="border-t border-[var(--sf-border)] px-5 py-6 sm:px-8">
+        <p className="mx-auto max-w-6xl text-center text-[13px] text-sf-text-muted">
+          © 2026 SafeFleet Agentic AI — Hệ thống cảnh báo và hỗ trợ tài xế
+        </p>
+      </footer>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MÀN 2 — TÍNH NĂNG
+   ========================================================================== */
+
+const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
+  {
+    icon: ScanFace,
+    title: "AI giám sát cabin",
+    body: "Camera trong cabin phát hiện ngủ gật, mất tập trung và dùng điện thoại, gửi cảnh báo về trung tâm ngay khi xảy ra.",
+  },
+  {
+    icon: MapPinned,
+    title: "Theo dõi realtime",
+    body: "Vị trí, tốc độ và trạng thái kết nối của từng xe cập nhật liên tục trên bản đồ điều hành.",
+  },
+  {
+    icon: Siren,
+    title: "Điều phối SOS",
+    body: "Tài xế bấm SOS là sự cố hiện lên phòng xử lý kèm vị trí, nhật ký thao tác và luồng giao cứu hộ.",
+  },
+  {
+    icon: Droplets,
+    title: "Cảnh báo điểm ngập",
+    body: "Tổng hợp báo cáo ngập từ tài xế và cảm biến, chấm điểm rủi ro tuyến trước khi xe xuất phát.",
+  },
+  {
+    icon: Route,
+    title: "Điều phối chuyến",
+    body: "Gợi ý ghép xe và tài xế theo điểm an toàn, kèm phiếu xuất kho điện tử chuyển thẳng sang app tài xế.",
+  },
+  {
+    icon: BarChart3,
+    title: "Báo cáo vận hành",
+    body: "Thống kê cảnh báo theo loại, số chuyến theo ngày và danh sách tài xế rủi ro cao, xuất được ra CSV.",
+  },
+];
+
+function FeaturesSection() {
+  return (
+    <section
+      id="tinh-nang"
+      className="border-t border-[var(--sf-border)] px-5 py-16 sm:px-8 sm:py-20"
+      style={{ background: "var(--sf-bg-card)" }}
+    >
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-10 max-w-2xl">
+          <p
+            className="mb-3 text-[13px] font-extrabold uppercase tracking-[0.14em]"
+            style={{ color: "var(--sf-primary)" }}
+          >
+            Tính năng
           </p>
-        </motion.div>
+          <h2 className="text-[30px] font-black leading-tight tracking-tight text-sf-text sm:text-[36px]">
+            Sáu nhóm chức năng chính
+          </h2>
+          <p className="mt-3.5 text-[16px] leading-relaxed text-sf-text-secondary">
+            Toàn bộ dữ liệu đến từ backend Spring Boot qua REST và WebSocket, không dùng số liệu
+            minh hoạ.
+          </p>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {FEATURES.map((f) => {
+            const Icon = f.icon;
+            return (
+              <article
+                key={f.title}
+                className="rounded-[var(--sf-r-lg)] border p-6 transition-[border-color,transform] duration-[var(--sf-dur-base)] hover:-translate-y-1"
+                style={{
+                  background: "var(--sf-bg-elevated)",
+                  borderColor: "var(--sf-border)",
+                }}
+              >
+                <span
+                  className="mb-4 grid h-12 w-12 place-items-center rounded-[var(--sf-r-md)]"
+                  style={{ background: "var(--sf-primary-soft)", color: "var(--sf-primary)" }}
+                >
+                  <Icon className="h-6 w-6" />
+                </span>
+                <h3 className="text-[18px] font-extrabold tracking-tight text-sf-text">
+                  {f.title}
+                </h3>
+                <p className="mt-2 text-[15px] leading-relaxed text-sf-text-secondary">{f.body}</p>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ==========================================================================
+   MÀN 3 — QUY TRÌNH + HÌNH MINH HOẠ
+   ========================================================================== */
+
+const STEPS = [
+  {
+    step: "01",
+    title: "Thu thập",
+    body: "Thiết bị GPS, camera cabin và app tài xế gửi telemetry về backend liên tục.",
+  },
+  {
+    step: "02",
+    title: "Phân tích",
+    body: "Mô hình AI chấm điểm hành vi lái, đối chiếu giờ lái liên tục và dữ liệu điểm ngập.",
+  },
+  {
+    step: "03",
+    title: "Xử lý",
+    body: "Điều phối viên nhận cảnh báo trên trung tâm điều hành và giao việc cho đội cứu hộ.",
+  },
+];
+
+function FlowSection() {
+  return (
+    <section className="border-t border-[var(--sf-border)] px-5 py-16 sm:px-8 sm:py-20">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-10 max-w-2xl">
+          <p
+            className="mb-3 text-[13px] font-extrabold uppercase tracking-[0.14em]"
+            style={{ color: "var(--sf-primary)" }}
+          >
+            Quy trình
+          </p>
+          <h2 className="text-[30px] font-black leading-tight tracking-tight text-sf-text sm:text-[36px]">
+            Từ tín hiệu ngoài đường tới thao tác xử lý
+          </h2>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-3">
+          {STEPS.map((s) => (
+            <article
+              key={s.step}
+              className="rounded-[var(--sf-r-lg)] border p-6"
+              style={{ background: "var(--sf-bg-card)", borderColor: "var(--sf-border)" }}
+            >
+              <span
+                className="text-[13px] font-black tracking-wider"
+                style={{ color: "var(--sf-primary)" }}
+              >
+                {s.step}
+              </span>
+              <h3 className="mt-2 text-[18px] font-extrabold tracking-tight text-sf-text">
+                {s.title}
+              </h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-sf-text-secondary">{s.body}</p>
+            </article>
+          ))}
+        </div>
+
+        {/* Hình minh hoạ động — nằm trong khung riêng, không có chữ đè lên */}
+        <figure className="mt-10">
+          <div className="sf-visual-frame h-[16rem] sm:h-[20rem]">
+            <FleetCanvas className="h-full w-full" />
+          </div>
+          <figcaption className="mt-3 text-[14px] text-sf-text-muted">
+            Mô phỏng mạng lưới tuyến đường: chấm teal là xe đang chạy, nét đứt vàng là luồng
+            telemetry, vòng đỏ là điểm phát tín hiệu SOS.
+          </figcaption>
+        </figure>
+
+        <div className="mt-10 flex justify-center">
+          <a
+            href="#top"
+            onClick={(e) => {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            className="flex items-center gap-2 rounded-[var(--sf-r-md)] px-6 py-3.5 text-[15px] font-extrabold transition-[filter] hover:brightness-110"
+            style={{ background: "var(--sf-primary)", color: "var(--sf-primary-contrast)" }}
+          >
+            Quay lại đăng nhập
+            <ArrowRight className="h-[18px] w-[18px]" />
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ==========================================================================
+   THÀNH PHẦN PHỤ
+   ========================================================================== */
+
+function TextField({
+  id,
+  label,
+  icon: Icon,
+  value,
+  onChange,
+  type = "text",
+  autoComplete,
+  placeholder,
+  trailing,
+}: {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  autoComplete?: string;
+  placeholder?: string;
+  trailing?: React.ReactNode;
+}) {
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div>
+      <label htmlFor={id} className="mb-2 block text-[14px] font-bold text-sf-text">
+        {label}
+      </label>
+      <div
+        className="relative rounded-[var(--sf-r-md)] border-2 transition-[border-color] duration-[var(--sf-dur-fast)]"
+        style={{
+          background: "var(--sf-bg-inset)",
+          borderColor: focused ? "var(--sf-primary)" : "var(--sf-border-strong)",
+        }}
+        onClick={() => inputRef.current?.focus()}
+      >
+        <Icon
+          className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2"
+          style={{ color: focused ? "var(--sf-primary)" : "var(--sf-text-muted)" }}
+        />
+        <input
+          ref={inputRef}
+          id={id}
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          className="w-full border-none bg-transparent pl-12 pr-12 text-[16px] font-semibold text-sf-text placeholder:font-normal placeholder:text-sf-text-muted focus:outline-none"
+          style={{ height: "3.25rem" }}
+        />
+        {trailing && <span className="absolute right-2 top-1/2 -translate-y-1/2">{trailing}</span>}
       </div>
     </div>
+  );
+}
+
+function Code({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      className="rounded px-1.5 py-0.5 font-mono text-[13px] font-bold"
+      style={{ background: "var(--sf-bg-card)", color: "var(--sf-primary)" }}
+    >
+      {children}
+    </span>
   );
 }

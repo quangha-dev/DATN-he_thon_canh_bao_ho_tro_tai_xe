@@ -179,7 +179,7 @@ class _RoutePlannerScreenState extends ConsumerState<RoutePlannerScreen> {
           .nearbyFloodPoints(lat: lat, lng: lng);
       if (mounted) setState(() => _floodPoints = points);
     } catch (_) {
-      // Route vẫn dùng được vì backend chấm điểm trực tiếp từ MySQL.
+      // Route vẫn dùng được vì backend chấm điểm trực tiếp từ PostgreSQL.
     }
   }
 

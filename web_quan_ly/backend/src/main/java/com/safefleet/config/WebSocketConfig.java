@@ -69,10 +69,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 }
                 if (StompCommand.CONNECT.equals(accessor.getCommand())) {
                     accessor.setUser(authenticate(accessor.getFirstNativeHeader("Authorization")));
-                } else if ((StompCommand.SUBSCRIBE.equals(accessor.getCommand())
-                        || StompCommand.SEND.equals(accessor.getCommand()))
-                        && accessor.getUser() == null) {
-                    throw new BadCredentialsException("WebSocket authentication required");
+                } else if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())
+                        || StompCommand.SEND.equals(accessor.getCommand())) {
+                    if (!(accessor.getUser() instanceof Authentication authentication)) {
+                        throw new BadCredentialsException("WebSocket authentication required");
+                    }
+                    if (!WebSocketAuthorizationPolicy.isAllowed(
+                            authentication,
+                            accessor.getCommand(),
+                            accessor.getDestination()
+                    )) {
+                        throw new BadCredentialsException("WebSocket destination is not authorized");
+                    }
                 }
                 return message;
             }

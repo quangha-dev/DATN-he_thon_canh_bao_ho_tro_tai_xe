@@ -1,20 +1,89 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CalendarClock, CheckCircle2, CircleDollarSign, Search, Wrench, type LucideIcon } from "lucide-react";
-import { MaintenanceOrder, safeFleetApi } from "@/lib/safeFleetApi";
+import {
+  AlertTriangle,
+  CalendarClock,
+  CheckCircle2,
+  CircleDollarSign,
+  Pencil,
+  Plus,
+  Wrench,
+} from "lucide-react";
+import { MaintenanceOrder, MaintenanceOrderInput, safeFleetApi } from "@/lib/safeFleetApi";
+import { Vehicle } from "@/types";
 import { useToast } from "@/context/ToastContext";
-import { cn } from "@/lib/utils";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  IconButton,
+  Modal,
+  SearchInput,
+  Segmented,
+  SkeletonRows,
+  Stagger,
+  StatCard,
+  StatSkeletonGrid,
+  StatusLabel,
+  Table,
+  TableShell,
+  Td,
+  Toolbar,
+  Tr,
+  type Tone,
+} from "@/components/ui";
 
-const STATUS_LABELS: Record<MaintenanceOrder["status"], string> = { OPEN: "Mới mở", SCHEDULED: "Đã lên lịch", IN_PROGRESS: "Đang thực hiện", COMPLETED: "Hoàn thành", CANCELLED: "Đã hủy" };
-const PRIORITY_LABELS: Record<MaintenanceOrder["priority"], string> = { LOW: "Thấp", MEDIUM: "Trung bình", HIGH: "Cao", URGENT: "Khẩn cấp" };
-const TYPE_LABELS: Record<MaintenanceOrder["type"], string> = { PERIODIC: "Định kỳ", REPAIR: "Sửa chữa", INSPECTION: "Đăng kiểm", INSURANCE: "Bảo hiểm", EMERGENCY: "Khẩn cấp" };
-const STATUS_STYLE: Record<MaintenanceOrder["status"], string> = { OPEN: "bg-blue-50 text-blue-700", SCHEDULED: "bg-violet-50 text-violet-700", IN_PROGRESS: "bg-amber-50 text-amber-700", COMPLETED: "bg-emerald-50 text-emerald-700", CANCELLED: "bg-slate-100 text-slate-500" };
-const PRIORITY_STYLE: Record<MaintenanceOrder["priority"], string> = { LOW: "text-slate-500", MEDIUM: "text-blue-600", HIGH: "text-amber-600", URGENT: "text-rose-600" };
+const STATUS_LABELS: Record<MaintenanceOrder["status"], string> = {
+  OPEN: "Mới mở",
+  SCHEDULED: "Đã lên lịch",
+  IN_PROGRESS: "Đang thực hiện",
+  COMPLETED: "Hoàn thành",
+  CANCELLED: "Đã hủy",
+};
+
+const PRIORITY_LABELS: Record<MaintenanceOrder["priority"], string> = {
+  LOW: "Thấp",
+  MEDIUM: "Trung bình",
+  HIGH: "Cao",
+  URGENT: "Khẩn cấp",
+};
+
+const TYPE_LABELS: Record<MaintenanceOrder["type"], string> = {
+  PERIODIC: "Định kỳ",
+  REPAIR: "Sửa chữa",
+  INSPECTION: "Đăng kiểm",
+  INSURANCE: "Bảo hiểm",
+  EMERGENCY: "Khẩn cấp",
+};
+
+/** Trạng thái phiếu → khóa tone dùng chung */
+const STATUS_KEY: Record<MaintenanceOrder["status"], string> = {
+  OPEN: "open",
+  SCHEDULED: "assigned",
+  IN_PROGRESS: "in_progress",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+};
+
+const PRIORITY_TONE: Record<MaintenanceOrder["priority"], Tone> = {
+  LOW: "neutral",
+  MEDIUM: "primary",
+  HIGH: "warning",
+  URGENT: "danger",
+};
+
+const STATUS_KEYS = ["ALL", ...(Object.keys(STATUS_LABELS) as MaintenanceOrder["status"][])] as const;
+type StatusKey = (typeof STATUS_KEYS)[number];
 
 function money(value?: number | null) {
-  if (value == null) return "Chưa cập nhật";
-  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value);
+  if (value == null) return "—";
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 export default function MaintenancePage() {
@@ -22,55 +91,274 @@ export default function MaintenancePage() {
   const [orders, setOrders] = useState<MaintenanceOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<"ALL" | MaintenanceOrder["status"]>("ALL");
+  const [status, setStatus] = useState<StatusKey>("ALL");
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editing, setEditing] = useState<MaintenanceOrder | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    vehicleId: "",
+    type: "PERIODIC" as MaintenanceOrder["type"],
+    title: "",
+    description: "",
+    scheduledDate: "",
+    completedDate: "",
+    cost: "",
+    status: "OPEN" as MaintenanceOrder["status"],
+    priority: "MEDIUM" as MaintenanceOrder["priority"],
+    note: "",
+  });
 
   useEffect(() => {
     let cancelled = false;
-    safeFleetApi.maintenanceOrders().then((items) => !cancelled && setOrders(items)).catch((error) => {
-      if (!cancelled) showToast(error instanceof Error ? error.message : "Không tải được lịch bảo trì.", "error");
-    }).finally(() => !cancelled && setLoading(false));
-    return () => { cancelled = true; };
+    Promise.all([safeFleetApi.maintenanceOrders(), safeFleetApi.vehicles()])
+      .then(([items, vehicleItems]) => {
+        if (!cancelled) {
+          setOrders(items);
+          setVehicles(vehicleItems);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled)
+          showToast(
+            error instanceof Error ? error.message : "Không tải được lịch bảo trì.",
+            "error"
+          );
+      })
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
   }, [showToast]);
 
-  const stats = useMemo(() => ({
-    total: orders.length,
-    urgent: orders.filter((item) => item.priority === "URGENT" && item.status !== "COMPLETED" && item.status !== "CANCELLED").length,
-    active: orders.filter((item) => item.status === "OPEN" || item.status === "SCHEDULED" || item.status === "IN_PROGRESS").length,
-    completed: orders.filter((item) => item.status === "COMPLETED").length,
-    cost: orders.reduce((sum, item) => sum + (item.cost ?? 0), 0),
-  }), [orders]);
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ vehicleId: vehicles[0]?.id || "", type: "PERIODIC", title: "", description: "", scheduledDate: "", completedDate: "", cost: "", status: "OPEN", priority: "MEDIUM", note: "" });
+    setEditorOpen(true);
+  };
+
+  const openEdit = (order: MaintenanceOrder) => {
+    setEditing(order);
+    setForm({
+      vehicleId: String(order.vehicleId), type: order.type, title: order.title,
+      description: order.description || "", scheduledDate: order.scheduledDate || "",
+      completedDate: order.completedDate || "", cost: order.cost == null ? "" : String(order.cost),
+      status: order.status, priority: order.priority, note: order.note || "",
+    });
+    setEditorOpen(true);
+  };
+
+  const saveOrder = async () => {
+    if (!form.vehicleId || !form.title.trim()) {
+      showToast("Vui lòng chọn xe và nhập nội dung công việc.", "error");
+      return;
+    }
+    const input: MaintenanceOrderInput = {
+      vehicleId: Number(form.vehicleId), type: form.type, title: form.title.trim(),
+      description: form.description.trim() || null, scheduledDate: form.scheduledDate || null,
+      completedDate: form.completedDate || null, cost: form.cost ? Number(form.cost) : null,
+      status: form.status, priority: form.priority, assignedTo: editing?.assignedTo || null,
+      note: form.note.trim() || null,
+    };
+    setSaving(true);
+    try {
+      const saved = editing
+        ? await safeFleetApi.updateMaintenanceOrder(editing.id, input)
+        : await safeFleetApi.createMaintenanceOrder(input);
+      setOrders((items) => editing ? items.map((item) => item.id === saved.id ? saved : item) : [saved, ...items]);
+      setEditorOpen(false);
+      showToast(editing ? "Đã cập nhật phiếu bảo trì." : "Đã tạo phiếu bảo trì.", "success");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Không lưu được phiếu bảo trì.", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const stats = useMemo(
+    () => ({
+      total: orders.length,
+      urgent: orders.filter(
+        (o) => o.priority === "URGENT" && o.status !== "COMPLETED" && o.status !== "CANCELLED"
+      ).length,
+      active: orders.filter(
+        (o) => o.status === "OPEN" || o.status === "SCHEDULED" || o.status === "IN_PROGRESS"
+      ).length,
+      completed: orders.filter((o) => o.status === "COMPLETED").length,
+      cost: orders.reduce((sum, o) => sum + (o.cost ?? 0), 0),
+    }),
+    [orders]
+  );
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     return orders.filter((item) => {
       if (status !== "ALL" && item.status !== status) return false;
       if (!keyword) return true;
-      return [item.maintenanceCode, item.vehiclePlateNumber, item.title, item.assignedToName].filter(Boolean).some((value) => value!.toLowerCase().includes(keyword));
+      return [item.maintenanceCode, item.vehiclePlateNumber, item.title, item.assignedToName]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(keyword));
     });
   }, [orders, query, status]);
 
-  const cards: { label: string; value: string | number; icon: LucideIcon; color: string }[] = [
-    { label: "Tổng phiếu", value: stats.total, icon: Wrench, color: "text-slate-700" },
-    { label: "Đang xử lý", value: stats.active, icon: CalendarClock, color: "text-blue-600" },
-    { label: "Khẩn cấp", value: stats.urgent, icon: AlertTriangle, color: "text-rose-600" },
-    { label: "Hoàn thành", value: stats.completed, icon: CheckCircle2, color: "text-emerald-600" },
-    { label: "Tổng chi phí", value: money(stats.cost), icon: CircleDollarSign, color: "text-teal-600" },
-  ];
+  return (
+    <div className="space-y-5">
+      <Stagger className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
+        {loading && orders.length === 0 ? (
+          <StatSkeletonGrid count={5} />
+        ) : (
+          <>
+            <StatCard label="Tổng phiếu" value={stats.total} icon={Wrench} tone="primary" />
+            <StatCard
+              label="Đang xử lý"
+              value={stats.active}
+              icon={CalendarClock}
+              tone="primary"
+            />
+            <StatCard
+              label="Khẩn cấp"
+              value={stats.urgent}
+              icon={AlertTriangle}
+              tone="danger"
+              pulse
+            />
+            <StatCard
+              label="Hoàn thành"
+              value={stats.completed}
+              icon={CheckCircle2}
+              tone="success"
+              onClick={() => setStatus(status === "COMPLETED" ? "ALL" : "COMPLETED")}
+              active={status === "COMPLETED"}
+            />
+            <Card padding="sm" className="flex flex-col justify-center">
+              <p className="sf-eyebrow flex items-center gap-1.5">
+                <CircleDollarSign className="h-3.5 w-3.5" style={{ color: "var(--sf-accent)" }} />
+                Tổng chi phí
+              </p>
+              <p
+                className="sf-metric mt-2 text-[20px]"
+                style={{ color: "var(--sf-accent-hover)" }}
+              >
+                {money(stats.cost)}
+              </p>
+            </Card>
+          </>
+        )}
+      </Stagger>
 
-  return <div className="space-y-6 animate-fadeIn">
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-      {cards.map(({ label, value, icon: Icon, color }) => <div key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span><Icon className={cn("h-4 w-4", color)} /></div><strong className="mt-2 block text-xl text-slate-900 dark:text-white">{value}</strong></div>)}
-    </div>
+      <Toolbar>
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Tìm mã phiếu, biển số, nội dung…"
+          className="sm:max-w-sm"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Segmented
+            value={status}
+            onChange={setStatus}
+            options={STATUS_KEYS.map((s) => ({
+              value: s,
+              label: s === "ALL" ? "Tất cả" : STATUS_LABELS[s as MaintenanceOrder["status"]],
+            }))}
+          />
+          <Button icon={Plus} size="sm" onClick={openCreate}>Tạo phiếu</Button>
+        </div>
+      </Toolbar>
 
-    <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:flex-row">
-      <label className="relative flex-1"><span className="sr-only">Tìm phiếu bảo trì</span><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mã phiếu, biển số, nội dung..." className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-900 outline-none focus:border-teal-500 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:bg-slate-800" /></label>
-      <select value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-teal-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"><option value="ALL">Tất cả trạng thái</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-    </div>
+      <TableShell loading={loading}>
+        <Table
+          head={["Phiếu / Phương tiện", "Công việc", "Lịch", "Phụ trách", "Chi phí", "Trạng thái", ""]}
+        >
+          {loading && orders.length === 0 ? (
+            <SkeletonRows rows={6} cols={6} />
+          ) : filtered.length === 0 ? (
+            <tr>
+              <Td colSpan={7}>
+                <EmptyState
+                  icon={Wrench}
+                  title="Không có phiếu bảo trì"
+                  description="Thử đổi từ khóa tìm kiếm hoặc chọn trạng thái khác."
+                />
+              </Td>
+            </tr>
+          ) : (
+            filtered.map((item) => (
+              <Tr key={item.id}>
+                <Td>
+                  <span className="block text-[13px] font-extrabold text-sf-text">
+                    {item.maintenanceCode}
+                  </span>
+                  <span className="block text-[12.5px] font-semibold text-sf-text-muted">
+                    {item.vehiclePlateNumber}
+                  </span>
+                </Td>
+                <Td className="max-w-sm">
+                  <span className="block truncate text-[12.5px] font-bold text-sf-text-secondary">
+                    {item.title}
+                  </span>
+                  <span className="mt-1 flex items-center gap-1.5">
+                    <span className="text-[12px] text-sf-text-muted">
+                      {TYPE_LABELS[item.type]}
+                    </span>
+                    <Badge tone={PRIORITY_TONE[item.priority]} size="sm">
+                      {PRIORITY_LABELS[item.priority]}
+                    </Badge>
+                  </span>
+                </Td>
+                <Td>
+                  {item.completedDate
+                    ? `Hoàn tất ${item.completedDate}`
+                    : item.scheduledDate
+                      ? `Dự kiến ${item.scheduledDate}`
+                      : "Chưa xếp lịch"}
+                </Td>
+                <Td>{item.assignedToName || <span className="italic text-sf-text-muted">Chưa phân công</span>}</Td>
+                <Td className="sf-tnum font-bold">{money(item.cost)}</Td>
+                <Td>
+                  <StatusLabel
+                    status={STATUS_KEY[item.status]}
+                    label={STATUS_LABELS[item.status]}
+                    pulse={item.status === "IN_PROGRESS"}
+                  />
+                </Td>
+                <Td align="center">
+                  <IconButton icon={Pencil} label="Chỉnh sửa phiếu" size="sm" tone="primary" onClick={() => openEdit(item)} />
+                </Td>
+              </Tr>
+            ))
+          )}
+        </Table>
+      </TableShell>
 
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      {loading && <div className="border-b border-slate-100 px-4 py-2 text-xs text-blue-600">Đang tải dữ liệu bảo trì từ backend...</div>}
-      <div className="overflow-x-auto"><table className="w-full text-left"><thead className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Phiếu / Phương tiện</th><th className="px-4 py-3">Công việc</th><th className="px-4 py-3">Lịch</th><th className="px-4 py-3">Phụ trách</th><th className="px-4 py-3">Chi phí</th><th className="px-4 py-3">Trạng thái</th></tr></thead>
-      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">{filtered.map((item) => <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60"><td className="px-4 py-3"><div className="text-sm font-bold text-slate-900 dark:text-white">{item.maintenanceCode}</div><div className="text-xs font-medium text-slate-500">{item.vehiclePlateNumber}</div></td><td className="max-w-sm px-4 py-3"><div className="text-sm font-semibold text-slate-800 dark:text-slate-200">{item.title}</div><div className="mt-0.5 text-xs text-slate-500">{TYPE_LABELS[item.type]} · <span className={cn("font-bold", PRIORITY_STYLE[item.priority])}>{PRIORITY_LABELS[item.priority]}</span></div></td><td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">{item.completedDate ? `Hoàn tất ${item.completedDate}` : item.scheduledDate ? `Dự kiến ${item.scheduledDate}` : "Chưa xếp lịch"}</td><td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">{item.assignedToName || "Chưa phân công"}</td><td className="px-4 py-3 text-xs font-semibold text-slate-700 dark:text-slate-200">{money(item.cost)}</td><td className="px-4 py-3"><span className={cn("inline-flex rounded-full px-2 py-1 text-[10px] font-bold", STATUS_STYLE[item.status])}>{STATUS_LABELS[item.status]}</span></td></tr>)}{!loading && filtered.length === 0 && <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">Không có phiếu bảo trì phù hợp.</td></tr>}</tbody></table></div>
+      <Modal
+        open={editorOpen}
+        onClose={() => !saving && setEditorOpen(false)}
+        title={editing ? `Cập nhật ${editing.maintenanceCode}` : "Tạo phiếu bảo trì"}
+        subtitle="Theo dõi công việc, lịch dự kiến, chi phí và trạng thái xử lý."
+        footer={<><Button variant="outline" size="sm" disabled={saving} onClick={() => setEditorOpen(false)}>Hủy</Button><Button size="sm" loading={saving} onClick={() => void saveOrder()}>Lưu phiếu</Button></>}
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <MaintenanceSelect label="Phương tiện *" value={form.vehicleId} onChange={(value) => setForm((old) => ({ ...old, vehicleId: value }))} options={vehicles.map((vehicle) => [vehicle.id, vehicle.plate])} />
+          <MaintenanceSelect label="Loại công việc" value={form.type} onChange={(value) => setForm((old) => ({ ...old, type: value as MaintenanceOrder["type"] }))} options={Object.entries(TYPE_LABELS)} />
+          <MaintenanceField className="sm:col-span-2" label="Nội dung công việc *" value={form.title} onChange={(value) => setForm((old) => ({ ...old, title: value }))} />
+          <MaintenanceField className="sm:col-span-2" label="Mô tả" value={form.description} onChange={(value) => setForm((old) => ({ ...old, description: value }))} />
+          <MaintenanceField label="Ngày dự kiến" type="date" value={form.scheduledDate} onChange={(value) => setForm((old) => ({ ...old, scheduledDate: value }))} />
+          <MaintenanceField label="Chi phí (VND)" type="number" value={form.cost} onChange={(value) => setForm((old) => ({ ...old, cost: value }))} />
+          <MaintenanceSelect label="Ưu tiên" value={form.priority} onChange={(value) => setForm((old) => ({ ...old, priority: value as MaintenanceOrder["priority"] }))} options={Object.entries(PRIORITY_LABELS)} />
+          <MaintenanceSelect label="Trạng thái" value={form.status} onChange={(value) => setForm((old) => ({ ...old, status: value as MaintenanceOrder["status"] }))} options={Object.entries(STATUS_LABELS)} />
+          {form.status === "COMPLETED" && <MaintenanceField label="Ngày hoàn thành" type="date" value={form.completedDate} onChange={(value) => setForm((old) => ({ ...old, completedDate: value }))} />}
+          <MaintenanceField className="sm:col-span-2" label="Ghi chú" value={form.note} onChange={(value) => setForm((old) => ({ ...old, note: value }))} />
+        </div>
+      </Modal>
     </div>
-  </div>;
+  );
+}
+
+function MaintenanceField({ label, value, onChange, type = "text", className = "" }: { label: string; value: string; onChange: (value: string) => void; type?: string; className?: string }) {
+  return <label className={`space-y-1.5 ${className}`}><span className="text-xs font-bold text-sf-text-secondary">{label}</span><input className="sf-input w-full" type={type} min={type === "number" ? 0 : undefined} value={value} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function MaintenanceSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: [string, string][] }) {
+  return <label className="space-y-1.5"><span className="text-xs font-bold text-sf-text-secondary">{label}</span><select className="sf-input w-full" value={value} onChange={(event) => onChange(event.target.value)}><option value="">Chọn</option>{options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select></label>;
 }

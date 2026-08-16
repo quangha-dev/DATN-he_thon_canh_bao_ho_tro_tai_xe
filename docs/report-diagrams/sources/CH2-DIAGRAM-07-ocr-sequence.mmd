@@ -1,0 +1,51 @@
+sequenceDiagram
+    autonumber
+    actor Driver as Tài xế
+    participant UI as Flutter UI
+    participant Scan as DocumentScanService
+    participant Local as SQLite
+    participant Sync as DocumentOcrSyncQueue
+    participant API as MobileController
+    participant DB as MySQL
+    participant Worker as DocumentOcrJobProcessor
+    participant OCR as FastAPI /ocr/driving-log
+    participant Notify as NotificationService
+
+    Driver->>UI: Chụp hoặc chọn nhiều ảnh
+    loop Từng ảnh
+        UI->>Scan: Tìm biên, hiệu chỉnh phối cảnh, chấm chất lượng
+        alt Ảnh không đạt
+            Scan-->>UI: RED + lý do
+            UI-->>Driver: Yêu cầu chụp lại
+        else Ảnh có thể xử lý
+            Scan-->>UI: Ảnh chuẩn hóa + GREEN/YELLOW
+            UI->>Local: Lưu driving_log_entries + PENDING_UPLOAD
+        end
+    end
+    UI-->>Driver: Trả quyền thao tác, OCR chạy nền
+    Sync->>Local: Claim item PENDING_UPLOAD
+    alt Mất mạng
+        Sync->>Local: Giữ queue và lập lịch retry
+    else Có mạng
+        Sync->>API: POST /api/v1/mobile/documents/ocr/jobs
+        API->>DB: INSERT QUEUED theo owner_user_id
+        DB-->>API: jobId kiểu BIGINT
+        API-->>Sync: 200 ApiResponse + jobId
+        Sync->>Local: WAITING_RESULT + server_job_id
+        API-)Worker: Schedule sau transaction commit
+        Worker->>DB: QUEUED → PROCESSING
+        Worker->>OCR: Multipart image
+        OCR-->>Worker: Fields + confidence + diagnostics
+        Worker->>DB: COMPLETED/FAILED, xóa image_data nhạy cảm
+        Worker->>Notify: Tạo thông báo theo owner
+        Sync->>API: GET /api/v1/mobile/documents/ocr/jobs/{id}
+        API-->>Sync: Status + result/error
+        alt COMPLETED và form không đang sửa
+            Sync->>Local: Merge kết quả và đánh dấu DONE
+        else COMPLETED nhưng form đang sửa
+            Sync->>Local: Lưu kết quả chờ, không ghi đè
+        else FAILED
+            Sync->>Local: FAILED + last_error
+        end
+        UI-->>Driver: Mở màn hình đối chiếu trước khi xác nhận
+    end

@@ -1,0 +1,7 @@
+.venv/
+.venv_vietocr/
+vendor/
+**/__pycache__/
+results/debug/
+models/**/*.traineddata
+models/vietocr/*.pth

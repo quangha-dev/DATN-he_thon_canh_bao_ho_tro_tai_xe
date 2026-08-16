@@ -1,11 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { cn, formatTimeAgo, getSafetyScoreInfo, STATUS_COLORS, ALERT_TYPE_LABELS } from "@/lib/utils";
+import Link from "next/link";
+import { cn, formatTimeAgo, ALERT_TYPE_LABELS } from "@/lib/utils";
 import { safeFleetApi } from "@/lib/safeFleetApi";
 import MapView from "@/components/map/MapView";
 import { Alert, CommandCenterStats, FloodPoint, Incident, Trip, Vehicle } from "@/types";
 import { useToast } from "@/context/ToastContext";
+import { useAuth } from "@/context/AuthContext";
+import {
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  EmptyState,
+  PeriodSelect,
+  ProgressBar,
+  ScoreRing,
+  Segmented,
+  Stagger,
+  StatCard,
+  StatSkeletonGrid,
+  StatusDot,
+  type Tone,
+} from "@/components/ui";
 import {
   Truck,
   AlertTriangle,
@@ -15,28 +33,28 @@ import {
   Droplets,
   Phone,
   Eye,
-  CheckCircle,
+  CheckCircle2,
   ChevronRight,
   Activity,
-  TrendingUp,
   Shield,
+  Radio,
 } from "lucide-react";
 
-// =============================================================================
-// FILTER CHIPS
-// =============================================================================
-const FILTERS = [
-  { key: "all", label: "Tất cả" },
-  { key: "running", label: "Đang chạy" },
-  { key: "alert", label: "Cảnh báo" },
-  { key: "sos", label: "SOS" },
-  { key: "flood", label: "Gần điểm ngập" },
-  { key: "offline", label: "Mất GPS" },
-];
+/* ==========================================================================
+   CẤU HÌNH
+   ========================================================================== */
 
-// =============================================================================
-// STAT CARDS DATA
-// =============================================================================
+const FILTERS = [
+  { value: "all", label: "Tất cả" },
+  { value: "running", label: "Đang chạy" },
+  { value: "alert", label: "Có cảnh báo" },
+  { value: "sos", label: "SOS" },
+  { value: "flood", label: "Gần điểm ngập" },
+  { value: "offline", label: "Mất GPS" },
+] as const;
+
+type FilterKey = (typeof FILTERS)[number]["value"];
+
 const EMPTY_STATS: CommandCenterStats = {
   totalOperating: 0,
   alertsToday: 0,
@@ -46,137 +64,92 @@ const EMPTY_STATS: CommandCenterStats = {
   activeFloodPoints: 0,
 };
 
-function getStatCards(stats: CommandCenterStats) {
+/**
+ * Thẻ "Đang vận hành" được tô đặc màu thương hiệu — đúng một điểm nhấn màu
+ * trên toàn màn hình, phần còn lại là thẻ trắng.
+ */
+function statCards(stats: CommandCenterStats) {
   return [
-    {
-      key: "operating",
-      label: "Đang vận hành",
-      value: stats.totalOperating,
-      icon: Truck,
-      tone: "bg-slate-900",
-      shadow: "shadow-blue-500/20",
-      change: "Dữ liệu backend",
-      changePositive: true,
-    },
-    {
-      key: "alerts",
-      label: "Cảnh báo đang mở",
-      value: stats.alertsToday,
-      icon: AlertTriangle,
-      tone: "bg-amber-500",
-      shadow: "shadow-amber-500/20",
-      change: "Cần theo dõi",
-      changePositive: false,
-    },
-    {
-      key: "sos",
-      label: "SOS đang mở",
-      value: stats.openSos,
-      icon: Siren,
-      tone: "bg-red-600",
-      shadow: "shadow-red-500/20",
-      pulse: true,
-    },
-    {
-      key: "overtime",
-      label: "Tài xế gần quá giờ",
-      value: stats.driversNearOvertime,
-      icon: Clock,
-      tone: "bg-slate-700",
-      shadow: "shadow-violet-500/20",
-    },
-    {
-      key: "offline",
-      label: "Xe mất kết nối",
-      value: stats.vehiclesOffline,
-      icon: WifiOff,
-      tone: "bg-slate-500",
-      shadow: "shadow-slate-500/20",
-    },
-    {
-      key: "flood",
-      label: "Điểm ngập hoạt động",
-      value: stats.activeFloodPoints,
-      icon: Droplets,
-      tone: "bg-teal-600",
-      shadow: "shadow-cyan-500/20",
-    },
+    { key: "operating", label: "Đang vận hành", value: stats.totalOperating, icon: Truck, tone: "primary" as Tone, hint: "Xe có tín hiệu trong 15 phút", filled: true },
+    { key: "alerts", label: "Cảnh báo đang mở", value: stats.alertsToday, icon: AlertTriangle, tone: "accent" as Tone, hint: "Cần theo dõi và xử lý" },
+    { key: "sos", label: "SOS đang mở", value: stats.openSos, icon: Siren, tone: "danger" as Tone, hint: "Ưu tiên cao nhất", pulse: true },
+    { key: "overtime", label: "Tài xế gần quá giờ", value: stats.driversNearOvertime, icon: Clock, tone: "accent" as Tone, hint: "Sắp chạm giới hạn 4 giờ" },
+    { key: "offline", label: "Xe mất kết nối", value: stats.vehiclesOffline, icon: WifiOff, tone: "neutral" as Tone, hint: "Không nhận được telemetry" },
+    { key: "flood", label: "Điểm ngập hoạt động", value: stats.activeFloodPoints, icon: Droplets, tone: "primary" as Tone, hint: "Đang ảnh hưởng tuyến đường" },
   ];
 }
 
-// =============================================================================
-// PRIORITY PANEL DATA
-// =============================================================================
-function getPriorityItems(incidents: Incident[], alerts: Alert[]) {
-  const items: {
-    id: string;
-    color: string;
-    borderColor: string;
-    bgColor: string;
-    title: string;
-    subtitle: string;
-    time: string;
-    type: "sos" | "alert" | "warning";
-  }[] = [];
+interface PriorityItem {
+  id: string;
+  tone: Tone;
+  title: string;
+  subtitle: string;
+  time: string;
+  kind: "sos" | "critical" | "high";
+  href: string;
+  actionable: boolean;
+}
 
-  // SOS incidents
+function buildPriorityItems(incidents: Incident[], alerts: Alert[]): PriorityItem[] {
+  const items: PriorityItem[] = [];
+
   incidents
     .filter((i) => i.status === "open" || i.status === "in_progress")
     .forEach((incident) => {
       items.push({
-        id: incident.id,
-        color: "text-red-600 dark:text-red-400",
-        borderColor: "border-red-500",
-        bgColor: "bg-red-50 dark:bg-red-950/30",
-        title: `Xe ${incident.vehiclePlate} gửi SOS`,
+        id: `sos-${incident.id}`,
+        tone: "danger",
+        title: `Xe ${incident.vehiclePlate} gửi tín hiệu SOS`,
         subtitle: incident.location,
         time: formatTimeAgo(incident.timestamp),
-        type: "sos",
+        kind: "sos",
+        href: `/incidents?id=${incident.id}`,
+        actionable: incident.status === "open",
       });
     });
 
-  // Critical alerts
   alerts
     .filter((a) => a.severity === "critical" && a.status === "new")
     .forEach((alert) => {
       items.push({
-        id: alert.id,
-        color: "text-orange-600 dark:text-orange-400",
-        borderColor: "border-orange-500",
-        bgColor: "bg-orange-50 dark:bg-orange-950/30",
-        title: `${alert.driverName} ${ALERT_TYPE_LABELS[alert.type]?.toLowerCase() || alert.type}`,
+        id: `crit-${alert.id}`,
+        tone: "danger",
+        title: `${alert.driverName} — ${(ALERT_TYPE_LABELS[alert.type] || alert.type).toLowerCase()}`,
         subtitle: alert.repeatCount ? `Lặp lại ${alert.repeatCount} lần` : alert.message,
         time: formatTimeAgo(alert.timestamp),
-        type: "alert",
+        kind: "critical",
+        href: `/alerts?id=${alert.id}`,
+        actionable: true,
       });
     });
 
-  // High alerts
   alerts
     .filter((a) => a.severity === "high" && a.status === "new")
-    .slice(0, 3)
+    .slice(0, 4)
     .forEach((alert) => {
       items.push({
-        id: alert.id,
-        color: "text-amber-600 dark:text-amber-400",
-        borderColor: "border-amber-500",
-        bgColor: "bg-amber-50 dark:bg-amber-950/30",
-        title: `${ALERT_TYPE_LABELS[alert.type] || alert.type}: ${alert.vehiclePlate}`,
+        id: `high-${alert.id}`,
+        tone: "warning",
+        title: `${ALERT_TYPE_LABELS[alert.type] || alert.type} · ${alert.vehiclePlate}`,
         subtitle: alert.message,
         time: formatTimeAgo(alert.timestamp),
-        type: "warning",
+        kind: "high",
+        href: `/alerts?id=${alert.id}`,
+        actionable: true,
       });
     });
 
   return items;
 }
 
-// =============================================================================
-// MAIN COMPONENT
-// =============================================================================
+/* ==========================================================================
+   TRANG
+   ========================================================================== */
+
 export default function CommandCenterPage() {
   const { showToast } = useToast();
-  const [activeFilter, setActiveFilter] = useState("all");
+  const { user } = useAuth();
+  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -184,30 +157,33 @@ export default function CommandCenterPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [stats, setStats] = useState<CommandCenterStats>(EMPTY_STATS);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [period, setPeriod] = useState("week");
+  const [busyPriorityId, setBusyPriorityId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
 
     const loadDashboard = async () => {
-      setIsLoading(true);
       try {
-        const [vehicleData, alertData, incidentData, tripData, floodData, statData] = await Promise.all([
-          safeFleetApi.vehicles(),
-          safeFleetApi.safetyEvents(),
-          safeFleetApi.incidents(),
-          safeFleetApi.trips(),
-          safeFleetApi.floodPoints(),
-          safeFleetApi.dashboardStats(),
-        ]);
-        if (!cancelled) {
-          setVehicles(vehicleData);
-          setAlerts(alertData);
-          setIncidents(incidentData);
-          setTrips(tripData);
-          setFloodPoints(floodData);
-          setStats(statData);
-        }
+        const [vehicleData, alertData, incidentData, tripData, floodData, statData] =
+          await Promise.all([
+            safeFleetApi.vehicles(),
+            safeFleetApi.safetyEvents(),
+            safeFleetApi.incidents(),
+            safeFleetApi.trips(),
+            safeFleetApi.floodPoints(),
+            safeFleetApi.dashboardStats(),
+          ]);
+        if (cancelled) return;
+        setVehicles(vehicleData);
+        setAlerts(alertData);
+        setIncidents(incidentData);
+        setTrips(tripData);
+        setFloodPoints(floodData);
+        setStats(statData);
+        setLastSync(new Date());
       } catch (error) {
         const message = error instanceof Error ? error.message : "Không tải được dashboard.";
         if (!cancelled) showToast(message, "error");
@@ -216,7 +192,8 @@ export default function CommandCenterPage() {
       }
     };
 
-    loadDashboard();
+    void loadDashboard();
+
     const onRealtime = () => {
       if (realtimeDebounce) clearTimeout(realtimeDebounce);
       realtimeDebounce = setTimeout(loadDashboard, 350);
@@ -232,361 +209,370 @@ export default function CommandCenterPage() {
     };
   }, [showToast]);
 
-  const priorityItems = useMemo(() => getPriorityItems(incidents, alerts), [incidents, alerts]);
+  const priorityItems = useMemo(() => buildPriorityItems(incidents, alerts), [incidents, alerts]);
   const activeTrips = useMemo(() => trips.filter((t) => t.status === "in_progress"), [trips]);
-  const statCards = useMemo(() => getStatCards(stats), [stats]);
+  const cards = useMemo(() => statCards(stats), [stats]);
+  const openAlerts = useMemo(() => alerts.filter((a) => a.status === "new").length, [alerts]);
+  const canAcceptIncident = user?.role === "ADMIN" || user?.role === "DISPATCHER";
+
+  const handleAcceptPriority = async (item: PriorityItem) => {
+    setBusyPriorityId(item.id);
+    try {
+      const [kind, id] = item.id.split("-");
+      if (kind === "sos") {
+        const updated = await safeFleetApi.acceptIncident(id);
+        setIncidents((current) => current.map((incident) => incident.id === id ? updated : incident));
+        showToast("Đã tiếp nhận sự cố.", "success");
+      } else {
+        const updated = await safeFleetApi.acknowledgeSafetyEvent(id);
+        setAlerts((current) => current.map((alert) => alert.id === id ? updated : alert));
+        showToast("Đã xác nhận cảnh báo.", "success");
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Không thể tiếp nhận mục này.", "error");
+    } finally {
+      setBusyPriorityId(null);
+    }
+  };
+
   const filteredVehicles = useMemo(() => {
-    if (activeFilter === "running") return vehicles.filter((vehicle) => vehicle.status === "running");
-    if (activeFilter === "alert") return vehicles.filter((vehicle) => vehicle.totalAlerts > 0);
-    if (activeFilter === "offline") return vehicles.filter((vehicle) => vehicle.status === "offline");
+    if (activeFilter === "running") return vehicles.filter((v) => v.status === "running");
+    if (activeFilter === "alert") return vehicles.filter((v) => v.totalAlerts > 0);
+    if (activeFilter === "offline") return vehicles.filter((v) => v.status === "offline");
     if (activeFilter === "sos") {
-      const vehicleIds = new Set(
+      const ids = new Set(
         incidents
-          .filter((incident) => incident.status === "open" || incident.status === "in_progress")
-          .map((incident) => incident.vehicleId)
+          .filter((i) => i.status === "open" || i.status === "in_progress")
+          .map((i) => i.vehicleId)
       );
-      return vehicles.filter((vehicle) => vehicleIds.has(vehicle.id));
+      return vehicles.filter((v) => ids.has(v.id));
     }
     if (activeFilter === "flood") {
-      return vehicles.filter((vehicle) =>
+      return vehicles.filter((v) =>
         floodPoints.some(
-          (point) =>
-            Math.abs(point.lat - vehicle.lat) < 0.01 &&
-            Math.abs(point.lng - vehicle.lng) < 0.01
+          (p) => v.lat !== null && v.lng !== null
+            && Math.abs(p.lat - v.lat) < 0.01
+            && Math.abs(p.lng - v.lng) < 0.01
         )
       );
     }
     return vehicles;
   }, [activeFilter, floodPoints, incidents, vehicles]);
 
-  // Top risky drivers
-  const riskyDrivers = [...vehicles]
-    .filter((v) => v.currentDriverId)
-    .map((v) => {
-      const driver = v.currentDriverName;
-      const vehicleAlerts = alerts.filter(
-        (a) => a.vehicleId === v.id && a.status !== "resolved"
-      );
-      return { vehicle: v, driverName: driver, alertCount: vehicleAlerts.length };
-    })
-    .filter((d) => d.alertCount > 0)
-    .sort((a, b) => b.alertCount - a.alertCount)
-    .slice(0, 5);
+  const filterCounts = useMemo(
+    () => ({
+      all: vehicles.length,
+      running: vehicles.filter((v) => v.status === "running").length,
+      alert: vehicles.filter((v) => v.totalAlerts > 0).length,
+      sos: incidents.filter((i) => i.status === "open" || i.status === "in_progress").length,
+      flood: floodPoints.length,
+      offline: vehicles.filter((v) => v.status === "offline").length,
+    }),
+    [vehicles, incidents, floodPoints]
+  );
+
+  /* Tài xế rủi ro cao — xếp theo số cảnh báo chưa xử lý */
+  const riskyDrivers = useMemo(() => {
+    return vehicles
+      .filter((v) => v.currentDriverId)
+      .map((v) => ({
+        vehicle: v,
+        driverName: v.currentDriverName ?? "Không rõ",
+        alertCount: alerts.filter((a) => a.vehicleId === v.id && a.status !== "resolved").length,
+      }))
+      .filter((d) => d.alertCount > 0)
+      .sort((a, b) => b.alertCount - a.alertCount)
+      .slice(0, 5);
+  }, [vehicles, alerts]);
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* ===== Filter Chips ===== */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {FILTERS.map((filter) => (
-          <button
-            key={filter.key}
-            onClick={() => setActiveFilter(filter.key)}
-            className={cn(
-              "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-              activeFilter === filter.key
-                ? "bg-slate-900 text-white shadow-sm"
-                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-500 hover:text-teal-700 dark:hover:text-teal-400"
-            )}
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
+    <div className="space-y-5">
+      {/* ===== Thẻ thống kê ===== */}
+      <Stagger className="grid grid-cols-2 gap-3.5 md:grid-cols-3 xl:grid-cols-6">
+        {isLoading && vehicles.length === 0 ? (
+          <StatSkeletonGrid count={6} />
+        ) : (
+          cards.map((c) => (
+            <StatCard
+              key={c.key}
+              label={c.label}
+              value={c.value}
+              icon={c.icon}
+              tone={c.tone}
+              hint={c.hint}
+              pulse={c.pulse}
+              filled={c.filled}
+              trailing={
+                <PeriodSelect value={period} onChange={setPeriod} onFilled={c.filled} />
+              }
+            />
+          ))
+        )}
+      </Stagger>
 
-      {/* ===== Main Grid: Map Area + Priority Panel ===== */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Realtime operating map */}
-        <div className="xl:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-          <div className="relative h-[400px] bg-slate-100 dark:bg-slate-900">
+      {/* ===== Bản đồ + Việc cần xử lý ===== */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+        <Card padding="none" className="xl:col-span-2">
+          {/* Thanh lọc */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--sf-border)] px-4 py-3">
+            <Segmented
+              value={activeFilter}
+              onChange={setActiveFilter}
+              options={FILTERS.map((f) => ({
+                value: f.value,
+                label: f.label,
+                count: filterCounts[f.value],
+              }))}
+              size="sm"
+              className="max-w-full overflow-x-auto"
+            />
+            <span className="flex items-center gap-2 text-[12.5px] font-semibold text-sf-text-muted">
+              <StatusDot tone={isLoading ? "warning" : "success"} pulse />
+              {isLoading
+                ? "Đang đồng bộ…"
+                : lastSync
+                  ? `Cập nhật ${lastSync.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+                  : "Sẵn sàng"}
+            </span>
+          </div>
+
+          <div className="sf-map-dark relative h-[420px]">
             <MapView
               vehicles={filteredVehicles}
               floodPoints={floodPoints}
               incidents={incidents.filter(
-                (incident) =>
-                  incident.status === "open" || incident.status === "in_progress"
+                (i) => i.status === "open" || i.status === "in_progress"
               )}
             />
-            <div className="absolute top-4 left-4 flex gap-2">
-              <span className="px-3 py-1.5 rounded-lg bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm text-xs font-semibold text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700">
-                {filteredVehicles.length} xe hiển thị
+
+            {/* Chỉ số nổi trên bản đồ */}
+            <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-2">
+              <span className="sf-glass-panel pointer-events-auto flex items-center gap-2 px-3 py-1.5 text-[12.5px] font-bold text-sf-text">
+                <Truck className="h-3.5 w-3.5 text-[var(--sf-primary)]" />
+                <span className="sf-tnum">{filteredVehicles.length}</span> xe hiển thị
               </span>
-              <span className="px-3 py-1.5 rounded-lg bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-sm text-xs font-semibold text-amber-700 dark:text-amber-400 border border-slate-200 dark:border-slate-700">
-                {alerts.filter((a) => a.status === "new").length} cảnh báo
-              </span>
-              {isLoading && (
-                <span className="px-3 py-1.5 rounded-lg bg-white/95 border border-slate-200 text-xs font-semibold text-teal-700">
-                  Đang đồng bộ...
+              {openAlerts > 0 && (
+                <span
+                  className="sf-glass-panel pointer-events-auto flex items-center gap-2 px-3 py-1.5 text-[12.5px] font-bold"
+                  style={{ color: "var(--sf-accent-hover)" }}
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <span className="sf-tnum">{openAlerts}</span> cảnh báo mở
                 </span>
               )}
             </div>
           </div>
-        </div>
+        </Card>
 
-        {/* Priority Panel */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                Việc cần xử lý ngay
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {priorityItems.length} mục ưu tiên
-              </p>
-            </div>
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
-            </span>
+        {/* Việc cần xử lý */}
+        <Card padding="none" className="flex flex-col">
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--sf-border)] px-4 py-3.5">
+            <CardHeader
+              title="Việc cần xử lý ngay"
+              subtitle={`${priorityItems.length} mục ưu tiên`}
+              icon={Radio}
+            />
+            {priorityItems.length > 0 && <StatusDot tone="danger" pulse />}
           </div>
 
-          <div className="overflow-y-auto max-h-[340px] divide-y divide-slate-100 dark:divide-slate-800">
-            {priorityItems.map((item) => (
-              <div
-                key={`${item.type}-${item.id}`}
-                className={cn(
-                  "px-5 py-3.5 border-l-[3px] hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer",
-                  item.borderColor
-                )}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className={cn("text-sm font-semibold", item.color)}>
+          <div className="max-h-[24rem] min-h-0 flex-1 overflow-y-auto">
+            {priorityItems.length === 0 ? (
+              <EmptyState
+                icon={CheckCircle2}
+                title="Không có việc tồn đọng"
+                description="Toàn bộ cảnh báo nghiêm trọng và SOS đã được xử lý."
+              />
+            ) : (
+              priorityItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="group border-b border-[var(--sf-border-light)] border-l-[3px] px-4 py-3 transition-colors last:border-b-0 hover:bg-[var(--sf-bg-inset)]"
+                  style={{
+                    borderLeftColor:
+                      item.tone === "danger" ? "var(--sf-danger)" : "var(--sf-accent)",
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p
+                      className="min-w-0 flex-1 text-[13px] font-bold leading-snug"
+                      style={{
+                        color:
+                          item.tone === "danger" ? "var(--sf-danger)" : "var(--sf-accent-hover)",
+                      }}
+                    >
                       {item.title}
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                      {item.subtitle}
-                    </p>
+                    <span className="flex-shrink-0 text-[12px] font-semibold text-sf-text-muted">
+                      {item.time}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap">
-                    {item.time}
-                  </span>
-                </div>
+                  <p className="mt-0.5 truncate text-[12.5px] text-sf-text-muted">
+                    {item.subtitle}
+                  </p>
 
-                {/* Action buttons */}
-                <div className="flex items-center gap-2 mt-2.5">
-                  <button className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition">
-                    <Eye className="w-3 h-3" /> Xem
-                  </button>
-                  <button className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/30 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition">
-                    <CheckCircle className="w-3 h-3" /> Tiếp nhận
-                  </button>
-                  <button className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/30 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition">
-                    <Phone className="w-3 h-3" /> Gọi
-                  </button>
+                  <div className="mt-2.5 flex items-center gap-1.5">
+                    <Link href={item.href}>
+                      <Button size="xs" variant="subtle" icon={Eye}>
+                        Xem
+                      </Button>
+                    </Link>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      icon={CheckCircle2}
+                      loading={busyPriorityId === item.id}
+                      disabled={item.kind === "sos" && (!canAcceptIncident || !item.actionable)}
+                      title={item.kind === "sos"
+                        ? !canAcceptIncident
+                          ? "Chỉ điều phối viên được tiếp nhận sự cố tại màn hình này"
+                          : !item.actionable
+                            ? "Sự cố đã được tiếp nhận"
+                            : undefined
+                        : undefined}
+                      onClick={() => void handleAcceptPriority(item)}
+                    >
+                      {item.kind === "sos"
+                        ? !canAcceptIncident
+                          ? "Không có quyền tiếp nhận"
+                          : !item.actionable
+                            ? "Đã tiếp nhận"
+                            : "Tiếp nhận"
+                        : "Tiếp nhận"}
+                    </Button>
+                    {item.kind === "sos" && (
+                      <Button
+                        size="xs"
+                        variant="danger"
+                        icon={Phone}
+                        disabled
+                        title="Chưa có số điện thoại trong dữ liệu sự cố"
+                      >
+                        Gọi — chưa có SĐT
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-
-            {priorityItems.length === 0 && (
-              <div className="px-5 py-10 text-center">
-                <CheckCircle className="w-10 h-10 text-emerald-300 dark:text-emerald-700 mx-auto mb-2" />
-                <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">
-                  Không có việc cần xử lý
-                </p>
-              </div>
+              ))
             )}
           </div>
-        </div>
+        </Card>
       </div>
 
-      {/* ===== Stat Cards ===== */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        {statCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div
-              key={card.key}
-              className="group bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div
-                  className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center",
-                    card.tone,
-                    card.shadow,
-                    card.pulse && "animate-pulse-sos"
-                  )}
-                >
-                  <Icon className="w-5 h-5 text-white" />
-                </div>
-                {card.change && (
-                  <TrendingUp
-                    className={cn(
-                      "w-3.5 h-3.5",
-                      card.changePositive
-                        ? "text-emerald-500"
-                        : "text-red-500 rotate-180"
-                    )}
-                  />
-                )}
-              </div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                {card.value}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {card.label}
-              </p>
-              {card.change && (
-                <p
-                  className={cn(
-                    "text-[10px] mt-1 font-medium",
-                    card.changePositive
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-red-600 dark:text-red-400"
-                  )}
-                >
-                  {card.change}
-                </p>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ===== Bottom Grid: Active Trips + Event Feed + Risky Drivers ===== */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Active Trips */}
-        <div className="xl:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <Activity className="w-4 h-4 text-blue-500" />
-              <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                Chuyến đang chạy
-              </h3>
-              <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/30 text-xs font-semibold text-blue-600 dark:text-blue-400">
-                {activeTrips.length}
-              </span>
-            </div>
-            <button className="text-xs text-blue-600 dark:text-blue-400 font-medium hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 transition">
-              Xem tất cả <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+      {/* ===== Chuyến đang chạy + Tài xế rủi ro ===== */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+        <Card padding="none" className="xl:col-span-2">
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--sf-border)] px-4 py-3.5">
+            <CardHeader
+              title="Chuyến đang chạy"
+              subtitle={`${activeTrips.length} chuyến đang thực hiện`}
+              icon={Activity}
+            />
+            <Link href="/trips">
+              <Button size="xs" variant="ghost" iconRight={ChevronRight}>
+                Xem tất cả
+              </Button>
+            </Link>
           </div>
 
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {activeTrips.slice(0, 5).map((trip) => (
-              <div
-                key={trip.id}
-                className="px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-slate-900 dark:text-white">
+          {activeTrips.length === 0 ? (
+            <EmptyState
+              icon={Activity}
+              title="Chưa có chuyến nào đang chạy"
+              description="Các chuyến được giao sẽ hiển thị ở đây khi tài xế bắt đầu hành trình."
+              compact
+            />
+          ) : (
+            <div>
+              {activeTrips.slice(0, 6).map((trip) => (
+                <div
+                  key={trip.id}
+                  className="flex items-center gap-4 border-b border-[var(--sf-border-light)] px-4 py-3 transition-colors last:border-0 hover:bg-[var(--sf-bg-inset)]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-extrabold tracking-tight text-sf-text">
                         {trip.code}
                       </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                      <span className="text-[12.5px] font-semibold text-sf-text-muted">
                         · {trip.vehiclePlate}
                       </span>
+                      {trip.riskLevel !== "low" && (
+                        <Badge
+                          tone={trip.riskLevel === "high" ? "danger" : "warning"}
+                          size="sm"
+                        >
+                          {trip.riskLevel === "high" ? "Rủi ro cao" : "Cần theo dõi"}
+                        </Badge>
+                      )}
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    <p className="mt-0.5 truncate text-[12.5px] text-sf-text-muted">
                       {trip.origin} → {trip.destination}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3 ml-4">
-                    {/* Risk badge */}
-                    {trip.riskLevel !== "low" && (
-                      <span
-                        className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
-                        style={{
-                          backgroundColor:
-                            STATUS_COLORS[trip.riskLevel] || "#6b7280",
-                        }}
-                      >
-                        {trip.riskLevel === "high" ? "Rủi ro cao" : "Cần theo dõi"}
-                      </span>
-                    )}
-
-                    {/* Progress bar */}
-                    <div className="w-20">
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
-                        <span>{trip.progress}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-teal-600 transition-all duration-500"
-                          style={{ width: `${trip.progress}%` }}
-                        />
-                      </div>
-                    </div>
+                  <div className="w-28 flex-shrink-0">
+                    <ProgressBar value={trip.progress} tone="primary" showLabel />
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card padding="none">
+          <div className="border-b border-[var(--sf-border)] px-4 py-3.5">
+            <CardHeader
+              title="Tài xế rủi ro cao"
+              subtitle="Xếp theo số cảnh báo chưa xử lý"
+              icon={Shield}
+            />
           </div>
-        </div>
 
-        {/* Top Risky Drivers */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2.5">
-            <Shield className="w-4 h-4 text-amber-500" />
-            <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-              Tài xế rủi ro cao
-            </h3>
-          </div>
-
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {riskyDrivers.map((item, idx) => {
-              const driver = item.vehicle;
-              const driverData = alerts.find(
-                (a) => a.vehicleId === driver.id
-              );
-              const safetyInfo = driverData
-                ? getSafetyScoreInfo(
-                    100 - item.alertCount * 10
-                  )
-                : null;
-
-              return (
+          {riskyDrivers.length === 0 ? (
+            <EmptyState
+              icon={Shield}
+              title="Không có tài xế rủi ro"
+              description="Chưa ghi nhận cảnh báo tồn đọng nào."
+              compact
+            />
+          ) : (
+            <div>
+              {riskyDrivers.map((item, idx) => (
                 <div
-                  key={driver.id}
-                  className="px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer flex items-center gap-3"
+                  key={item.vehicle.id}
+                  className="flex items-center gap-3 border-b border-[var(--sf-border-light)] px-4 py-3 transition-colors last:border-0 hover:bg-[var(--sf-bg-inset)]"
                 >
-                  {/* Rank */}
                   <span
                     className={cn(
-                      "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold",
-                      idx === 0
-                        ? "bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400"
-                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                      "sf-tnum grid h-6 w-6 flex-shrink-0 place-items-center rounded-full text-[12px] font-extrabold"
                     )}
+                    style={{
+                      background: idx === 0 ? "var(--sf-danger-soft)" : "var(--sf-bg-inset)",
+                      color: idx === 0 ? "var(--sf-danger)" : "var(--sf-text-muted)",
+                    }}
                   >
                     {idx + 1}
                   </span>
 
-                  {/* Driver info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-bold text-sf-text">
                       {item.driverName}
                     </p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                      {driver.plate} · {item.alertCount} cảnh báo
+                    <p className="text-[12.5px] text-sf-text-muted">
+                      {item.vehicle.plate} · {item.alertCount} cảnh báo
                     </p>
                   </div>
 
-                  {/* Safety indicator */}
-                  {safetyInfo && (
-                    <span
-                      className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
-                      style={{ backgroundColor: safetyInfo.color }}
-                    >
-                      {safetyInfo.label}
-                    </span>
-                  )}
+                  <ScoreRing
+                    score={Math.max(0, 100 - item.alertCount * 10)}
+                    size={38}
+                    label="Điểm an toàn ước tính"
+                  />
                 </div>
-              );
-            })}
-
-            {riskyDrivers.length === 0 && (
-              <div className="px-5 py-8 text-center">
-                <Shield className="w-8 h-8 text-emerald-300 dark:text-emerald-700 mx-auto mb-2" />
-                <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">
-                  Không có tài xế rủi ro cao
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
     </div>
   );

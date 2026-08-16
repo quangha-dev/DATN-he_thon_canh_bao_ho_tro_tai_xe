@@ -1,33 +1,91 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Vehicle } from "@/types";
-import { safeFleetApi } from "@/lib/safeFleetApi";
+import { Driver, Vehicle } from "@/types";
+import { safeFleetApi, VehicleMutationInput } from "@/lib/safeFleetApi";
 import { useToast } from "@/context/ToastContext";
-import { cn, STATUS_COLORS, VEHICLE_STATUS_LABELS } from "@/lib/utils";
+import { VEHICLE_STATUS_LABELS } from "@/lib/utils";
+import {
+  Badge,
+  Button,
+  Drawer,
+  EmptyState,
+  IconButton,
+  InfoRow,
+  Modal,
+  SearchInput,
+  Segmented,
+  Select,
+  SkeletonRows,
+  Stagger,
+  StatCard,
+  StatSkeletonGrid,
+  StatusLabel,
+  Table,
+  TableShell,
+  Td,
+  Toolbar,
+  Tr,
+  toneOf,
+} from "@/components/ui";
 import {
   Truck,
   Plus,
-  Search,
   Eye,
+  CircleCheck,
+  Wrench,
+  WifiOff,
+  CalendarClock,
+  AlertTriangle,
+  Pencil,
+  Ban,
 } from "lucide-react";
+
+const STATUS_FILTERS = ["all", "running", "idle", "maintenance", "offline"] as const;
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+
+const EMPTY_FORM = {
+  plateNumber: "",
+  vehicleType: "TRUCK",
+  brand: "",
+  model: "",
+  year: "",
+  loadCapacity: "",
+  seatCount: "",
+  fuelType: "DIESEL",
+  status: "AVAILABLE",
+  currentDriverId: "",
+  inspectionExpiredAt: "",
+  insuranceExpiredAt: "",
+};
 
 export default function VehiclesPage() {
   const { showToast } = useToast();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [vehicleTypeFilter, setVehicleTypeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [selected, setSelected] = useState<Vehicle | null>(null);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editing, setEditing] = useState<Vehicle | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-
-    const loadVehicles = async () => {
+    const load = async () => {
       setIsLoading(true);
       try {
-        const data = await safeFleetApi.vehicles();
-        if (!cancelled) setVehicles(data);
+        const [data, driverData] = await Promise.all([
+          safeFleetApi.vehicles(),
+          safeFleetApi.drivers().catch(() => []),
+        ]);
+        if (!cancelled) {
+          setVehicles(data);
+          setDrivers(driverData);
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Không tải được danh sách xe.";
         if (!cancelled) showToast(message, "error");
@@ -35,268 +93,389 @@ export default function VehiclesPage() {
         if (!cancelled) setIsLoading(false);
       }
     };
-
-    loadVehicles();
-
+    void load();
     return () => {
       cancelled = true;
     };
   }, [showToast]);
 
-  // Summary stats
-  const stats = useMemo(() => {
-    return {
+  const stats = useMemo(
+    () => ({
       total: vehicles.length,
       running: vehicles.filter((v) => v.status === "running").length,
       idle: vehicles.filter((v) => v.status === "idle").length,
       maintenance: vehicles.filter((v) => v.status === "maintenance").length,
       offline: vehicles.filter((v) => v.status === "offline").length,
-    };
-  }, [vehicles]);
+    }),
+    [vehicles]
+  );
 
-  // Filtered vehicles
-  const filteredVehicles = useMemo(() => {
+  const vehicleTypes = useMemo(() => Array.from(new Set(vehicles.map((v) => v.type))), [vehicles]);
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setEditorOpen(true);
+  };
+
+  const openEdit = (vehicle: Vehicle) => {
+    setEditing(vehicle);
+    setForm({
+      plateNumber: vehicle.plate,
+      vehicleType: vehicle.backendType || "TRUCK",
+      brand: vehicle.brand || "",
+      model: vehicle.model || "",
+      year: vehicle.year ? String(vehicle.year) : "",
+      loadCapacity: vehicle.capacity ? String(vehicle.capacity) : "",
+      seatCount: vehicle.seatCount ? String(vehicle.seatCount) : "",
+      fuelType: vehicle.fuelType || "DIESEL",
+      status: vehicle.backendStatus || "AVAILABLE",
+      currentDriverId: vehicle.currentDriverId || "",
+      inspectionExpiredAt: vehicle.registrationExpiry || "",
+      insuranceExpiredAt: vehicle.insuranceExpiry || "",
+    });
+    setEditorOpen(true);
+  };
+
+  const mutationPayload = (): VehicleMutationInput => ({
+    vehicleType: form.vehicleType,
+    brand: form.brand.trim() || undefined,
+    model: form.model.trim() || undefined,
+    year: form.year ? Number(form.year) : null,
+    loadCapacity: form.loadCapacity ? Number(form.loadCapacity) : null,
+    seatCount: form.seatCount ? Number(form.seatCount) : null,
+    fuelType: form.fuelType || null,
+    status: form.status,
+    currentDriverId: form.currentDriverId ? Number(form.currentDriverId) : null,
+    gpsDeviceId: editing?.gpsDeviceId ? Number(editing.gpsDeviceId) : null,
+    cameraDeviceId: editing?.cameraDeviceId ? Number(editing.cameraDeviceId) : null,
+    inspectionExpiredAt: form.inspectionExpiredAt || null,
+    insuranceExpiredAt: form.insuranceExpiredAt || null,
+  });
+
+  const saveVehicle = async () => {
+    setSaving(true);
+    try {
+      const saved = editing
+        ? await safeFleetApi.updateVehicle(editing.id, mutationPayload())
+        : await safeFleetApi.createVehicle({ ...mutationPayload(), plateNumber: form.plateNumber.trim().toUpperCase() });
+      setVehicles((prev) => editing
+        ? prev.map((item) => item.id === saved.id ? saved : item)
+        : [saved, ...prev]);
+      setSelected(saved);
+      setEditorOpen(false);
+      showToast(editing ? "Đã cập nhật phương tiện." : "Đã thêm phương tiện.", "success");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Không thể lưu phương tiện.", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deactivateVehicle = async (vehicle: Vehicle) => {
+    setSaving(true);
+    try {
+      const saved = await safeFleetApi.updateVehicle(vehicle.id, {
+        vehicleType: vehicle.backendType || "TRUCK",
+        brand: vehicle.brand || undefined,
+        model: vehicle.model || undefined,
+        year: vehicle.year || null,
+        loadCapacity: vehicle.capacity || null,
+        seatCount: vehicle.seatCount || null,
+        fuelType: vehicle.fuelType || null,
+        status: "INACTIVE",
+        currentDriverId: vehicle.currentDriverId ? Number(vehicle.currentDriverId) : null,
+        gpsDeviceId: vehicle.gpsDeviceId ? Number(vehicle.gpsDeviceId) : null,
+        cameraDeviceId: vehicle.cameraDeviceId ? Number(vehicle.cameraDeviceId) : null,
+        inspectionExpiredAt: vehicle.registrationExpiry || null,
+        insuranceExpiredAt: vehicle.insuranceExpiry || null,
+      });
+      setVehicles((prev) => prev.map((item) => item.id === saved.id ? saved : item));
+      setSelected(null);
+      setEditorOpen(false);
+      showToast("Đã ngừng sử dụng phương tiện.", "success");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Không thể ngừng sử dụng phương tiện.", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     return vehicles.filter((v) => {
       if (statusFilter !== "all" && v.status !== statusFilter) return false;
-      if (vehicleTypeFilter !== "all" && v.type !== vehicleTypeFilter) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return (
-          v.plate.toLowerCase().includes(q) ||
-          v.brand.toLowerCase().includes(q) ||
-          v.model.toLowerCase().includes(q) ||
-          (v.currentDriverName && v.currentDriverName.toLowerCase().includes(q))
-        );
-      }
-      return true;
+      if (typeFilter !== "all" && v.type !== typeFilter) return false;
+      if (!q) return true;
+      return (
+        v.plate.toLowerCase().includes(q) ||
+        v.brand.toLowerCase().includes(q) ||
+        v.model.toLowerCase().includes(q) ||
+        (v.currentDriverName?.toLowerCase().includes(q) ?? false)
+      );
     });
-  }, [vehicles, searchQuery, statusFilter, vehicleTypeFilter]);
-
-  // Unique vehicle types for dropdown filter
-  const vehicleTypes = useMemo(() => {
-    return Array.from(new Set(vehicles.map((v) => v.type)));
-  }, [vehicles]);
+  }, [vehicles, searchQuery, statusFilter, typeFilter]);
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      
-      {/* ===== Stat Cards ===== */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Total */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">
-            Tổng phương tiện
-          </span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1 block">
-            {stats.total}
-          </span>
-        </div>
+    <div className="space-y-5">
+      {/* ===== Thống kê ===== */}
+      <Stagger className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
+        {isLoading && vehicles.length === 0 ? (
+          <StatSkeletonGrid count={5} />
+        ) : (
+          <>
+            <StatCard label="Tổng phương tiện" value={stats.total} icon={Truck} tone="primary" />
+            <StatCard
+              label="Đang hoạt động"
+              value={stats.running}
+              icon={CircleCheck}
+              tone="success"
+              onClick={() => setStatusFilter(statusFilter === "running" ? "all" : "running")}
+              active={statusFilter === "running"}
+            />
+            <StatCard
+              label="Sẵn sàng"
+              value={stats.idle}
+              icon={Truck}
+              tone="primary"
+              onClick={() => setStatusFilter(statusFilter === "idle" ? "all" : "idle")}
+              active={statusFilter === "idle"}
+            />
+            <StatCard
+              label="Đang bảo trì"
+              value={stats.maintenance}
+              icon={Wrench}
+              tone="warning"
+              onClick={() =>
+                setStatusFilter(statusFilter === "maintenance" ? "all" : "maintenance")
+              }
+              active={statusFilter === "maintenance"}
+            />
+            <StatCard
+              label="Mất kết nối"
+              value={stats.offline}
+              icon={WifiOff}
+              tone="neutral"
+              onClick={() => setStatusFilter(statusFilter === "offline" ? "all" : "offline")}
+              active={statusFilter === "offline"}
+            />
+          </>
+        )}
+      </Stagger>
 
-        {/* Running */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm border-l-4 border-l-emerald-500">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">
-            Đang hoạt động
-          </span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1 block">
-            {stats.running}
-          </span>
-        </div>
-
-        {/* Idle */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm border-l-4 border-l-blue-500">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">
-            Đang sẵn sàng
-          </span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1 block">
-            {stats.idle}
-          </span>
-        </div>
-
-        {/* Maintenance */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm border-l-4 border-l-amber-500">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">
-            Đang bảo trì
-          </span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1 block">
-            {stats.maintenance}
-          </span>
-        </div>
-
-        {/* Offline */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm border-l-4 border-l-slate-400">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">
-            Mất kết nối
-          </span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1 block">
-            {stats.offline}
-          </span>
-        </div>
-      </div>
-
-      {/* ===== Toolbar & Filters ===== */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm biển số, tài xế, hãng xe..."
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-transparent rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-slate-200 dark:focus:border-slate-700 transition"
+      {/* ===== Thanh công cụ ===== */}
+      <Toolbar>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Tìm biển số, hãng xe, tài xế…"
+          className="sm:max-w-sm"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            ariaLabel="Lọc theo loại xe"
+            value={typeFilter}
+            onChange={setTypeFilter}
+            options={[
+              { value: "all", label: "Tất cả loại xe" },
+              ...vehicleTypes.map((t) => ({ value: t, label: t })),
+            ]}
           />
+          <Segmented
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={STATUS_FILTERS.map((s) => ({
+              value: s,
+              label: s === "all" ? "Tất cả" : VEHICLE_STATUS_LABELS[s],
+            }))}
+          />
+          <Button icon={Plus} size="sm" onClick={openCreate}>
+            Thêm xe
+          </Button>
         </div>
+      </Toolbar>
 
-        {/* Status & Type filters */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Type dropdown */}
-          <select
-            value={vehicleTypeFilter}
-            onChange={(e) => setVehicleTypeFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none"
-          >
-            <option value="all">Tất cả loại xe</option>
-            {vehicleTypes.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+      {/* ===== Bảng ===== */}
+      <TableShell loading={isLoading}>
+        <Table
+          head={[
+            "Biển số",
+            "Hãng & model",
+            "Loại xe",
+            "Tài xế hiện tại",
+            "Trạng thái",
+            "Cảnh báo",
+            "Hạn đăng kiểm",
+            "",
+          ]}
+        >
+          {isLoading && vehicles.length === 0 ? (
+            <SkeletonRows rows={6} cols={8} />
+          ) : filtered.length === 0 ? (
+            <tr>
+              <Td colSpan={8}>
+                <EmptyState
+                  icon={Truck}
+                  title="Không tìm thấy phương tiện"
+                  description="Thử đổi từ khóa tìm kiếm hoặc bỏ bớt bộ lọc đang áp dụng."
+                />
+              </Td>
+            </tr>
+          ) : (
+            filtered.map((vehicle) => (
+              <Tr key={vehicle.id} onClick={() => setSelected(vehicle)}>
+                <Td>
+                  <span className="flex items-center gap-2.5">
+                    <span
+                      className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)]"
+                      style={{ background: "var(--sf-primary-soft)", color: "var(--sf-primary)" }}
+                    >
+                      <Truck className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="text-[13px] font-extrabold tracking-tight text-sf-text">
+                      {vehicle.plate}
+                    </span>
+                  </span>
+                </Td>
+                <Td className="font-semibold text-sf-text-secondary">
+                  {vehicle.brand} {vehicle.model}
+                </Td>
+                <Td>{vehicle.type}</Td>
+                <Td>
+                  {vehicle.currentDriverName ? (
+                    <span className="font-semibold text-sf-text-secondary">
+                      {vehicle.currentDriverName}
+                    </span>
+                  ) : (
+                    <span className="italic text-sf-text-muted">Chưa giao</span>
+                  )}
+                </Td>
+                <Td>
+                  <StatusLabel
+                    status={vehicle.status}
+                    label={VEHICLE_STATUS_LABELS[vehicle.status]}
+                    pulse={vehicle.status === "running"}
+                  />
+                </Td>
+                <Td align="center">
+                  {vehicle.totalAlerts > 0 ? (
+                    <Badge tone="danger" size="sm" icon={AlertTriangle}>
+                      {vehicle.totalAlerts}
+                    </Badge>
+                  ) : (
+                    <span className="text-sf-text-muted">—</span>
+                  )}
+                </Td>
+                <Td>
+                  <span className="flex items-center gap-1.5 text-sf-text-secondary">
+                    <CalendarClock className="h-3.5 w-3.5 text-sf-text-muted" />
+                    {vehicle.registrationExpiry || "—"}
+                  </span>
+                </Td>
+                <Td align="center">
+                  <IconButton
+                    icon={Eye}
+                    label="Xem chi tiết"
+                    size="sm"
+                    tone="primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelected(vehicle);
+                    }}
+                  />
+                </Td>
+              </Tr>
+            ))
+          )}
+        </Table>
+      </TableShell>
 
-          {/* Status buttons */}
-          <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 p-1 rounded-lg border border-slate-200/50 dark:border-slate-700/50">
-            {["all", "running", "idle", "maintenance", "offline"].map((status) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={cn(
-                  "px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition cursor-pointer",
-                  statusFilter === status
-                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-                )}
-              >
-                {status === "all" ? "Tất cả" : VEHICLE_STATUS_LABELS[status]}
-              </button>
-            ))}
-          </div>
+      {/* ===== Panel chi tiết ===== */}
+      <Drawer
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        title={selected?.plate ?? ""}
+        subtitle={selected ? `${selected.brand} ${selected.model} · ${selected.type}` : undefined}
+        footer={
+          <>
+            {selected && <Button variant="danger" size="sm" icon={Ban} onClick={() => void deactivateVehicle(selected)}>Ngừng sử dụng</Button>}
+            {selected && <Button size="sm" icon={Pencil} onClick={() => openEdit(selected)}>Chỉnh sửa</Button>}
+            <Button variant="outline" size="sm" onClick={() => setSelected(null)}>Đóng</Button>
+          </>
+        }
+      >
+        {selected && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={toneOf(selected.status)}>
+                {VEHICLE_STATUS_LABELS[selected.status]}
+              </Badge>
+              {selected.totalAlerts > 0 && (
+                <Badge tone="danger" icon={AlertTriangle}>
+                  {selected.totalAlerts} cảnh báo
+                </Badge>
+              )}
+            </div>
 
-          {/* Add Vehicle Button */}
-          <button className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow transition cursor-pointer">
-            <Plus className="w-3.5 h-3.5" /> Thêm xe
-          </button>
-        </div>
-      </div>
-
-      {/* ===== Vehicles Table ===== */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        {isLoading && (
-          <div className="px-4 py-2 text-xs text-blue-600 dark:text-blue-400 border-b border-slate-100 dark:border-slate-800">
-            Đang tải dữ liệu phương tiện từ backend...
+            <div>
+              <InfoRow label="Biển số" value={selected.plate} />
+              <InfoRow label="Hãng / model" value={`${selected.brand} ${selected.model}`} />
+              <InfoRow label="Loại xe" value={selected.type} />
+              <InfoRow label="Tài xế" value={selected.currentDriverName ?? "Chưa giao"} />
+              <InfoRow label="Hạn đăng kiểm" value={selected.registrationExpiry || "—"} />
+              <InfoRow
+                label="Vị trí"
+                value={
+                  <span className="sf-tnum">
+                    {selected.lat !== null && selected.lng !== null
+                      ? `${selected.lat.toFixed(5)}, ${selected.lng.toFixed(5)}`
+                      : "Chưa có dữ liệu GPS"}
+                  </span>
+                }
+              />
+            </div>
           </div>
         )}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                <th className="py-3.5 px-4">Biển số</th>
-                <th className="py-3.5 px-4">Hãng & Model</th>
-                <th className="py-3.5 px-4">Loại xe</th>
-                <th className="py-3.5 px-4">Tài xế hiện tại</th>
-                <th className="py-3.5 px-4">GPS / Trạng thái</th>
-                <th className="py-3.5 px-4 text-center">Cảnh báo</th>
-                <th className="py-3.5 px-4">Đăng kiểm còn hạn</th>
-                <th className="py-3.5 px-4 text-center">Hành động</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-              {filteredVehicles.map((vehicle) => {
-                const hasAlert = vehicle.totalAlerts > 0;
-                return (
-                  <tr
-                    key={vehicle.id}
-                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors"
-                  >
-                    {/* Plate */}
-                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-white text-xs">
-                      <div className="flex items-center gap-2">
-                        <Truck className="w-4 h-4 text-slate-400" />
-                        <span>{vehicle.plate}</span>
-                      </div>
-                    </td>
+      </Drawer>
 
-                    {/* Brand & Model */}
-                    <td className="py-3 px-4 text-xs text-slate-700 dark:text-slate-300">
-                      {vehicle.brand} {vehicle.model}
-                    </td>
-
-                    {/* Type */}
-                    <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-400">
-                      {vehicle.type}
-                    </td>
-
-                    {/* Driver */}
-                    <td className="py-3 px-4 text-xs font-medium text-slate-700 dark:text-slate-300">
-                      {vehicle.currentDriverName || (
-                        <span className="text-slate-400 italic">Chưa giao</span>
-                      )}
-                    </td>
-
-                    {/* GPS / Status */}
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: STATUS_COLORS[vehicle.status] }}
-                        />
-                        <span className="text-xs text-slate-700 dark:text-slate-300">
-                          {VEHICLE_STATUS_LABELS[vehicle.status]}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Alerts count */}
-                    <td className="py-3 px-4 text-center">
-                      {hasAlert ? (
-                        <span className="px-2 py-0.5 rounded bg-red-100 dark:bg-red-950/30 text-[10px] font-bold text-red-600 dark:text-red-400">
-                          {vehicle.totalAlerts} lần
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 text-xs">-</span>
-                      )}
-                    </td>
-
-                    {/* Expiry */}
-                    <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-400">
-                      {vehicle.registrationExpiry}
-                    </td>
-
-                    {/* Action */}
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          className="p-1 rounded text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                          title="Xem chi tiết"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {filteredVehicles.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="py-10 text-center text-slate-400 text-xs">
-                    Không tìm thấy phương tiện nào phù hợp
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      <Modal
+        open={editorOpen}
+        onClose={() => !saving && setEditorOpen(false)}
+        title={editing ? `Chỉnh sửa ${editing.plate}` : "Thêm phương tiện"}
+        subtitle="Thông tin hồ sơ, phân công tài xế và hạn giấy tờ."
+        size="lg"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditorOpen(false)} disabled={saving}>Hủy</Button>
+            <Button loading={saving} disabled={!form.plateNumber || !form.vehicleType} onClick={() => void saveVehicle()}>Lưu phương tiện</Button>
+          </>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <VehicleField label="Biển số" required disabled={Boolean(editing)} value={form.plateNumber} onChange={(value) => setForm((prev) => ({ ...prev, plateNumber: value }))} />
+          <VehicleSelect label="Loại xe" value={form.vehicleType} onChange={(value) => setForm((prev) => ({ ...prev, vehicleType: value }))} options={[
+            ["TRUCK", "Xe tải"], ["VAN", "Xe van"], ["BUS", "Xe khách"], ["CAR", "Xe con"], ["PICKUP", "Xe bán tải"], ["MOTORBIKE", "Xe máy"],
+          ]} />
+          <VehicleField label="Hãng" value={form.brand} onChange={(value) => setForm((prev) => ({ ...prev, brand: value }))} />
+          <VehicleField label="Model" value={form.model} onChange={(value) => setForm((prev) => ({ ...prev, model: value }))} />
+          <VehicleField label="Năm sản xuất" type="number" value={form.year} onChange={(value) => setForm((prev) => ({ ...prev, year: value }))} />
+          <VehicleField label="Tải trọng" type="number" value={form.loadCapacity} onChange={(value) => setForm((prev) => ({ ...prev, loadCapacity: value }))} />
+          <VehicleField label="Số chỗ" type="number" value={form.seatCount} onChange={(value) => setForm((prev) => ({ ...prev, seatCount: value }))} />
+          <VehicleSelect label="Nhiên liệu" value={form.fuelType} onChange={(value) => setForm((prev) => ({ ...prev, fuelType: value }))} options={[["DIESEL", "Dầu"], ["GASOLINE", "Xăng"], ["ELECTRIC", "Điện"], ["HYBRID", "Hybrid"]]} />
+          <VehicleSelect label="Trạng thái" value={form.status} onChange={(value) => setForm((prev) => ({ ...prev, status: value }))} options={[["AVAILABLE", "Sẵn sàng"], ["RESTING", "Đang nghỉ"], ["MAINTENANCE", "Bảo trì"], ["OFFLINE", "Mất kết nối"], ["INACTIVE", "Ngừng sử dụng"]]} />
+          <VehicleSelect label="Tài xế phụ trách" value={form.currentDriverId} onChange={(value) => setForm((prev) => ({ ...prev, currentDriverId: value }))} options={[["", "Chưa giao"], ...drivers.map((driver) => [driver.id, `${driver.fullName} · ${driver.licenseClass}`])]} />
+          <VehicleField label="Hạn đăng kiểm" type="date" value={form.inspectionExpiredAt} onChange={(value) => setForm((prev) => ({ ...prev, inspectionExpiredAt: value }))} />
+          <VehicleField label="Hạn bảo hiểm" type="date" value={form.insuranceExpiredAt} onChange={(value) => setForm((prev) => ({ ...prev, insuranceExpiredAt: value }))} />
         </div>
-      </div>
+      </Modal>
     </div>
   );
+}
+
+function VehicleField({ label, value, onChange, type = "text", required = false, disabled = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; disabled?: boolean }) {
+  return <label className="space-y-1.5 text-sm font-semibold text-sf-text-secondary">{label}{required && " *"}<input className="sf-input" type={type} value={value} required={required} disabled={disabled} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function VehicleSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[][] }) {
+  return <label className="space-y-1.5 text-sm font-semibold text-sf-text-secondary">{label}<select className="sf-input sf-select" value={value} onChange={(event) => onChange(event.target.value)}>{options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select></label>;
 }

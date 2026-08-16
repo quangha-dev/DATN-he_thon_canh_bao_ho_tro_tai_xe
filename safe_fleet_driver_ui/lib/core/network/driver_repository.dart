@@ -92,6 +92,24 @@ class DriverRepository {
     }
   }
 
+  Future<Map<String, dynamic>> executeConfirmedTripAction({
+    required int tripId,
+    required String action,
+    String? note,
+  }) {
+    final normalized = action.toLowerCase();
+    if (normalized == 'accept') {
+      return api.post<Map<String, dynamic>>(
+        '/mobile/trips/$tripId/accept',
+        data: {'note': note, 'clientEventId': _uuid.v4()},
+      );
+    }
+    if (!const {'start', 'pause', 'resume', 'complete'}.contains(normalized)) {
+      throw ArgumentError.value(action, 'action', 'Unsupported trip action');
+    }
+    return workflow(tripId, normalized, note: note);
+  }
+
   Future<NavigationRoute> navigationRoute({
     required double originLat,
     required double originLng,
@@ -308,6 +326,8 @@ class DriverRepository {
     return api.post<Map<String, dynamic>>(
       '/mobile/agent/chat',
       data: {'messages': messages.sublist(start)},
+      receiveTimeout: const Duration(seconds: 90),
+      sendTimeout: const Duration(seconds: 30),
     );
   }
 

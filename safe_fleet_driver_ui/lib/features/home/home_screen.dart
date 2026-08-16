@@ -5,6 +5,7 @@ import '../../app.dart';
 import '../../core/widgets/ui.dart';
 import '../../models/driver_models.dart';
 import '../camera/cabin_camera_screen.dart';
+import '../documents/driving_log_list_screen.dart';
 import '../flood/flood_report_screen.dart';
 import '../incidents/sos_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -108,6 +109,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
           ),
+        ),
+        IconButton(
+          tooltip: 'Quét phiếu offline',
+          onPressed: () => _open(const DrivingLogListScreen()),
+          icon: const Icon(Icons.document_scanner_outlined),
         ),
         IconButton(
           tooltip: 'Thông báo',
@@ -299,6 +305,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               'Báo điểm ngập',
               'Gửi kèm ảnh',
               () => _open(const FloodReportScreen()),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: SfSpace.x12),
+      Row(
+        children: [
+          Expanded(
+            child: _quick(
+              Icons.document_scanner_outlined,
+              'Quét phiếu',
+              'OCR trên máy',
+              () => _open(const DrivingLogListScreen()),
+            ),
+          ),
+          const SizedBox(width: SfSpace.x12),
+          Expanded(
+            child: _quick(
+              Icons.table_view_outlined,
+              'Nhật trình phiếu',
+              'Xem và xuất Excel',
+              () => _open(const DrivingLogListScreen()),
             ),
           ),
         ],

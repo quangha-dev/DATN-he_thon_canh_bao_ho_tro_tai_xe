@@ -6,6 +6,7 @@ public enum NotificationType {
     FLOOD,
     GPS_LOST,
     DRIVING_TIME,
+    TRIP_ASSIGNED,
     TRIP_DELAYED,
     MAINTENANCE,
     SYSTEM

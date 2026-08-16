@@ -1,0 +1,7 @@
+{
+  "fixture": "phieutest.jpg",
+  "fields": {
+    "project_address": "CT xây dựng nhà máy Công ty cổ phần bao bì Phương Bắc Hưng Yên, Tổ dân phố Thợ, Phường Đường Hào, Tỉnh Hưng Yên"
+  },
+  "note": "Chỉ dùng để chấm điểm benchmark; tuyệt đối không dùng trong inference."
+}

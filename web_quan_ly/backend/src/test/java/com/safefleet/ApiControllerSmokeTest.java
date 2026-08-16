@@ -262,6 +262,21 @@ class ApiControllerSmokeTest {
                 .param("fromDate", "2026-07-08")
                 .param("toDate", "2026-07-09"));
         expectOk(get("/api/v1/trips/{id}", 1));
+        expectOk(json(put("/api/v1/trips/{id}", 1), """
+                {
+                  "vehicleId": 1,
+                  "driverId": 1,
+                  "startLocation": "Ha Dong",
+                  "startLat": 20.9711,
+                  "startLng": 105.7788,
+                  "endLocation": "My Dinh",
+                  "endLat": 21.0315,
+                  "endLng": 105.7667,
+                  "plannedStartTime": "2031-01-01T08:00:00",
+                  "estimatedEndTime": "2031-01-01T10:00:00",
+                  "riskLevel": "LOW"
+                }
+                """));
         expectOk(json(post("/api/v1/trips/{id}/assign", 1), """
                 {
                   "vehicleId": 1,

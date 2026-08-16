@@ -1,0 +1,110 @@
+classDiagram
+    class CabinSafetyController {
+      +start()
+      +stop()
+      +updateSpeed(speedKph)
+      +acknowledgeDetection()
+    }
+    class CabinAiController {
+      +start()
+      +processCameraImage(frame)
+      +updateSpeed(speedKph)
+    }
+    class StgtDrowsinessEngine {
+      +initialize()
+      +ingest(observation)
+      +reset()
+    }
+    class TemporalSafetyEngine {
+      +ingest(observation)
+      +reset()
+    }
+    class PhoneUsageDetector {
+      +detect(frame)
+      +buildContext(detections)
+    }
+    class LocalRiskEngine {
+      +assess(event, context)
+      +applyCriticalOverride(response)
+    }
+    class DriverRepository {
+      +queueSafetyEvent(event)
+      +sendSos(request)
+      +agentChat(messages)
+    }
+    class SyncQueue {
+      +enqueue(operation)
+      +flush()
+      +retryDueItems()
+    }
+    class MobileController {
+      +createSafetyEvent(request)
+      +sendSos(request)
+      +agentChat(request)
+      +submitDocumentOcr(file)
+    }
+    class MobileAppService {
+      +createSafetyEvent(request)
+      +sendSos(request)
+      +executeWorkflow(command)
+    }
+    class SafetyOrchestrationService {
+      +evaluate(event)
+      +createIncidentIfRequired(event)
+      +publishAfterCommit(event)
+    }
+    class SafeFleetAiGateway {
+      +agentChat(request, authorization)
+      +classifyIntent(transcript)
+      +recognizeDocument(file)
+    }
+    class AgentOrchestrator {
+      +respond(request, authorization)
+      +createPlan(context)
+      +checkPlan(result)
+    }
+    class ToolRegistry {
+      +listFor(authorization)
+      +call(name, arguments)
+    }
+    class SafetyGuard {
+      +validate(tool, context)
+      +requireConfirmation(action)
+    }
+    class DocumentOcrJobService {
+      +submit(file)
+      +get(id)
+      +delete(id)
+    }
+    class DocumentOcrJobProcessor {
+      +process(jobId)
+      +markCompleted(job, result)
+      +markFailed(job, error)
+    }
+    class DocumentOcrService {
+      +recognize(file)
+    }
+    class HybridOcrService {
+      +recognizeDocument(file)
+      +extractFields(image)
+    }
+
+    CabinSafetyController --> CabinAiController
+    CabinSafetyController --> LocalRiskEngine
+    CabinSafetyController --> DriverRepository
+    CabinAiController --> StgtDrowsinessEngine
+    CabinAiController --> TemporalSafetyEngine
+    CabinAiController --> PhoneUsageDetector
+    DriverRepository --> SyncQueue
+    DriverRepository --> MobileController
+    MobileController --> MobileAppService
+    MobileController --> DocumentOcrJobService
+    MobileAppService --> SafetyOrchestrationService
+    MobileAppService --> SafeFleetAiGateway
+    SafeFleetAiGateway --> AgentOrchestrator : "HTTP nội bộ"
+    AgentOrchestrator --> ToolRegistry
+    ToolRegistry --> SafetyGuard
+    ToolRegistry --> MobileController : "REST có JWT người dùng"
+    DocumentOcrJobService --> DocumentOcrJobProcessor
+    DocumentOcrJobProcessor --> DocumentOcrService
+    DocumentOcrService --> HybridOcrService : "HTTP /ocr/driving-log"

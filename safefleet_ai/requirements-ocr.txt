@@ -1,0 +1,7 @@
+-r requirements.txt
+numpy==2.4.6
+opencv-python-headless==5.0.0.93
+pillow==10.2.0
+pytesseract==0.3.13
+PyYAML==6.0.3
+vietocr==0.3.13

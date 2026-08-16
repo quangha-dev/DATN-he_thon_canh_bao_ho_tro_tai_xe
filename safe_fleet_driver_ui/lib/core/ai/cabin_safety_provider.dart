@@ -103,7 +103,9 @@ class CabinSafetyController extends Notifier<CabinSafetyState> {
       state = state.copyWith(
         enabled: false,
         status: CabinAiStatus.unavailable,
-        message: 'Không thể khởi động giám sát nền',
+        message: state.modelMode == DrowsinessModelMode.stgtTflite
+            ? 'Không thể tải STGT · kiểm tra model trên thiết bị'
+            : 'Không thể khởi động giám sát nền',
       );
     }
   }
@@ -138,6 +140,10 @@ class CabinSafetyController extends Notifier<CabinSafetyState> {
     _inBackground = true;
     await _disposeController();
     await _foregroundService.enterBackground();
+    await _foregroundService.update(
+      model: 'ML Kit temporal nền',
+      status: 'Đang theo dõi nền · camera trước hoạt động',
+    );
     state = state.copyWith(
       status: CabinAiStatus.active,
       message: 'Đang theo dõi nền · camera trước hoạt động',

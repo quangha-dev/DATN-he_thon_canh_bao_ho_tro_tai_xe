@@ -121,9 +121,20 @@ class ApiClient {
     }
   }
 
-  Future<T> post<T>(String path, {Object? data}) async {
+  Future<T> post<T>(
+    String path, {
+    Object? data,
+    Duration? receiveTimeout,
+    Duration? sendTimeout,
+  }) async {
     try {
-      final response = await dio.post<Map<String, dynamic>>(path, data: data);
+      final response = await dio.post<Map<String, dynamic>>(
+        path,
+        data: data,
+        options: receiveTimeout == null && sendTimeout == null
+            ? null
+            : Options(receiveTimeout: receiveTimeout, sendTimeout: sendTimeout),
+      );
       return _unwrap<T>(response.data);
     } on DioException catch (error) {
       throw _failure(error);
@@ -215,9 +226,17 @@ class ApiClient {
     final body = error.response?.data;
     final message = body is Map
         ? body['message']?.toString()
-        : error.type == DioExceptionType.connectionError
-        ? 'Không thể kết nối máy chủ'
-        : null;
+        : switch (error.type) {
+            DioExceptionType.connectionTimeout =>
+              'Kết nối máy chủ quá thời gian. Vui lòng kiểm tra mạng và thử lại.',
+            DioExceptionType.sendTimeout =>
+              'Gửi dữ liệu lên máy chủ quá thời gian. Vui lòng thử lại.',
+            DioExceptionType.receiveTimeout =>
+              'Máy chủ đang xử lý lâu hơn dự kiến. Vui lòng thử lại sau ít phút.',
+            DioExceptionType.connectionError => 'Không thể kết nối máy chủ.',
+            DioExceptionType.cancel => 'Yêu cầu đã bị hủy.',
+            _ => null,
+          };
     return ApiFailure(
       message ?? error.message ?? 'Yêu cầu thất bại',
       statusCode: error.response?.statusCode,

@@ -1,0 +1,69 @@
+flowchart TB
+    subgraph Mobile["Thiết bị tài xế"]
+      Sensors["Camera trước / GPS / Micro"]
+      Cv["AI tại thiết bị<br/>Face Mesh + STGT + Phone Detector"]
+      Event["Temporal Event Processor<br/>Risk Engine cục bộ"]
+      Alert["Cảnh báo + TTS/STT<br/>Bộ điều khiển phản hồi"]
+      App["Flutter App<br/>Chuyến, bản đồ, SOS, nhật trình"]
+      Sqlite[("SQLite<br/>Queue + cache + phiếu nháp")]
+      Sensors --> Cv --> Event --> Alert
+      App <--> Alert
+      App <--> Sqlite
+    end
+
+    subgraph ServerRow["Cụm dịch vụ phía máy chủ"]
+    direction LR
+    subgraph Backend["Biên tin cậy"]
+      Api["Spring Boot API<br/>JWT + RBAC + Ownership"]
+      Business["Nghiệp vụ<br/>Trip / Safety / Incident / OCR / Report"]
+      Policy["Safety Orchestrator<br/>Rule + Policy + Idempotency"]
+      Realtime["STOMP/WebSocket<br/>Polling fallback"]
+      Worker["OCR Job Worker"]
+      Api --> Business
+      Business <--> Policy
+      Business --> Realtime
+      Business --> Worker
+    end
+
+    subgraph AiService["Dịch vụ AI"]
+      Agent["Agent Orchestrator<br/>Plan - Act - Observe"]
+      Registry["Tool Registry + Safety Guard"]
+      Ocr["OCR Hybrid<br/>Tesseract + VietOCR"]
+      Retrieval["RAG giao thông / tài liệu nội bộ"]
+      Agent --> Registry
+      Agent <--> Retrieval
+    end
+    end
+
+    subgraph PlatformRow["Dữ liệu, ứng dụng và tích hợp"]
+    direction LR
+    subgraph Data["Tầng dữ liệu"]
+      Mysql[("MySQL + Flyway")]
+      Minio[("MinIO private evidence")]
+      Vector[("Vector index / kho tri thức")]
+    end
+
+    subgraph Web["Kênh quản lý"]
+      Dashboard["Next.js Dashboard<br/>MapLibre + Reports"]
+    end
+
+    subgraph External["Dịch vụ ngoài"]
+      Map["Photon / OSRM"]
+      Llm["LLM API"]
+      Notify["Push / SMS / Email<br/>theo cấu hình"]
+    end
+    end
+
+    App <-->|"HTTPS REST / multipart"| Api
+    Sqlite -->|"Retry giữ nguyên clientEventId"| Api
+    Realtime --> Dashboard
+    Dashboard -->|"REST snapshot / polling"| Api
+    Business <--> Mysql
+    Business <--> Minio
+    Worker --> Ocr
+    Api --> Agent
+    Registry -->|"Tool có quyền"| Api
+    Retrieval <--> Vector
+    Agent <--> Llm
+    Business <--> Map
+    Policy --> Notify

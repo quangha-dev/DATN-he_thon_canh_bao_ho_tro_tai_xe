@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app.dart';
 import '../../core/agent/agent_conversation_provider.dart';
 import '../../core/widgets/ui.dart';
+import '../documents/driving_log_list_screen.dart';
+import '../insights/monthly_insights_screen.dart';
+import '../navigation/route_planner_screen.dart';
+import '../notifications/notifications_screen.dart';
+import '../safety/safety_summary_screen.dart';
+import '../trips/trip_detail_screen.dart';
+import '../trips/trips_today_screen.dart';
 import 'agent_voice_sheet.dart';
 
 class AgentChatScreen extends ConsumerStatefulWidget {
@@ -30,6 +39,41 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     ref.read(agentConversationProvider.notifier).send(value);
   }
 
+  Future<void> _handleClientActions(List<Map<String, dynamic>> actions) async {
+    if (actions.isEmpty || !mounted) return;
+    ref.read(agentConversationProvider.notifier).consumeClientActions();
+    for (final action in actions) {
+      if (action['type'] != 'NAVIGATE' || !mounted) continue;
+      final destination = action['destination']?.toString();
+      Widget? screen;
+      switch (destination) {
+        case 'DOCUMENT_SCAN':
+          screen = const DrivingLogListScreen();
+        case 'TRIPS':
+          screen = const TripsTodayScreen();
+        case 'TRIP_DETAIL':
+          final id = (action['tripId'] as num?)?.toInt();
+          if (id != null) screen = TripDetailScreen(tripId: id);
+        case 'ROUTE':
+          screen = const RoutePlannerScreen();
+        case 'MONTHLY_REPORT':
+          screen = const MonthlyInsightsScreen();
+        case 'NOTIFICATIONS':
+          screen = const NotificationsScreen();
+        case 'SAFETY':
+          final data = await ref.read(driverRepositoryProvider).bootstrap();
+          screen = SafetySummaryScreen(data: data);
+        case 'HOME':
+          Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+      if (screen != null && mounted) {
+        await Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => screen!));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.sf;
@@ -45,6 +89,15 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
               curve: SfMotion.curveOf(context, SfMotion.standard),
             );
           }
+        });
+      },
+    );
+    ref.listen(
+      agentConversationProvider.select((value) => value.clientActions),
+      (_, actions) {
+        if (actions.isEmpty) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _handleClientActions(actions);
         });
       },
     );
@@ -89,7 +142,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                     icon: Icons.auto_awesome_outlined,
                     title: 'Hỏi tôi khi đang lái',
                     message:
-                        'Ví dụ: "Tuyến nào ít ngập hơn", "Tôi cần nghỉ", "Gọi cứu hộ".\nLệnh làm thay đổi chuyến luôn hỏi xác nhận trước khi chạy.',
+                        'Ví dụ: "Các chuyến tôi đã đi hôm nay", "Tôi còn chuyến nào chưa đi?", "Báo cáo tháng 8".\nAgent tự lập kế hoạch và chỉ đọc dữ liệu của tài khoản đang đăng nhập.',
                   )
                 : ListView.builder(
                     controller: _scroll,
@@ -102,16 +155,27 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
                     itemCount: state.messages.length + (state.busy ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == state.messages.length) {
-                        return const _ThinkingBubble();
+                        return const AgentThinkingBubble();
                       }
                       final message = state.messages[index];
-                      return _Bubble(
+                      return AgentMessageBubble(
                         text: message.content,
                         user: message.role == 'user',
                       );
                     },
                   ),
           ),
+          if (state.confirmationRequest != null)
+            _ConfirmationCard(
+              request: state.confirmationRequest!,
+              busy: state.busy,
+              onConfirm: () => ref
+                  .read(agentConversationProvider.notifier)
+                  .confirmPendingAction(),
+              onCancel: () => ref
+                  .read(agentConversationProvider.notifier)
+                  .cancelPendingAction(),
+            ),
           if (state.transcript.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: SfSpace.x16),
@@ -202,6 +266,64 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
   }
 }
 
+class _ConfirmationCard extends StatelessWidget {
+  const _ConfirmationCard({
+    required this.request,
+    required this.busy,
+    required this.onConfirm,
+    required this.onCancel,
+  });
+
+  final Map<String, dynamic> request;
+  final bool busy;
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.sf;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        SfSpace.x16,
+        0,
+        SfSpace.x16,
+        SfSpace.x8,
+      ),
+      padding: const EdgeInsets.all(SfSpace.x16),
+      decoration: BoxDecoration(
+        color: p.surface,
+        border: Border.all(color: SfColors.amber),
+        borderRadius: SfRadius.cardR,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            request['prompt']?.toString() ?? 'Xác nhận thao tác?',
+            style: SfType.titleCard.copyWith(color: p.textPrimary),
+          ),
+          const SizedBox(height: SfSpace.x12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: busy ? null : onCancel,
+                child: const Text('Hủy'),
+              ),
+              const SizedBox(width: SfSpace.x8),
+              FilledButton.icon(
+                onPressed: busy ? null : onConfirm,
+                icon: const Icon(Icons.verified_user_outlined),
+                label: const Text('Xác nhận'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AgentHero extends StatelessWidget {
   const _AgentHero({
     required this.wakeEnabled,
@@ -249,9 +371,7 @@ class _AgentHero extends StatelessWidget {
               const SizedBox(height: SfSpace.x4),
               Text(
                 'Nói "Hi SafeFleet" để ra lệnh mà không rời tay khỏi vô lăng.',
-                style: SfType.meta.copyWith(
-                  color: SfColors.darkTextSecondary,
-                ),
+                style: SfType.meta.copyWith(color: SfColors.darkTextSecondary),
               ),
             ],
           ),
@@ -262,8 +382,8 @@ class _AgentHero extends StatelessWidget {
   );
 }
 
-class _Bubble extends StatelessWidget {
-  const _Bubble({required this.text, required this.user});
+class AgentMessageBubble extends StatelessWidget {
+  const AgentMessageBubble({required this.text, required this.user, super.key});
 
   final String text;
   final bool user;
@@ -271,6 +391,7 @@ class _Bubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.sf;
+    final textColor = user ? SfColors.darkTextPrimary : p.textPrimary;
     return Align(
       alignment: user ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -287,29 +408,62 @@ class _Bubble extends StatelessWidget {
             bottomRight: const Radius.circular(SfRadius.card),
           ),
         ),
-        child: Text(
-          text,
-          style: SfType.body.copyWith(
-            color: user ? SfColors.darkTextPrimary : p.textPrimary,
-          ),
-        ),
+        child: user
+            ? Text(text, style: SfType.body.copyWith(color: textColor))
+            : MarkdownBody(
+                data: text,
+                selectable: true,
+                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                    .copyWith(
+                      p: SfType.body.copyWith(color: textColor),
+                      strong: SfType.body.copyWith(
+                        color: textColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      em: SfType.body.copyWith(
+                        color: textColor,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      listBullet: SfType.body.copyWith(
+                        color: p.accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      blockSpacing: SfSpace.x8,
+                      listIndent: SfSpace.x20,
+                    ),
+              ),
       ),
     );
   }
 }
 
-class _ThinkingBubble extends StatelessWidget {
-  const _ThinkingBubble();
+class AgentThinkingBubble extends StatelessWidget {
+  const AgentThinkingBubble({super.key});
 
   @override
-  Widget build(BuildContext context) => const Align(
-    alignment: Alignment.centerLeft,
-    child: Padding(
-      padding: EdgeInsets.all(SfSpace.x16),
-      child: SizedBox.square(
-        dimension: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.fromLTRB(
+      SfSpace.x16,
+      SfSpace.x8,
+      SfSpace.x16,
+      SfSpace.x16,
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox.square(
+          dimension: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        SizedBox(width: SfSpace.x8),
+        Expanded(
+          child: Text(
+            'Server đang lập kế hoạch và kiểm tra dữ liệu…',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     ),
   );
 }

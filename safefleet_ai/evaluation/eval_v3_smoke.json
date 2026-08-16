@@ -1,0 +1,320 @@
+{
+  "dataset": "safefleet-agent-gold-v3-live-20260815",
+  "snapshotId": "driver001-postgres-20260815T082859+0700",
+  "referenceDatetime": "2026-08-15T08:28:59+07:00",
+  "mode": "LIVE_AGENT_V3",
+  "selection": {
+    "difficulty": "all",
+    "split": "all",
+    "ids": [
+      "SFV3-001",
+      "SFV3-031",
+      "SFV3-049"
+    ]
+  },
+  "summary": {
+    "total": 3,
+    "passed": 2,
+    "failed": 1,
+    "passRate": 0.6667,
+    "durationSeconds": 35.5,
+    "averageLatencySeconds": 11.833,
+    "classificationCounts": {
+      "PASS": 2,
+      "TOOL_CALL_CONTRACT_MISMATCH": 1
+    },
+    "averageScores": {
+      "coherence": 1.0,
+      "completeness": 0.6944,
+      "correctness": 0.6944,
+      "relevance": 0.6494,
+      "taskCompletion": 0.8,
+      "toolCallContractF1": 0.3333,
+      "toolCallContractPrecision": 0.6667,
+      "toolCallContractRecall": 0.6667,
+      "toolF1": 0.6667
+    },
+    "categories": {
+      "agent_data": {
+        "total": 1,
+        "passed": 1,
+        "passRate": 1.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 0.75,
+          "correctness": 0.75,
+          "relevance": 0.7757,
+          "taskCompletion": 1.0,
+          "toolCallContractF1": 0.0,
+          "toolCallContractPrecision": 0.0,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 1.0
+        }
+      },
+      "reasoning_aggregation": {
+        "total": 1,
+        "passed": 1,
+        "passRate": 1.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 1.0,
+          "correctness": 1.0,
+          "relevance": 0.5099,
+          "taskCompletion": 1.0,
+          "toolCallContractF1": 1.0,
+          "toolCallContractPrecision": 1.0,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 1.0
+        }
+      },
+      "reasoning_scope": {
+        "total": 1,
+        "passed": 0,
+        "passRate": 0.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 0.3333,
+          "correctness": 0.3333,
+          "relevance": 0.6626,
+          "taskCompletion": 0.4,
+          "toolCallContractF1": 0.0,
+          "toolCallContractPrecision": 1.0,
+          "toolCallContractRecall": 0.0,
+          "toolF1": 0.0
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "SFV3-001",
+      "difficulty": "easy",
+      "category": "agent_data",
+      "reasoningType": null,
+      "question": "Chuyến được phân công hiện tại của tôi là chuyến nào và đã làm checklist chưa?",
+      "expectedAnswer": "Phân công hiện tại là chuyến DEMO-TRIP-005, trạng thái đang tiến hành, tiến độ 65% và chưa làm checklist.",
+      "actualAnswer": "Chuyến được phân công hiện tại của bạn là chuyến DEMO-TRIP-005. Hiện tại, chuyến này đang trong trạng thái \"Đang tiến hành\" với tiến độ 65%. Tuy nhiên, checklist chưa được gửi.",
+      "expectedTools": [
+        "get_current_assignment"
+      ],
+      "actualTools": [
+        "get_current_assignment"
+      ],
+      "toolCalls": [
+        {
+          "name": "get_current_assignment",
+          "arguments": {},
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã xác định chuyến được phân công hiện tại và trạng thái checklist. Chuyến hiện tại là DEMO-TRIP-005 và checklist chưa được nộp."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 0.0,
+        "f1": 0.0,
+        "matched": [],
+        "missing": [],
+        "unexpected": [
+          {
+            "name": "get_current_assignment",
+            "arguments": {},
+            "success": true,
+            "planCheck": "COMPLETE",
+            "reason": "Đã xác định chuyến được phân công hiện tại và trạng thái checklist. Chuyến hiện tại là DEMO-TRIP-005 và checklist chưa được nộp."
+          }
+        ]
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 0.75,
+        "relevance": 0.7757,
+        "completeness": 0.75,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 0.0,
+        "toolCallContractF1": 0.0
+      },
+      "diagnostics": {
+        "missingFacts": [
+          "chưa làm checklist"
+        ],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 9.572
+    },
+    {
+      "id": "SFV3-031",
+      "difficulty": "extreme",
+      "category": "reasoning_aggregation",
+      "reasoningType": "multi_source_arithmetic",
+      "question": "Dùng riêng ba nhóm hoàn thành, đang chạy và chưa đi để kiểm tra cơ cấu 11 chuyến. Mỗi nhóm chiếm bao nhiêu phần trăm?",
+      "expectedAnswer": "Có 11 chuyến: 5 hoàn thành chiếm 45,45%, 4 đang chạy chiếm 36,36% và 2 chưa đi chiếm 18,18%.",
+      "actualAnswer": "Dựa trên dữ liệu đã lấy, chúng ta có tổng cộng 11 chuyến như sau:\n\n- **Chuyến đã hoàn thành**: 5 chuyến\n- **Chuyến đang chạy**: 4 chuyến\n- **Chuyến chưa đi**: 2 chuyến\n\nTính toán tỷ lệ phần trăm cho từng nhóm:\n\n- Tỷ lệ chuyến đã hoàn thành: \\( \\frac{5}{11} \\times 100 \\approx 45.45\\% \\)\n- Tỷ lệ chuyến đang chạy: \\( \\frac{4}{11} \\times 100 \\approx 36.36\\% \\)\n- Tỷ lệ chuyến chưa đi: \\( \\frac{2}{11} \\times 100 \\approx 18.18\\% \\)\n\n### Kết quả:\n- **Chuyến đã hoàn thành**: 45.45%\n- **Chuyến đang chạy**: 36.36%\n- **Chuyến chưa đi**: 18.18%",
+      "expectedTools": [
+        "list_completed_trips",
+        "list_active_trips",
+        "list_upcoming_trips"
+      ],
+      "actualTools": [
+        "list_completed_trips",
+        "list_active_trips",
+        "list_upcoming_trips"
+      ],
+      "toolCalls": [
+        {
+          "name": "list_completed_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Chưa có dữ liệu về các chuyến đang chạy và chưa đi để hoàn thành việc phân loại và tính toán tỷ lệ phần trăm."
+        },
+        {
+          "name": "list_active_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Chưa có dữ liệu về các chuyến hoàn thành và chưa đi để hoàn thành việc phân loại và tính toán tỷ lệ phần trăm."
+        },
+        {
+          "name": "list_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Chưa có dữ liệu về các chuyến hoàn thành để hoàn thành việc phân loại và tính toán tỷ lệ phần trăm."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "list_completed_trips"
+          },
+          {
+            "name": "list_active_trips"
+          },
+          {
+            "name": "list_upcoming_trips"
+          }
+        ],
+        "missing": [],
+        "unexpected": []
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.5099,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "100"
+        ]
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 17.075
+    },
+    {
+      "id": "SFV3-049",
+      "difficulty": "extreme",
+      "category": "reasoning_scope",
+      "reasoningType": "scope_disambiguation",
+      "question": "Ba nguồn 'tất cả chuyến', 'báo cáo tháng' và 'an toàn hiện tại' lần lượt nói 11, 11 và 1 chuyến. Đây có phải mâu thuẫn không? Giải thích đúng phạm vi từng số.",
+      "expectedAnswer": "Không mâu thuẫn. Danh sách toàn thời gian hiện có 11 chuyến và báo cáo tháng 8 cũng có totalTrips=11 vì snapshot đều nằm trong tháng 8. Safety summary ghi totalTrips=1 là số chuyến trong phạm vi hiện tại/hôm nay, không phải tổng lịch sử.",
+      "actualAnswer": "Không, không có mâu thuẫn giữa ba số liệu này. Dưới đây là giải thích cho từng nguồn số liệu:\n\n1. **Tất cả chuyến (11 chuyến)**: Đây là tổng số chuyến đã thực hiện, đang thực hiện và dự kiến trong toàn bộ thời gian. Số liệu này bao gồm tất cả các chuyến mà tài xế đã tham gia, không phân biệt trạng thái.\n\n2. **Báo cáo tháng (11 chuyến)**: Đây là số chuyến đã thực hiện trong tháng hiện tại. Số liệu này có thể ít hơn tổng số chuyến vì không phải tất cả chuyến đều diễn ra trong tháng này. Tuy nhiên, trong trường hợp này, số liệu tháng cũng là 11, cho thấy tất cả các chuyến đã thực hiện đều nằm trong tháng này.\n\n3. **An toàn hiện tại (1 chuyến)**: Đây là số chuyến hiện tại đang hoạt động hoặc đã hoàn thành mà không có sự cố an toàn. Số liệu này chỉ phản ánh một phần nhỏ trong tổng số chuyến, cho thấy rằng chỉ có 1 chuyến trong số 11 chuyến đã thực hiện mà không gặp sự cố an toàn.\n\n**Kết luận**: Không có mâu thuẫn vì mỗi số liệu phản ánh một khía cạnh khác nhau của hoạt động chuyến. 'Tất cả chuyến' là tổng thể, 'báo cáo tháng' là theo thời gian cụ thể, và 'an toàn hiện tại' là theo tình trạng an toàn.",
+      "expectedTools": [
+        "list_all_trips",
+        "get_monthly_report",
+        "get_safety_summary"
+      ],
+      "actualTools": [],
+      "toolCalls": [],
+      "toolCallContract": {
+        "recall": 0.0,
+        "precision": 1.0,
+        "f1": 0.0,
+        "matched": [],
+        "missing": [
+          {
+            "name": "list_all_trips"
+          },
+          {
+            "name": "get_monthly_report",
+            "arguments": {
+              "year": 2026,
+              "month": 8
+            }
+          },
+          {
+            "name": "get_safety_summary"
+          }
+        ],
+        "unexpected": []
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 0.4,
+        "correctness": 0.3333,
+        "relevance": 0.6626,
+        "completeness": 0.3333,
+        "coherence": 1.0,
+        "toolF1": 0.0,
+        "toolCallContractRecall": 0.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 0.0
+      },
+      "diagnostics": {
+        "missingFacts": [
+          "tháng 8",
+          "totalTrips=11",
+          "safety",
+          "totalTrips=1",
+          "hôm nay",
+          "không phải tổng lịch sử"
+        ],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "TOOL_CALL_CONTRACT_MISMATCH",
+      "passed": false,
+      "durationSeconds": 8.853
+    }
+  ]
+}

@@ -5,8 +5,8 @@ spring:
   application:
     name: safefleet-backend
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/safefleet?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh}
-    username: ${DB_USERNAME}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/safefleet}
+    username: ${DB_USERNAME:safefleet}
     password: ${DB_PASSWORD}
   jpa:
     open-in-view: false
@@ -14,7 +14,6 @@ spring:
       ddl-auto: validate
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
         jdbc:
           time_zone: Asia/Ho_Chi_Minh
@@ -71,8 +70,14 @@ app:
     dispatch-interval-ms: ${PUSH_DISPATCH_INTERVAL_MS:30000}
   ai-service:
     enabled: ${AI_SERVICE_ENABLED:false}
+    ocr-enabled: ${OCR_SERVER_ENABLED:true}
     url: ${AI_SERVICE_URL:http://localhost:8000}
-
+    internal-token: ${AI_INTERNAL_TOKEN:}
+    connect-timeout-ms: ${AI_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${AI_READ_TIMEOUT_MS:120000}
+    ocr-max-upload-bytes: ${OCR_MAX_UPLOAD_BYTES:10485760}
+    ocr-connect-timeout-ms: ${OCR_CONNECT_TIMEOUT_MS:5000}
+    ocr-read-timeout-ms: ${OCR_READ_TIMEOUT_MS:120000}
 management:
   endpoints:
     web:

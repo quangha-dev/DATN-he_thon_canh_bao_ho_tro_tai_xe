@@ -10,6 +10,7 @@ dependencies {
     implementation("com.google.mlkit:vision-common:17.3.0")
     implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("com.google.mlkit:face-mesh-detection:16.0.0-beta1")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
 }
 
 val releaseStoreFile = System.getenv("SAFEEFLEET_ANDROID_STORE_FILE")
@@ -39,6 +40,10 @@ android {
     namespace = "vn.safefleet.safe_fleet_driver_ui"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+
+    androidResources {
+        noCompress += "onnx"
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

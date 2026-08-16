@@ -1,25 +1,20 @@
 name: safefleet
 
 services:
-  mysql:
-    image: mysql:8.4
+  postgres:
+    image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: Asia/Ho_Chi_Minh
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --default-time-zone=+07:00
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -32,11 +27,11 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-1440}
       JWT_REFRESH_EXPIRATION_DAYS: ${JWT_REFRESH_EXPIRATION_DAYS:-30}
@@ -58,14 +53,16 @@ services:
       FCM_ENABLED: ${FCM_ENABLED:-false}
       PUSH_DISPATCH_INTERVAL_MS: ${PUSH_DISPATCH_INTERVAL_MS:-30000}
       AI_SERVICE_ENABLED: ${AI_SERVICE_ENABLED:-true}
+      OCR_SERVER_ENABLED: ${OCR_SERVER_ENABLED:-true}
       AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8000}
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-${JWT_SECRET}}
       TZ: Asia/Ho_Chi_Minh
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     volumes:
       - evidence_data:/data/evidence
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
@@ -103,20 +100,27 @@ services:
 
   ai-service:
     build:
-      context: ./safefleet_ai
+      context: .
+      dockerfile: safefleet_ai/Dockerfile
     restart: unless-stopped
     environment:
-      OPENAI_ENABLED: ${OPENAI_ENABLED:-false}
+      AGENT_ENCRYPTION_SECRET: ${AGENT_ENCRYPTION_SECRET:-${JWT_SECRET}}
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-${JWT_SECRET}}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
-      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-8}
+      OPENAI_ENABLED: ${OPENAI_ENABLED:-false}
+      AGENT_MAX_STEPS: ${AGENT_MAX_STEPS:-6}
+      BACKEND_INTERNAL_URL: http://backend:8080
+      AI_CONFIG_PATH: /data/agent_config.json
       MODEL_DIR: /models
+      OCR_MODEL_DIR: /app/ocr_models
+      TESSERACT_CMD: /usr/bin/tesseract
+      OCR_MAX_UPLOAD_BYTES: ${OCR_MAX_UPLOAD_BYTES:-10485760}
       TZ: Asia/Ho_Chi_Minh
-    ports:
-      - "${AI_SERVICE_PORT:-8000}:8000"
+    expose:
+      - "8000"
     volumes:
       - ai_models:/models
+      - ai_data:/data
       - ./safefleet_ai/models/safefleet_temporal_rules.json:/models/safefleet_temporal_rules.json:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
@@ -162,9 +166,10 @@ services:
     networks: [safefleet]
 
 volumes:
-  mysql_data:
+  postgres_data:
   minio_data:
   ai_models:
+  ai_data:
   evidence_data:
 
 networks:

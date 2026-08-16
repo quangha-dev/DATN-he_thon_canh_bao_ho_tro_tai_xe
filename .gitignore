@@ -13,6 +13,10 @@ venv/
 env/
 .pytest_cache/
 .mypy_cache/
+safefleet_ai/.local/
+safefleet_ai/artifacts/
+safefleet_ai/.pytest-tmp/
+safefleet_ai/.pytest_tmp_agent*/
 
 # Node.js
 node_modules/
@@ -34,6 +38,20 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Build outputs and temporary workspaces
+**/target/
+.codex-tmp/
+tmp/
+~$*.docx
+
+# AI model binaries are distributed outside Git
+*.onnx
+*.pth
+*.traineddata
+*.tflite
+safe_fleet_driver_ui/android/app/src/main/assets/vietocr/
+safefleet_ai/models/ocr/
 
 # Secrets and certificates
 *.pem

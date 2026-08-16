@@ -67,7 +67,11 @@ class CabinAiController {
     this.modelMode = DrowsinessModelMode.stgtTflite,
     TemporalSafetyEngine? temporalEngine,
     StgtDrowsinessEngine? stgtEngine,
-  }) : _temporalEngine = temporalEngine ?? TemporalSafetyEngine(),
+  }) : _temporalEngine =
+           temporalEngine ??
+           TemporalSafetyEngine(
+             drowsinessEnabled: modelMode == DrowsinessModelMode.mlKitTemporal,
+           ),
        _stgtEngine =
            stgtEngine ??
            StgtDrowsinessEngine(baselineStorage: const FlutterSecureStorage());
@@ -126,9 +130,10 @@ class CabinAiController {
         try {
           await _stgtEngine.initialize();
           _useStgt = true;
-        } catch (_) {
+        } catch (error) {
           _useStgt = false;
-          onStatus(CabinAiStatus.starting, 'Đang khởi động chế độ tương thích');
+          onStatus(CabinAiStatus.unavailable, 'Không thể tải mô hình STGT');
+          throw StateError('STGT initialization failed: $error');
         }
       }
       final cameras = await availableCameras();
@@ -195,7 +200,7 @@ class CabinAiController {
     final now = DateTime.now();
     if (_processing ||
         (_lastFrameAt != null &&
-            now.difference(_lastFrameAt!) < const Duration(milliseconds: 35))) {
+            now.difference(_lastFrameAt!) < const Duration(milliseconds: 40))) {
       return;
     }
     _processing = true;

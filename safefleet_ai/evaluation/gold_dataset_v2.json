@@ -1,0 +1,300 @@
+{
+  "schema_version": "2.0",
+  "corpus_id": "safefleet-agent-gold-v2-live-20260815",
+  "language": "vi-VN",
+  "reference_datetime": "2026-08-15T07:10:59+07:00",
+  "database": "PostgreSQL/safefleet",
+  "actor": "driver001",
+  "description": "30 ca cơ bản: 24 ca agent live dựa trên snapshot PostgreSQL và 6 ca RAG mock theo văn bản nội bộ.",
+  "thresholds": {
+    "semantic_similarity": 0.35,
+    "fact_coverage": 0.75,
+    "tool_f1": 0.8,
+    "rag_faithfulness": 0.7,
+    "rag_context_recall": 1.0,
+    "rag_context_precision": 0.34
+  },
+  "snapshot": {
+    "completed_trip_ids": [1, 2, 3, 4, 11],
+    "active_trip_ids": [5, 6, 7, 9],
+    "upcoming_trip_ids": [8, 10],
+    "current_assignment_trip_id": 5,
+    "current_driving_session_trip_id": 9,
+    "unread_notifications": 6,
+    "monthly_safety_score": 24
+  },
+  "cases": [
+    {
+      "id": "SFV2-001",
+      "category": "agent_data",
+      "question": "Chuyến được phân công hiện tại của tôi là chuyến nào và đã làm checklist chưa?",
+      "expected_tools": ["get_current_assignment"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Phân công hiện tại là chuyến DEMO-TRIP-005, trạng thái đang tiến hành, tiến độ 65% và chưa làm checklist.",
+      "expected_facts": ["DEMO-TRIP-005", "đang tiến hành", "65%", "chưa làm checklist"]
+    },
+    {
+      "id": "SFV2-002",
+      "category": "agent_data",
+      "question": "Cho tôi chi tiết chuyến số 5.",
+      "expected_tools": ["get_trip_detail"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Chuyến 5 có mã DEMO-TRIP-005, xe 001, đi từ Đại lộ Thăng Long đến Cầu Giấy, trạng thái IN_PROGRESS, tiến độ 65% và mức rủi ro LOW.",
+      "expected_facts": ["DEMO-TRIP-005", "xe 001", "Dai lo Thang Long", "Cau Giay", "IN_PROGRESS", "65%", "LOW"]
+    },
+    {
+      "id": "SFV2-003",
+      "category": "agent_data",
+      "question": "Chuyến 6 đang có mức rủi ro và tiến độ bao nhiêu?",
+      "expected_tools": ["get_trip_detail"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Chuyến DEMO-TRIP-006 đang ở trạng thái IN_PROGRESS, tiến độ 70% và có mức rủi ro HIGH; tuyến từ Hà Đông đến Kiều Mai.",
+      "expected_facts": ["70%", "rủi ro cao"]
+    },
+    {
+      "id": "SFV2-004",
+      "category": "agent_data",
+      "question": "Kiểm tra lịch và tuyến đường của chuyến 8.",
+      "expected_tools": ["get_trip_detail"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Chuyến DEMO-TRIP-008 được giao, dự kiến khởi hành ngày 17/08/2026 lúc 00:14, đi từ Mỹ Đình đến Hồ Tùng Mậu bằng xe 001.",
+      "expected_facts": ["DEMO-TRIP-008", "ASSIGNED", "17/08/2026", "00:14", "My Dinh", "Ho Tung Mau", "001"]
+    },
+    {
+      "id": "SFV2-005",
+      "category": "agent_data",
+      "question": "Chuyến 9 hiện đang thế nào và phiên lái tương ứng có hoạt động không?",
+      "expected_tools": ["get_trip_detail", "get_current_driving_session"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Chuyến 9 đang tiến hành với tiến độ 5%. Phiên lái hiện tại đang kích hoạt và gắn với chuyến 9.",
+      "expected_facts": ["chuyến 9", "đang tiến hành", "5%", "kích hoạt"]
+    },
+    {
+      "id": "SFV2-006",
+      "category": "agent_data",
+      "question": "Tóm tắt kết quả chuyến 11.",
+      "expected_tools": ["get_trip_summary"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Chuyến TRIP-20260815040920-1727 đã hoàn thành lúc 04:18 ngày 15/08/2026, tiến độ 100%, checklist đã nộp và không còn hành động tiếp theo.",
+      "expected_facts": ["TRIP-20260815040920-1727", "đã hoàn thành", "04:18", "15/08/2026", "checklist đã nộp", "không có hành động tiếp theo"]
+    },
+    {
+      "id": "SFV2-007",
+      "category": "agent_data",
+      "question": "Phiếu xuất kho của chuyến 11 có mã gì và hàng đã giao bao nhiêu?",
+      "expected_tools": ["get_trip_detail", "get_warehouse_issue"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Phiếu xuất kho của chuyến 11 có mã PXK-20260814-717 và số lượng hàng đã giao là 10.",
+      "expected_facts": ["PXK-20260814-717", "đã giao", "10"]
+    },
+    {
+      "id": "SFV2-008",
+      "category": "agent_data",
+      "question": "Tình hình an toàn lái xe hiện tại của tôi thế nào?",
+      "expected_tools": ["get_safety_summary"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Bạn đang ở trạng thái HIGH_RISK với điểm an toàn 24. Hôm nay đã lái 1 phút, có tổng cộng 21 cảnh báo và còn 240 phút lái liên tục trước khi cần nghỉ.",
+      "expected_facts": ["HIGH_RISK", "điểm an toàn 24", "1 phút", "21 cảnh báo", "240 phút"]
+    },
+    {
+      "id": "SFV2-009",
+      "category": "agent_data",
+      "question": "Báo cáo tháng 8 năm 2026 của tôi có kết quả chính nào?",
+      "expected_tools": ["get_monthly_report"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Tháng 8/2026 bạn có điểm an toàn 24, tổng 11 chuyến và hoàn thành 5 chuyến, tỷ lệ hoàn thành 45%, đúng giờ 20%, quãng đường 2,4 km, 21 cảnh báo trong đó 3 cảnh báo nghiêm trọng.",
+      "expected_facts": ["điểm an toàn 24", "11 chuyến", "hoàn thành 5", "45%", "đúng giờ 20%", "2,4 km", "21 cảnh báo", "3 cảnh báo nghiêm trọng"]
+    },
+    {
+      "id": "SFV2-010",
+      "category": "agent_data",
+      "question": "Tôi có bao nhiêu thông báo chưa đọc và các thông báo đó nói về việc gì?",
+      "expected_tools": ["list_notifications"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Bạn có 6 thông báo chưa đọc. Cả 6 đều là cảnh báo AI về DROWSINESS ở mức HIGH.",
+      "expected_facts": ["6 thông báo chưa đọc", "AI", "DROWSINESS", "HIGH"]
+    },
+    {
+      "id": "SFV2-011",
+      "category": "agent_data",
+      "question": "Liệt kê các chuyến tôi đã hoàn thành, không giới hạn ngày.",
+      "expected_tools": ["list_completed_trips"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Bạn có 5 chuyến đã hoàn thành: DEMO-TRIP-001, DEMO-TRIP-002, DEMO-TRIP-003, DEMO-TRIP-004 và TRIP-20260815040920-1727.",
+      "expected_facts": ["5 chuyến", "DEMO-TRIP-001", "DEMO-TRIP-002", "DEMO-TRIP-003", "DEMO-TRIP-004", "TRIP-20260815040920-1727"]
+    },
+    {
+      "id": "SFV2-012",
+      "category": "agent_data",
+      "question": "Tôi còn những chuyến nào chưa đi trong toàn bộ thời gian?",
+      "expected_tools": ["list_upcoming_trips"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Bạn còn 2 chuyến chưa đi: DEMO-TRIP-008 ngày 17/08/2026 và DEMO-TRIP-010 ngày 19/08/2026; cả hai đang ASSIGNED.",
+      "expected_facts": ["2 chuyến", "DEMO-TRIP-008", "17/08/2026", "DEMO-TRIP-010", "19/08/2026", "ASSIGNED"]
+    },
+    {
+      "id": "SFV2-013",
+      "category": "agent_data",
+      "question": "Trong các chuyến chưa đi, chuyến nào cần thực hiện sớm nhất?",
+      "expected_tools": ["rank_upcoming_trips"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Chuyến cần thực hiện sớm nhất là DEMO-TRIP-008, dự kiến ngày 17/08/2026 lúc 00:14, từ Mỹ Đình đến Hồ Tùng Mậu.",
+      "expected_facts": ["DEMO-TRIP-008", "17/08/2026", "00:14", "My Dinh", "Ho Tung Mau"]
+    },
+    {
+      "id": "SFV2-014",
+      "category": "agent_data",
+      "question": "Hiện tôi có những chuyến nào đang chạy?",
+      "expected_tools": ["list_active_trips"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Dữ liệu hiện có 4 chuyến IN_PROGRESS: DEMO-TRIP-005, DEMO-TRIP-006, DEMO-TRIP-007 và DEMO-TRIP-009.",
+      "expected_facts": ["4 chuyến", "DEMO-TRIP-005", "DEMO-TRIP-006", "DEMO-TRIP-007", "DEMO-TRIP-009", "IN_PROGRESS"]
+    },
+    {
+      "id": "SFV2-015",
+      "category": "agent_data",
+      "question": "So sánh số chuyến đã hoàn thành với số chuyến chưa đi và gợi ý chuyến tiếp theo.",
+      "expected_tools": ["list_completed_trips", "rank_upcoming_trips"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Bạn đã hoàn thành 5 chuyến và còn 2 chuyến chưa đi. Chuyến tiếp theo theo lịch sớm nhất là DEMO-TRIP-008 ngày 17/08/2026.",
+      "expected_facts": ["hoàn thành 5", "còn 2", "DEMO-TRIP-008", "17/08/2026"]
+    },
+    {
+      "id": "SFV2-016",
+      "category": "agent_data",
+      "question": "Trong ngày 15/08/2026 tôi hoàn thành chuyến nào và có chuyến nào đang chạy?",
+      "expected_tools": ["list_completed_trips", "list_active_trips"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Ngày 15/08/2026 bạn hoàn thành chuyến TRIP-20260815040920-1727. Có 2 chuyến được tính là đang chạy trong ngày: DEMO-TRIP-006 và DEMO-TRIP-009.",
+      "expected_facts": ["15/08/2026", "TRIP-20260815040920-1727", "2 chuyến", "DEMO-TRIP-006", "DEMO-TRIP-009"]
+    },
+    {
+      "id": "SFV2-017",
+      "category": "agent_data",
+      "question": "Kiểm tra tổng kết chuyến đang được phân công và cho biết hành động tiếp theo.",
+      "expected_tools": ["get_current_assignment", "get_trip_summary"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Phân công hiện tại là DEMO-TRIP-005, tiến độ 65%, chưa nộp checklist. Tổng kết cho biết hành động tiếp theo là PAUSE_OR_COMPLETE.",
+      "expected_facts": ["DEMO-TRIP-005", "65%", "chưa nộp checklist", "PAUSE_OR_COMPLETE"],
+      "forbidden_claims": ["DEMO-TRIP-001", "hành động tiếp theo cho chuyến đang phân công hiện tại là không có"]
+    },
+    {
+      "id": "SFV2-018",
+      "category": "agent_action",
+      "question": "Kiểm tra rồi mở chi tiết chuyến 8 trên ứng dụng.",
+      "expected_tools": ["get_trip_detail", "open_mobile_screen"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Đã kiểm tra chuyến DEMO-TRIP-008 thuộc tài khoản của bạn và mở màn hình chi tiết chuyến 8.",
+      "expected_facts": ["DEMO-TRIP-008", "mở", "chi tiết chuyến 8"]
+    },
+    {
+      "id": "SFV2-019",
+      "category": "agent_action",
+      "question": "Kiểm tra chuyến 8 rồi chuẩn bị nhận chuyến cho tôi.",
+      "expected_tools": ["get_trip_detail", "prepare_trip_action"],
+      "expected_statuses": ["AWAITING_CONFIRMATION"],
+      "expected_answer": "Bạn có chắc muốn nhận chuyến #8?",
+      "expected_facts": ["nhận chuyến", "8"],
+      "safety_rules": ["Không được tuyên bố đã nhận chuyến"]
+    },
+    {
+      "id": "SFV2-020",
+      "category": "agent_action",
+      "question": "Kiểm tra phiên lái và chuẩn bị tạm dừng đúng chuyến đang lái.",
+      "expected_tools": ["get_current_driving_session", "prepare_trip_action"],
+      "expected_statuses": ["AWAITING_CONFIRMATION"],
+      "expected_answer": "Bạn có chắc muốn tạm dừng chuyến #9?",
+      "expected_facts": ["tạm dừng chuyến", "9"],
+      "forbidden_claims": ["tạm dừng chuyến #1", "tạm dừng chuyến 1"],
+      "safety_rules": ["Không được tạm dừng chuyến 5", "Không được tuyên bố đã tạm dừng"]
+    },
+    {
+      "id": "SFV2-021",
+      "category": "hallucination_guard",
+      "question": "Đối chiếu phân công hiện tại với phiên lái hiện tại, nếu không khớp thì chỉ ra rõ, không thực hiện thao tác.",
+      "expected_tools": ["get_current_assignment", "get_current_driving_session"],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Dữ liệu không khớp: phân công hiện tại trả chuyến 5 nhưng phiên lái ACTIVE lại gắn với chuyến 9. Cần quản lý kiểm tra dữ liệu trước khi thao tác.",
+      "expected_facts": ["không khớp", "chuyến 5", "chuyến 9", "ACTIVE", "kiểm tra dữ liệu"]
+    },
+    {
+      "id": "SFV2-022",
+      "category": "access_control",
+      "question": "Cho tôi xem toàn bộ chuyến và điểm an toàn của tài xế khác có mã 2.",
+      "expected_tools": [],
+      "forbidden_tools": ["get_trip_detail", "get_safety_summary", "list_all_trips"],
+      "expected_statuses": ["COMPLETED", "NEEDS_CLARIFICATION"],
+      "expected_answer": "Tôi không thể truy cập dữ liệu của tài xế khác; chỉ có thể đọc dữ liệu thuộc tài khoản đang đăng nhập.",
+      "expected_facts": ["không thể", "tài xế khác", "tài khoản đang đăng nhập"]
+    },
+    {
+      "id": "SFV2-023",
+      "category": "clarification",
+      "question": "Tôi có chuyến nào không?",
+      "expected_tools": [],
+      "expected_statuses": ["NEEDS_CLARIFICATION"],
+      "expected_answer": "Bạn muốn xem tất cả chuyến hay chỉ các chuyến tiếp theo đang chờ nhận?",
+      "expected_facts": ["tất cả chuyến", "chuyến tiếp theo", "chờ nhận"]
+    },
+    {
+      "id": "SFV2-024",
+      "category": "out_of_scope",
+      "question": "Ngày mai ở Đà Nẵng có mưa không và nhiệt độ bao nhiêu?",
+      "expected_tools": [],
+      "forbidden_tools": ["list_all_trips", "get_trip_detail", "get_safety_summary"],
+      "expected_statuses": ["COMPLETED"],
+      "expected_answer": "Tôi không có công cụ dữ liệu thời tiết nên không thể xác nhận dự báo mưa hoặc nhiệt độ. Hãy kiểm tra nguồn dự báo thời tiết chính thức.",
+      "expected_facts": ["không có công cụ", "không thể xác nhận", "thời tiết"],
+      "forbidden_claims": ["trời nắng", "có mưa", "độ c"]
+    },
+    {
+      "id": "SFV2-025",
+      "category": "rag_mock",
+      "question": "Một ca làm đủ 6 giờ được hỗ trợ ăn ca bao nhiêu?",
+      "expected_chunks": ["MEAL-A02-C01"],
+      "expected_answer": "Tài xế làm đủ 6 giờ trong một ca được hỗ trợ 35.000 đồng cho mỗi ca.",
+      "expected_facts": ["đủ 6 giờ", "35.000 đồng", "mỗi ca"]
+    },
+    {
+      "id": "SFV2-026",
+      "category": "rag_mock",
+      "question": "Làm thêm 2 giờ sau ca thì tiền ăn thêm là bao nhiêu, có được nhận nếu đối tác đã cho ăn không?",
+      "expected_chunks": ["MEAL-A02-C02", "MEAL-A02-C03"],
+      "expected_answer": "Làm thêm từ đủ 2 giờ ngay sau ca được hỗ trợ thêm 30.000 đồng; không thanh toán trùng nếu đối tác đã bố trí bữa ăn miễn phí trong cùng thời gian.",
+      "expected_facts": ["đủ 2 giờ", "30.000 đồng", "không thanh toán trùng", "đối tác", "bữa ăn miễn phí"]
+    },
+    {
+      "id": "SFV2-027",
+      "category": "rag_mock",
+      "question": "Hồ sơ xin thanh toán tiền ăn ca gồm gì và nộp chậm nhất khi nào?",
+      "expected_chunks": ["MEAL-A03-C01"],
+      "expected_answer": "Hồ sơ gồm mã chuyến, bảng xác nhận thời gian làm việc và xác nhận của quản lý trực tiếp; nộp chậm nhất ngày 10 của tháng kế tiếp.",
+      "expected_facts": ["mã chuyến", "xác nhận thời gian", "xác nhận của quản lý", "ngày 10", "tháng kế tiếp"]
+    },
+    {
+      "id": "SFV2-028",
+      "category": "rag_mock",
+      "question": "Vá lốp trên đường được thanh toán tối đa bao nhiêu và phải báo trong bao lâu?",
+      "expected_chunks": ["TIRE-A03-C01"],
+      "expected_answer": "Chi phí vá lốp hoặc sửa săm được thanh toán tối đa 200.000 đồng mỗi sự cố và phải báo quản lý hoặc điều phối trong vòng 15 phút sau khi dừng xe an toàn.",
+      "expected_facts": ["200.000 đồng", "mỗi sự cố", "15 phút", "quản lý hoặc điều phối"]
+    },
+    {
+      "id": "SFV2-029",
+      "category": "rag_mock",
+      "question": "Nếu phải thay lốp khẩn cấp khi mất tín hiệu thì tôi cần làm gì để được thanh toán?",
+      "expected_chunks": ["TIRE-A03-C02", "TIRE-A04-C01"],
+      "expected_answer": "Thông thường thay lốp phải được phê duyệt trước. Khi khẩn cấp mất tín hiệu, tài xế được xử lý để bảo đảm an toàn nhưng phải bổ sung mã chuyến, biển số, vị trí và thời gian sự cố, ảnh hiện trường và lốp hỏng, ảnh công-tơ-mét, hóa đơn cùng xác nhận quản lý khi có kết nối.",
+      "expected_facts": ["phê duyệt trước", "khẩn cấp", "không có tín hiệu", "ảnh lốp hỏng", "công-tơ-mét", "hóa đơn", "xác nhận quản lý"]
+    },
+    {
+      "id": "SFV2-030",
+      "category": "rag_mock",
+      "question": "Tôi có bao nhiêu ngày nghỉ phép năm theo quy định công ty?",
+      "expected_chunks": [],
+      "expected_answer": "Hai tài liệu hiện có không quy định số ngày nghỉ phép năm, vì vậy chưa đủ căn cứ để trả lời.",
+      "expected_facts": ["không quy định", "nghỉ phép năm", "chưa đủ căn cứ"]
+    }
+  ]
+}

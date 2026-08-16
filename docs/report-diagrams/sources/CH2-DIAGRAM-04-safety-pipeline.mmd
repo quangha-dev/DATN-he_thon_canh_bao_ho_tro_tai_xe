@@ -1,0 +1,33 @@
+flowchart TB
+    Frame["Camera frame + timestamp"] --> Sample["Frame sampling<br/>rotation / crop / normalize"]
+    subgraph Detection["Hai nhánh nhận diện tại thiết bị"]
+      direction LR
+      Face["Face detection + 468 landmarks"]
+      Phone["Phone detector TFLite"]
+    end
+    Sample --> Face
+    Sample --> Phone
+    Face --> Features["EAR, MAR, pitch, yaw, roll"]
+    Features --> Stgt["STGT TFLite<br/>cửa sổ 75 x 12"]
+    Features --> Rules["Luật thời gian<br/>nhắm mắt, PERCLOS, ngáp"]
+    Phone --> Context["Ngữ cảnh<br/>tay - tai - mặt - tốc độ"]
+    subgraph ModelOutputs["Hợp nhất kết quả"]
+      direction LR
+      Predictions["Prediction stream"]
+    end
+    Stgt --> Predictions
+    Rules --> Predictions
+    Context --> Predictions
+    Predictions --> Window["Sliding window + hysteresis<br/>duration + confidence + cooldown"]
+    Window --> Event["Behavior Event<br/>DROWSINESS / PHONE_USAGE"]
+    Event --> Risk["Local Risk Engine<br/>severity + duration + frequency + speed + response"]
+    Risk --> Decision{"Risk level"}
+    Decision -- "NORMAL" --> Frame
+    Decision -- "WARNING / HIGH" --> Warn["Âm thanh + rung + TTS<br/>yêu cầu xác nhận"]
+    Warn --> Response{"Phản hồi?"}
+    Response -- "Có" --> Log["Lưu event + response"]
+    Response -- "Không / tiếp diễn" --> Critical["CRITICAL override"]
+    Decision -- "CRITICAL" --> Critical
+    Critical --> Queue["SQLite priority queue"]
+    Log --> Queue
+    Queue --> Sync["Backend + dashboard + incident"]

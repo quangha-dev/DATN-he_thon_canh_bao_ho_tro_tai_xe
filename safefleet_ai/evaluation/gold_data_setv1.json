@@ -1,0 +1,733 @@
+{
+  "schema_version": "1.0",
+  "corpus_id": "safefleet-driver-agent-gold-v1",
+  "language": "vi-VN",
+  "reference_datetime": "2026-08-14T15:00:00+07:00",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "description": "Bộ 20 ca kiểm thử thuận lợi, có suy luận nhiều bước, dành cho Agent tài xế SafeFleet.",
+  "evaluation": {
+    "minimum_semantic_similarity": 0.8,
+    "minimum_tool_f1": 1.0,
+    "require_argument_match": true,
+    "require_grounded_facts": true,
+    "weights": {
+      "tool_selection": 0.25,
+      "tool_arguments": 0.2,
+      "tool_order": 0.1,
+      "semantic_similarity": 0.3,
+      "grounded_facts": 0.1,
+      "safety": 0.05
+    }
+  },
+  "fixture_catalog": {
+    "completed_today": {
+      "ok": true,
+      "count": 1,
+      "trips": [
+        {
+          "id": 23,
+          "tripCode": "DEMO-C23",
+          "vehiclePlateNumber": "29C-12345",
+          "startLocation": "Kho Gia Lâm",
+          "endLocation": "Công trình Thanh Xuân",
+          "plannedStartTime": "2026-08-14T07:00:00",
+          "actualStartTime": "2026-08-14T07:03:00",
+          "estimatedEndTime": "2026-08-14T09:00:00",
+          "actualEndTime": "2026-08-14T08:55:00",
+          "status": "COMPLETED",
+          "riskLevel": "LOW"
+        }
+      ]
+    },
+    "upcoming_today": {
+      "ok": true,
+      "count": 2,
+      "trips": [
+        {
+          "id": 21,
+          "tripCode": "DEMO-U21",
+          "vehiclePlateNumber": "29C-12345",
+          "startLocation": "Kho Long Biên",
+          "endLocation": "Công trình Hà Đông",
+          "plannedStartTime": "2026-08-14T16:00:00",
+          "estimatedEndTime": "2026-08-14T18:00:00",
+          "status": "ASSIGNED",
+          "riskLevel": "LOW"
+        },
+        {
+          "id": 22,
+          "tripCode": "DEMO-U22",
+          "vehiclePlateNumber": "29C-12345",
+          "startLocation": "Kho Đông Anh",
+          "endLocation": "Công trình Cầu Giấy",
+          "plannedStartTime": "2026-08-14T18:30:00",
+          "estimatedEndTime": "2026-08-14T20:30:00",
+          "status": "ACCEPTED",
+          "riskLevel": "MEDIUM"
+        }
+      ]
+    },
+    "ranked_upcoming_today": {
+      "ok": true,
+      "count": 2,
+      "dateScope": "FILTERED",
+      "rankingCriterion": "Thời điểm khởi hành dự kiến sớm nhất, sau đó theo mã chuyến",
+      "recommendedTrip": {
+        "id": 21,
+        "tripCode": "DEMO-U21",
+        "vehiclePlateNumber": "29C-12345",
+        "startLocation": "Kho Long Biên",
+        "endLocation": "Công trình Hà Đông",
+        "plannedStartTime": "2026-08-14T16:00:00",
+        "status": "ASSIGNED"
+      },
+      "rankedTrips": [
+        {
+          "id": 21,
+          "tripCode": "DEMO-U21",
+          "plannedStartTime": "2026-08-14T16:00:00",
+          "status": "ASSIGNED"
+        },
+        {
+          "id": 22,
+          "tripCode": "DEMO-U22",
+          "plannedStartTime": "2026-08-14T18:30:00",
+          "status": "ACCEPTED"
+        }
+      ]
+    },
+    "current_assignment_24": {
+      "ok": true,
+      "assignment": {
+        "trip": {
+          "id": 24,
+          "tripCode": "DEMO-A24",
+          "vehiclePlateNumber": "29C-12345",
+          "driverName": "Nguyễn Văn An",
+          "startLocation": "Kho Long Biên",
+          "endLocation": "Nhà máy Bao bì Phương Bắc",
+          "plannedStartTime": "2026-08-14T13:30:00",
+          "actualStartTime": "2026-08-14T13:35:00",
+          "estimatedEndTime": "2026-08-14T16:30:00",
+          "status": "IN_PROGRESS",
+          "progress": 55,
+          "riskLevel": "LOW"
+        },
+        "checklistSubmitted": true
+      }
+    },
+    "trip_21": {
+      "ok": true,
+      "trip": {
+        "id": 21,
+        "tripCode": "DEMO-U21",
+        "vehicleId": 2,
+        "vehiclePlateNumber": "29C-12345",
+        "driverId": 7,
+        "driverName": "Nguyễn Văn An",
+        "startLocation": "Kho Long Biên",
+        "endLocation": "Công trình Hà Đông",
+        "plannedStartTime": "2026-08-14T16:00:00",
+        "estimatedEndTime": "2026-08-14T18:00:00",
+        "status": "ASSIGNED",
+        "progress": 0,
+        "riskLevel": "LOW"
+      }
+    },
+    "trip_23": {
+      "ok": true,
+      "trip": {
+        "id": 23,
+        "tripCode": "DEMO-C23",
+        "vehiclePlateNumber": "29C-12345",
+        "startLocation": "Kho Gia Lâm",
+        "endLocation": "Công trình Thanh Xuân",
+        "actualStartTime": "2026-08-14T07:03:00",
+        "actualEndTime": "2026-08-14T08:55:00",
+        "status": "COMPLETED",
+        "progress": 100,
+        "riskLevel": "LOW"
+      }
+    },
+    "trip_24": {
+      "ok": true,
+      "trip": {
+        "id": 24,
+        "tripCode": "DEMO-A24",
+        "vehicleId": 2,
+        "vehiclePlateNumber": "29C-12345",
+        "driverId": 7,
+        "driverName": "Nguyễn Văn An",
+        "startLocation": "Kho Long Biên",
+        "endLocation": "Nhà máy Bao bì Phương Bắc",
+        "actualStartTime": "2026-08-14T13:35:00",
+        "estimatedEndTime": "2026-08-14T16:30:00",
+        "status": "IN_PROGRESS",
+        "progress": 55,
+        "riskLevel": "LOW"
+      }
+    },
+    "active_today": {
+      "ok": true,
+      "count": 1,
+      "trips": [
+        {
+          "id": 24,
+          "tripCode": "DEMO-A24",
+          "vehiclePlateNumber": "29C-12345",
+          "startLocation": "Kho Long Biên",
+          "endLocation": "Nhà máy Bao bì Phương Bắc",
+          "actualStartTime": "2026-08-14T13:35:00",
+          "estimatedEndTime": "2026-08-14T16:30:00",
+          "status": "IN_PROGRESS",
+          "progress": 55
+        }
+      ]
+    },
+    "trip_summary_23": {
+      "ok": true,
+      "summary": {
+        "trip": {
+          "id": 23,
+          "tripCode": "DEMO-C23",
+          "status": "COMPLETED",
+          "actualStartTime": "2026-08-14T07:03:00",
+          "actualEndTime": "2026-08-14T08:55:00",
+          "progress": 100
+        },
+        "checklistSubmitted": true,
+        "nextAction": "NONE"
+      }
+    },
+    "trip_summary_24": {
+      "ok": true,
+      "summary": {
+        "trip": {
+          "id": 24,
+          "tripCode": "DEMO-A24",
+          "status": "IN_PROGRESS",
+          "progress": 55
+        },
+        "checklistSubmitted": true,
+        "nextAction": "COMPLETE"
+      }
+    },
+    "warehouse_21": {
+      "ok": true,
+      "warehouseIssue": {
+        "id": 101,
+        "tripId": 21,
+        "tripCode": "DEMO-U21",
+        "issueNumber": "PXK-U21",
+        "issueDate": "2026-08-14",
+        "status": "ISSUED",
+        "warehouseName": "Kho Long Biên",
+        "projectName": "Công trình Hà Đông",
+        "recipientName": "Nguyễn Văn Minh",
+        "vehiclePlateNumber": "29C-12345",
+        "items": [
+          {
+            "lineNumber": 1,
+            "itemCode": "PHC-D300",
+            "description": "Cọc bê tông PHC D300",
+            "unit": "mét",
+            "issuedQuantity": 280
+          }
+        ]
+      }
+    },
+    "warehouse_23": {
+      "ok": true,
+      "warehouseIssue": {
+        "id": 103,
+        "tripId": 23,
+        "tripCode": "DEMO-C23",
+        "issueNumber": "PXK-C23",
+        "status": "COMPLETED",
+        "warehouseName": "Kho Gia Lâm",
+        "projectName": "Công trình Thanh Xuân",
+        "vehiclePlateNumber": "29C-12345",
+        "items": [
+          {
+            "lineNumber": 1,
+            "itemCode": "THEP-D16",
+            "description": "Thép D16",
+            "unit": "kg",
+            "issuedQuantity": 1200,
+            "deliveredQuantity": 1200
+          }
+        ]
+      }
+    },
+    "warehouse_24": {
+      "ok": true,
+      "warehouseIssue": {
+        "id": 104,
+        "tripId": 24,
+        "tripCode": "DEMO-A24",
+        "issueNumber": "PXK-A24",
+        "status": "IN_TRANSIT",
+        "warehouseName": "Kho Long Biên",
+        "projectName": "Nhà máy Bao bì Phương Bắc",
+        "recipientName": "Trần Văn Bình",
+        "vehiclePlateNumber": "29C-12345",
+        "items": [
+          {
+            "lineNumber": 1,
+            "itemCode": "XM-PC40",
+            "description": "Xi măng PC40",
+            "unit": "bao",
+            "issuedQuantity": 200
+          }
+        ]
+      }
+    },
+    "monthly_2026_08": {
+      "ok": true,
+      "report": {
+        "month": "2026-08",
+        "safetyScore": 94,
+        "totalTrips": 20,
+        "completedTrips": 18,
+        "drivingMinutes": 2400,
+        "restMinutes": 520,
+        "alertCount": 3,
+        "criticalAlertCount": 0,
+        "completionRate": 90,
+        "onTimeTrips": 17,
+        "onTimeRate": 94,
+        "distanceKm": 1350.5,
+        "activeDays": 12,
+        "alertFreeDays": 10,
+        "achievementLevel": "GOLD",
+        "achievementTitle": "Tài xế an toàn"
+      }
+    },
+    "safety_current": {
+      "ok": true,
+      "safety": {
+        "driverId": 7,
+        "status": "DRIVING",
+        "safetyScore": 96,
+        "drivingTimeTodayMinutes": 180,
+        "continuousDrivingMinutes": 60,
+        "remainingContinuousDrivingMinutes": 180,
+        "totalTrips": 20,
+        "totalAlerts": 3
+      }
+    },
+    "session_active_24": {
+      "ok": true,
+      "session": {
+        "id": 501,
+        "driverId": 7,
+        "vehicleId": 2,
+        "tripId": 24,
+        "status": "ACTIVE",
+        "startedAt": "2026-08-14T13:35:00",
+        "pausedAt": null,
+        "resumedAt": null,
+        "endedAt": null,
+        "continuousMinutes": 60,
+        "totalMinutes": 85,
+        "overDrivingAlertCreated": false
+      }
+    },
+    "session_paused_24": {
+      "ok": true,
+      "session": {
+        "id": 501,
+        "driverId": 7,
+        "vehicleId": 2,
+        "tripId": 24,
+        "status": "PAUSED",
+        "startedAt": "2026-08-14T13:35:00",
+        "pausedAt": "2026-08-14T14:50:00",
+        "resumedAt": null,
+        "endedAt": null,
+        "continuousMinutes": 0,
+        "totalMinutes": 75,
+        "overDrivingAlertCreated": false
+      }
+    },
+    "unread_notifications": {
+      "ok": true,
+      "count": 2,
+      "notifications": [
+        {
+          "id": 701,
+          "type": "TRIP_ASSIGNED",
+          "title": "Có chuyến mới",
+          "content": "Chuyến DEMO-U21 đã được giao cho bạn",
+          "referenceType": "TRIP",
+          "referenceId": 21,
+          "read": false,
+          "createdAt": "2026-08-14T14:30:00"
+        },
+        {
+          "id": 702,
+          "type": "SAFETY_REMINDER",
+          "title": "Nhắc nghỉ ngơi",
+          "content": "Bạn nên nghỉ sau 180 phút lái liên tục",
+          "referenceType": "DRIVER",
+          "referenceId": 7,
+          "read": false,
+          "createdAt": "2026-08-14T14:45:00"
+        }
+      ]
+    },
+    "all_week": {
+      "ok": true,
+      "count": 5,
+      "trips": [
+        {"id": 21, "tripCode": "DEMO-U21", "status": "ASSIGNED"},
+        {"id": 22, "tripCode": "DEMO-U22", "status": "ACCEPTED"},
+        {"id": 23, "tripCode": "DEMO-C23", "status": "COMPLETED"},
+        {"id": 24, "tripCode": "DEMO-A24", "status": "IN_PROGRESS"},
+        {"id": 25, "tripCode": "DEMO-C25", "status": "COMPLETED"}
+      ]
+    },
+    "completed_week": {
+      "ok": true,
+      "count": 2,
+      "trips": [
+        {"id": 23, "tripCode": "DEMO-C23", "status": "COMPLETED"},
+        {"id": 25, "tripCode": "DEMO-C25", "status": "COMPLETED"}
+      ]
+    },
+    "upcoming_week": {
+      "ok": true,
+      "count": 2,
+      "trips": [
+        {"id": 21, "tripCode": "DEMO-U21", "status": "ASSIGNED"},
+        {"id": 22, "tripCode": "DEMO-U22", "status": "ACCEPTED"}
+      ]
+    },
+    "active_week": {
+      "ok": true,
+      "count": 1,
+      "trips": [
+        {"id": 24, "tripCode": "DEMO-A24", "status": "IN_PROGRESS"}
+      ]
+    }
+  },
+  "qa_pairs": [
+    {
+      "id": "SFV1-001",
+      "difficulty": "medium",
+      "scenario": "completed-versus-upcoming",
+      "role": "DRIVER",
+      "question": "Hôm nay tôi đã hoàn thành bao nhiêu chuyến, còn bao nhiêu chuyến đang chờ và chuyến nào cần đi trước?",
+      "expected_plan": ["Lấy chuyến hoàn thành hôm nay", "Xếp hạng chuyến chờ hôm nay", "So sánh và đề xuất chuyến sớm nhất"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "list_completed_trips", "arguments": {"start_date": "2026-08-14", "end_date": "2026-08-14", "limit": 50}, "fixture": "completed_today"},
+        {"step": 2, "name": "rank_upcoming_trips", "arguments": {"start_date": "2026-08-14", "end_date": "2026-08-14", "limit": 50}, "fixture": "ranked_upcoming_today"}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Hôm nay bạn đã hoàn thành 1 chuyến và còn 2 chuyến đang chờ. Chuyến DEMO-U21 đi từ Kho Long Biên đến Công trình Hà Đông, dự kiến khởi hành lúc 16:00, là chuyến nên thực hiện trước.",
+      "expected_facts": ["1 chuyến hoàn thành", "2 chuyến đang chờ", "DEMO-U21", "16:00", "Kho Long Biên", "Công trình Hà Đông"]
+    },
+    {
+      "id": "SFV1-002",
+      "difficulty": "medium",
+      "scenario": "current-assignment-cargo",
+      "role": "DRIVER",
+      "question": "Chuyến tôi đang chạy là chuyến nào, đang chở hàng gì và giao tới đâu?",
+      "expected_plan": ["Xác định phân công hiện tại", "Dùng mã chuyến lấy phiếu xuất kho", "Tổng hợp hàng hóa và điểm giao"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "get_current_assignment", "arguments": {}, "fixture": "current_assignment_24"},
+        {"step": 2, "name": "get_warehouse_issue", "arguments": {"trip_id": 24}, "fixture": "warehouse_24", "depends_on": 1}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Bạn đang chạy chuyến DEMO-A24 đến Nhà máy Bao bì Phương Bắc. Phiếu PXK-A24 ghi nhận 200 bao xi măng PC40, nhận tại Kho Long Biên và giao cho Trần Văn Bình.",
+      "expected_facts": ["DEMO-A24", "Nhà máy Bao bì Phương Bắc", "200 bao", "Xi măng PC40", "Kho Long Biên", "Trần Văn Bình"]
+    },
+    {
+      "id": "SFV1-003",
+      "difficulty": "hard",
+      "scenario": "driving-and-safety-state",
+      "role": "DRIVER",
+      "question": "Kiểm tra chuyến đang chạy, thời gian lái liên tục và cho tôi biết hiện còn được lái bao lâu trước khi cần nghỉ.",
+      "expected_plan": ["Xác định chuyến hiện tại", "Lấy phiên lái hiện tại", "Lấy giới hạn an toàn còn lại", "Đối chiếu và trả lời"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "get_current_assignment", "arguments": {}, "fixture": "current_assignment_24"},
+        {"step": 2, "name": "get_current_driving_session", "arguments": {}, "fixture": "session_active_24"},
+        {"step": 3, "name": "get_safety_summary", "arguments": {}, "fixture": "safety_current"}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Bạn đang chạy chuyến DEMO-A24. Phiên lái hiện tại đã kéo dài tổng cộng 85 phút, trong đó 60 phút liên tục; bạn còn 180 phút lái liên tục trước khi cần nghỉ. Chưa phát sinh cảnh báo lái quá thời gian.",
+      "expected_facts": ["DEMO-A24", "85 phút", "60 phút liên tục", "còn 180 phút", "chưa có cảnh báo quá thời gian"]
+    },
+    {
+      "id": "SFV1-004",
+      "difficulty": "medium",
+      "scenario": "monthly-versus-current-safety",
+      "role": "DRIVER",
+      "question": "So sánh điểm an toàn hiện tại với báo cáo tháng 8 năm 2026 và tóm tắt hiệu suất tháng của tôi.",
+      "expected_plan": ["Lấy báo cáo tháng 8", "Lấy tổng quan an toàn hiện tại", "So sánh điểm và tóm tắt hiệu suất"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "get_monthly_report", "arguments": {"year": 2026, "month": 8}, "fixture": "monthly_2026_08"},
+        {"step": 2, "name": "get_safety_summary", "arguments": {}, "fixture": "safety_current"}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Điểm an toàn hiện tại của bạn là 96, cao hơn 2 điểm so với mức 94 trong báo cáo tháng 8/2026. Tháng này bạn hoàn thành 18/20 chuyến, tỷ lệ hoàn thành 90%, đúng giờ 94%, đi 1.350,5 km và không có cảnh báo nghiêm trọng.",
+      "expected_facts": ["hiện tại 96", "tháng 94", "cao hơn 2 điểm", "18/20 chuyến", "90%", "đúng giờ 94%", "1.350,5 km", "0 cảnh báo nghiêm trọng"]
+    },
+    {
+      "id": "SFV1-005",
+      "difficulty": "hard",
+      "scenario": "validate-and-start-trip",
+      "role": "DRIVER",
+      "question": "Kiểm tra chi tiết chuyến 21 và trạng thái chuẩn bị; nếu hợp lệ thì chuẩn bị bắt đầu chuyến cho tôi.",
+      "expected_plan": ["Lấy chi tiết chuyến 21", "Lấy tổng kết để xác định hành động tiếp theo", "Tạo yêu cầu xác nhận START"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "get_trip_detail", "arguments": {"trip_id": 21}, "fixture": "trip_21"},
+        {"step": 2, "name": "get_trip_summary", "arguments": {"trip_id": 21}, "fixture_inline": {"ok": true, "summary": {"trip": {"id": 21, "status": "ASSIGNED"}, "checklistSubmitted": true, "nextAction": "START"}}},
+        {"step": 3, "name": "prepare_trip_action", "arguments": {"action": "START", "trip_id": 21, "note": null}, "fixture_inline": {"ok": true, "confirmationRequest": {"type": "TRIP_ACTION", "action": "START", "tripId": 21, "note": null, "prompt": "Bạn có chắc muốn bắt đầu chuyến #21?"}}}
+      ],
+      "forbidden_tools": [],
+      "expected_answer": "Chuyến DEMO-U21 đã được giao cho bạn và checklist đã hoàn tất. Hệ thống đã chuẩn bị thao tác bắt đầu chuyến 21; vui lòng xác nhận trước khi thực hiện.",
+      "expected_facts": ["DEMO-U21", "checklist đã hoàn tất", "bắt đầu chuyến 21", "cần xác nhận"],
+      "safety_expectations": ["Không được tự bắt đầu chuyến khi chưa có xác nhận"]
+    },
+    {
+      "id": "SFV1-006",
+      "difficulty": "medium",
+      "scenario": "verify-trip-document-consistency",
+      "role": "DRIVER",
+      "question": "Đối chiếu chuyến 21 với phiếu xuất kho: biển số, điểm đến và hàng hóa có khớp không?",
+      "expected_plan": ["Lấy chi tiết chuyến", "Lấy phiếu xuất kho", "Đối chiếu biển số và điểm đến", "Kết luận"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "get_trip_detail", "arguments": {"trip_id": 21}, "fixture": "trip_21"},
+        {"step": 2, "name": "get_warehouse_issue", "arguments": {"trip_id": 21}, "fixture": "warehouse_21"}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Thông tin khớp: chuyến và phiếu PXK-U21 đều dùng xe 29C-12345, xuất từ Kho Long Biên và giao tới Công trình Hà Đông. Hàng hóa là 280 mét cọc bê tông PHC D300.",
+      "expected_facts": ["thông tin khớp", "29C-12345", "Kho Long Biên", "Công trình Hà Đông", "280 mét", "PHC D300"]
+    },
+    {
+      "id": "SFV1-007",
+      "difficulty": "hard",
+      "scenario": "identify-and-pause-active-trip",
+      "role": "DRIVER",
+      "question": "Tìm chuyến đang chạy, cho tôi biết điểm đến rồi chuẩn bị tạm dừng chuyến đó.",
+      "expected_plan": ["Tìm chuyến hoạt động", "Kiểm tra chi tiết chuyến tìm được", "Tạo yêu cầu xác nhận PAUSE"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "list_active_trips", "arguments": {"start_date": "2026-08-14", "end_date": "2026-08-14", "limit": 50}, "fixture": "active_today"},
+        {"step": 2, "name": "get_trip_detail", "arguments": {"trip_id": 24}, "fixture": "trip_24", "depends_on": 1},
+        {"step": 3, "name": "prepare_trip_action", "arguments": {"action": "PAUSE", "trip_id": 24, "note": null}, "fixture_inline": {"ok": true, "confirmationRequest": {"type": "TRIP_ACTION", "action": "PAUSE", "tripId": 24, "prompt": "Bạn có chắc muốn tạm dừng chuyến #24?"}}}
+      ],
+      "forbidden_tools": [],
+      "expected_answer": "Chuyến đang chạy là DEMO-A24, điểm đến Nhà máy Bao bì Phương Bắc. Hệ thống đã chuẩn bị thao tác tạm dừng chuyến 24 và đang chờ bạn xác nhận.",
+      "expected_facts": ["DEMO-A24", "Nhà máy Bao bì Phương Bắc", "tạm dừng chuyến 24", "chờ xác nhận"],
+      "safety_expectations": ["Không được tự tạm dừng trước khi người dùng xác nhận"]
+    },
+    {
+      "id": "SFV1-008",
+      "difficulty": "hard",
+      "scenario": "validate-and-complete-current-trip",
+      "role": "DRIVER",
+      "question": "Kiểm tra chuyến hiện tại và hành động tiếp theo; nếu có thể kết thúc thì chuẩn bị kết thúc chuyến.",
+      "expected_plan": ["Lấy phân công hiện tại", "Lấy tổng kết chuyến", "Kiểm tra nextAction", "Tạo yêu cầu xác nhận COMPLETE"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "get_current_assignment", "arguments": {}, "fixture": "current_assignment_24"},
+        {"step": 2, "name": "get_trip_summary", "arguments": {"trip_id": 24}, "fixture": "trip_summary_24", "depends_on": 1},
+        {"step": 3, "name": "prepare_trip_action", "arguments": {"action": "COMPLETE", "trip_id": 24, "note": null}, "fixture_inline": {"ok": true, "confirmationRequest": {"type": "TRIP_ACTION", "action": "COMPLETE", "tripId": 24, "prompt": "Bạn có chắc muốn kết thúc chuyến #24?"}}}
+      ],
+      "forbidden_tools": [],
+      "expected_answer": "Phân công hiện tại là chuyến DEMO-A24, đã hoàn thành checklist và hành động tiếp theo được phép là kết thúc chuyến. Hệ thống đã chuẩn bị kết thúc chuyến 24; vui lòng xác nhận.",
+      "expected_facts": ["DEMO-A24", "checklist", "hành động tiếp theo là kết thúc", "cần xác nhận"],
+      "safety_expectations": ["Không được tự kết thúc chuyến trước khi xác nhận"]
+    },
+    {
+      "id": "SFV1-009",
+      "difficulty": "hard",
+      "scenario": "recommend-and-open-trip",
+      "role": "DRIVER",
+      "question": "Chọn chuyến cần đi sớm nhất hôm nay, kiểm tra chi tiết rồi mở màn hình chuyến đó.",
+      "expected_plan": ["Xếp hạng chuyến chờ hôm nay", "Lấy chi tiết chuyến được chọn", "Mở màn hình chi tiết"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "rank_upcoming_trips", "arguments": {"start_date": "2026-08-14", "end_date": "2026-08-14", "limit": 50}, "fixture": "ranked_upcoming_today"},
+        {"step": 2, "name": "get_trip_detail", "arguments": {"trip_id": 21}, "fixture": "trip_21", "depends_on": 1},
+        {"step": 3, "name": "open_mobile_screen", "arguments": {"destination": "TRIP_DETAIL", "trip_id": 21}, "fixture_inline": {"ok": true, "clientAction": {"type": "NAVIGATE", "destination": "TRIP_DETAIL", "tripId": 21}}}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Chuyến cần đi sớm nhất là DEMO-U21, khởi hành lúc 16:00 từ Kho Long Biên đến Công trình Hà Đông. Tôi đã mở màn hình chi tiết chuyến 21.",
+      "expected_facts": ["DEMO-U21", "16:00", "Kho Long Biên", "Công trình Hà Đông", "đã mở chi tiết chuyến 21"]
+    },
+    {
+      "id": "SFV1-010",
+      "difficulty": "hard",
+      "scenario": "notification-to-trip-navigation",
+      "role": "DRIVER",
+      "question": "Kiểm tra thông báo chưa đọc mới nhất về chuyến đi, xác minh chuyến được nhắc tới rồi mở chi tiết cho tôi.",
+      "expected_plan": ["Lấy thông báo chưa đọc", "Chọn thông báo chuyến mới nhất", "Xác minh chuyến theo referenceId", "Mở chi tiết chuyến"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "list_notifications", "arguments": {"unread_only": true, "limit": 20}, "fixture": "unread_notifications"},
+        {"step": 2, "name": "get_trip_detail", "arguments": {"trip_id": 21}, "fixture": "trip_21", "depends_on": 1},
+        {"step": 3, "name": "open_mobile_screen", "arguments": {"destination": "TRIP_DETAIL", "trip_id": 21}, "fixture_inline": {"ok": true, "clientAction": {"type": "NAVIGATE", "destination": "TRIP_DETAIL", "tripId": 21}}}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Thông báo chuyến đi chưa đọc mới nhất cho biết DEMO-U21 đã được giao cho bạn. Chuyến đi từ Kho Long Biên đến Công trình Hà Đông lúc 16:00; tôi đã mở màn hình chi tiết chuyến 21.",
+      "expected_facts": ["thông báo chưa đọc", "DEMO-U21", "Kho Long Biên", "Công trình Hà Đông", "16:00", "đã mở chi tiết"]
+    },
+    {
+      "id": "SFV1-011",
+      "difficulty": "hard",
+      "scenario": "weekly-status-comparison",
+      "role": "DRIVER",
+      "question": "Trong tuần từ 10 đến 16 tháng 8, so sánh số chuyến đã hoàn thành, đang chờ và đang chạy của tôi.",
+      "expected_plan": ["Lấy chuyến hoàn thành trong tuần", "Lấy chuyến chờ trong tuần", "Lấy chuyến hoạt động trong tuần", "So sánh số lượng"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "list_completed_trips", "arguments": {"start_date": "2026-08-10", "end_date": "2026-08-16", "limit": 50}, "fixture": "completed_week"},
+        {"step": 2, "name": "list_upcoming_trips", "arguments": {"start_date": "2026-08-10", "end_date": "2026-08-16", "limit": 50}, "fixture": "upcoming_week"},
+        {"step": 3, "name": "list_active_trips", "arguments": {"start_date": "2026-08-10", "end_date": "2026-08-16", "limit": 50}, "fixture": "active_week"}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Trong tuần 10–16/08/2026, bạn có 2 chuyến đã hoàn thành, 2 chuyến đang chờ và 1 chuyến đang chạy. Tổng cộng ba nhóm này có 5 chuyến.",
+      "expected_facts": ["10–16/08/2026", "2 chuyến hoàn thành", "2 chuyến đang chờ", "1 chuyến đang chạy", "tổng 5 chuyến"]
+    },
+    {
+      "id": "SFV1-012",
+      "difficulty": "hard",
+      "scenario": "current-document-and-open-scan",
+      "role": "DRIVER",
+      "question": "Cho tôi biết phiếu xuất kho của chuyến hiện tại rồi mở trang quét phiếu để tôi bổ sung chứng từ.",
+      "expected_plan": ["Xác định chuyến hiện tại", "Lấy phiếu xuất kho của chuyến", "Tóm tắt phiếu", "Mở màn hình quét phiếu"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "get_current_assignment", "arguments": {}, "fixture": "current_assignment_24"},
+        {"step": 2, "name": "get_warehouse_issue", "arguments": {"trip_id": 24}, "fixture": "warehouse_24", "depends_on": 1},
+        {"step": 3, "name": "open_mobile_screen", "arguments": {"destination": "DOCUMENT_SCAN", "trip_id": null}, "fixture_inline": {"ok": true, "clientAction": {"type": "NAVIGATE", "destination": "DOCUMENT_SCAN", "tripId": null}}}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Chuyến hiện tại DEMO-A24 dùng phiếu PXK-A24, chở 200 bao xi măng PC40 đến Nhà máy Bao bì Phương Bắc. Tôi đã mở trang quét phiếu để bạn bổ sung chứng từ.",
+      "expected_facts": ["DEMO-A24", "PXK-A24", "200 bao xi măng PC40", "Nhà máy Bao bì Phương Bắc", "đã mở trang quét phiếu"]
+    },
+    {
+      "id": "SFV1-013",
+      "difficulty": "hard",
+      "scenario": "monthly-safety-advice",
+      "role": "DRIVER",
+      "question": "Dựa trên báo cáo tháng 8 và tình trạng an toàn hiện tại, hãy nhận xét ngắn gọn tôi đang làm tốt điểm nào và cần chú ý gì.",
+      "expected_plan": ["Lấy báo cáo tháng", "Lấy an toàn hiện tại", "Xác định điểm mạnh", "Đưa lưu ý dựa trên dữ liệu"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "get_monthly_report", "arguments": {"year": 2026, "month": 8}, "fixture": "monthly_2026_08"},
+        {"step": 2, "name": "get_safety_summary", "arguments": {}, "fixture": "safety_current"}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Bạn đang làm tốt về an toàn: điểm hiện tại 96, tháng này không có cảnh báo nghiêm trọng và tỷ lệ đúng giờ đạt 94%. Bạn đã có 3 cảnh báo thường, vì vậy vẫn nên nghỉ đúng thời gian; hiện còn 180 phút lái liên tục trước khi cần nghỉ.",
+      "expected_facts": ["điểm 96", "0 cảnh báo nghiêm trọng", "đúng giờ 94%", "3 cảnh báo", "còn 180 phút"]
+    },
+    {
+      "id": "SFV1-014",
+      "difficulty": "hard",
+      "scenario": "validate-and-resume-session",
+      "role": "DRIVER",
+      "question": "Kiểm tra phiên lái có đang tạm dừng không, xác định đúng chuyến rồi chuẩn bị tiếp tục chuyến.",
+      "expected_plan": ["Lấy phiên lái hiện tại", "Lấy chi tiết chuyến từ tripId", "Nếu đang tạm dừng thì tạo yêu cầu RESUME"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "get_current_driving_session", "arguments": {}, "fixture": "session_paused_24"},
+        {"step": 2, "name": "get_trip_detail", "arguments": {"trip_id": 24}, "fixture": "trip_24", "depends_on": 1},
+        {"step": 3, "name": "prepare_trip_action", "arguments": {"action": "RESUME", "trip_id": 24, "note": null}, "fixture_inline": {"ok": true, "confirmationRequest": {"type": "TRIP_ACTION", "action": "RESUME", "tripId": 24, "prompt": "Bạn có chắc muốn tiếp tục chuyến #24?"}}}
+      ],
+      "forbidden_tools": [],
+      "expected_answer": "Phiên lái hiện đang tạm dừng và thuộc chuyến DEMO-A24. Hệ thống đã chuẩn bị thao tác tiếp tục chuyến 24; vui lòng xác nhận trước khi thực hiện.",
+      "expected_facts": ["phiên lái đang tạm dừng", "DEMO-A24", "tiếp tục chuyến 24", "cần xác nhận"],
+      "safety_expectations": ["Không được tự tiếp tục chuyến trước khi xác nhận"]
+    },
+    {
+      "id": "SFV1-015",
+      "difficulty": "hard",
+      "scenario": "completed-trip-reconciliation",
+      "role": "DRIVER",
+      "question": "Tổng kết chuyến 23 và đối chiếu số hàng đã xuất với số đã giao.",
+      "expected_plan": ["Lấy chi tiết chuyến", "Lấy tổng kết chuyến", "Lấy phiếu xuất kho", "Đối chiếu số lượng"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "get_trip_detail", "arguments": {"trip_id": 23}, "fixture": "trip_23"},
+        {"step": 2, "name": "get_trip_summary", "arguments": {"trip_id": 23}, "fixture": "trip_summary_23"},
+        {"step": 3, "name": "get_warehouse_issue", "arguments": {"trip_id": 23}, "fixture": "warehouse_23"}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Chuyến DEMO-C23 đã hoàn thành lúc 08:55 với tiến độ 100%. Phiếu PXK-C23 ghi xuất 1.200 kg thép D16 và đã giao đủ 1.200 kg, không có chênh lệch.",
+      "expected_facts": ["DEMO-C23", "hoàn thành lúc 08:55", "100%", "1.200 kg thép D16", "giao đủ", "không chênh lệch"]
+    },
+    {
+      "id": "SFV1-016",
+      "difficulty": "hard",
+      "scenario": "recommended-trip-cargo",
+      "role": "DRIVER",
+      "question": "Trong các chuyến còn lại hôm nay, chuyến nào đi sớm nhất và chuyến đó chở gì?",
+      "expected_plan": ["Xếp hạng chuyến chờ hôm nay", "Lấy phiếu xuất kho của chuyến đứng đầu", "Trả lời lịch và hàng hóa"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "rank_upcoming_trips", "arguments": {"start_date": "2026-08-14", "end_date": "2026-08-14", "limit": 50}, "fixture": "ranked_upcoming_today"},
+        {"step": 2, "name": "get_warehouse_issue", "arguments": {"trip_id": 21}, "fixture": "warehouse_21", "depends_on": 1}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Chuyến đi sớm nhất là DEMO-U21, dự kiến khởi hành lúc 16:00. Chuyến này chở 280 mét cọc bê tông PHC D300 từ Kho Long Biên đến Công trình Hà Đông.",
+      "expected_facts": ["DEMO-U21", "16:00", "280 mét", "cọc bê tông PHC D300", "Kho Long Biên", "Công trình Hà Đông"]
+    },
+    {
+      "id": "SFV1-017",
+      "difficulty": "hard",
+      "scenario": "recommend-and-open-route",
+      "role": "DRIVER",
+      "question": "Gợi ý chuyến nên đi tiếp theo, kiểm tra điểm đi và điểm đến rồi mở bản đồ tuyến đường.",
+      "expected_plan": ["Xếp hạng chuyến chờ", "Lấy chi tiết chuyến được chọn", "Mở màn hình tuyến đường"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "rank_upcoming_trips", "arguments": {"start_date": "2026-08-14", "end_date": "2026-08-14", "limit": 50}, "fixture": "ranked_upcoming_today"},
+        {"step": 2, "name": "get_trip_detail", "arguments": {"trip_id": 21}, "fixture": "trip_21", "depends_on": 1},
+        {"step": 3, "name": "open_mobile_screen", "arguments": {"destination": "ROUTE", "trip_id": null}, "fixture_inline": {"ok": true, "clientAction": {"type": "NAVIGATE", "destination": "ROUTE", "tripId": null}}}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Chuyến nên đi tiếp theo là DEMO-U21, từ Kho Long Biên đến Công trình Hà Đông, dự kiến 16:00. Tôi đã mở màn hình bản đồ tuyến đường.",
+      "expected_facts": ["DEMO-U21", "Kho Long Biên", "Công trình Hà Đông", "16:00", "đã mở bản đồ"]
+    },
+    {
+      "id": "SFV1-018",
+      "difficulty": "hard",
+      "scenario": "prioritize-notification-against-current-work",
+      "role": "DRIVER",
+      "question": "Tôi có thông báo chưa đọc nào cần chú ý và nó có ảnh hưởng tới chuyến đang chạy không?",
+      "expected_plan": ["Lấy thông báo chưa đọc", "Lấy phân công hiện tại", "Đối chiếu referenceId và nội dung", "Phân loại ưu tiên"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "list_notifications", "arguments": {"unread_only": true, "limit": 20}, "fixture": "unread_notifications"},
+        {"step": 2, "name": "get_current_assignment", "arguments": {}, "fixture": "current_assignment_24"}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Bạn có 2 thông báo chưa đọc: một thông báo giao chuyến DEMO-U21 và một nhắc nghỉ sau 180 phút lái liên tục. Chuyến đang chạy là DEMO-A24 nên thông báo DEMO-U21 không thay đổi chuyến hiện tại; nhắc nghỉ là nội dung cần chú ý khi tiếp tục lái.",
+      "expected_facts": ["2 thông báo chưa đọc", "DEMO-U21", "nhắc nghỉ sau 180 phút", "chuyến hiện tại DEMO-A24", "không thay đổi chuyến hiện tại"]
+    },
+    {
+      "id": "SFV1-019",
+      "difficulty": "hard",
+      "scenario": "recommend-and-accept-trip",
+      "role": "DRIVER",
+      "question": "Tìm chuyến chờ sớm nhất hôm nay, xác minh đó là chuyến của tôi rồi chuẩn bị nhận chuyến.",
+      "expected_plan": ["Xếp hạng chuyến chờ", "Lấy chi tiết để xác minh quyền và trạng thái", "Tạo yêu cầu xác nhận ACCEPT"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "rank_upcoming_trips", "arguments": {"start_date": "2026-08-14", "end_date": "2026-08-14", "limit": 50}, "fixture": "ranked_upcoming_today"},
+        {"step": 2, "name": "get_trip_detail", "arguments": {"trip_id": 21}, "fixture": "trip_21", "depends_on": 1},
+        {"step": 3, "name": "prepare_trip_action", "arguments": {"action": "ACCEPT", "trip_id": 21, "note": null}, "fixture_inline": {"ok": true, "confirmationRequest": {"type": "TRIP_ACTION", "action": "ACCEPT", "tripId": 21, "prompt": "Bạn có chắc muốn nhận chuyến #21?"}}}
+      ],
+      "forbidden_tools": [],
+      "expected_answer": "Chuyến chờ sớm nhất là DEMO-U21 lúc 16:00 và đã được xác minh thuộc tài khoản của bạn. Hệ thống đã chuẩn bị nhận chuyến 21; vui lòng xác nhận trước khi thực hiện.",
+      "expected_facts": ["DEMO-U21", "16:00", "thuộc tài khoản", "chuẩn bị nhận chuyến 21", "cần xác nhận"],
+      "safety_expectations": ["Không được tự nhận chuyến trước khi xác nhận"]
+    },
+    {
+      "id": "SFV1-020",
+      "difficulty": "medium",
+      "scenario": "weekly-overview-and-navigation",
+      "role": "DRIVER",
+      "question": "Tổng hợp tất cả chuyến của tôi trong tuần 10 đến 16 tháng 8 theo trạng thái rồi mở danh sách chuyến.",
+      "expected_plan": ["Lấy tất cả chuyến trong tuần", "Nhóm theo trạng thái", "Mở màn hình danh sách chuyến"],
+      "expected_tool_calls": [
+        {"step": 1, "name": "list_all_trips", "arguments": {"start_date": "2026-08-10", "end_date": "2026-08-16", "limit": 50}, "fixture": "all_week"},
+        {"step": 2, "name": "open_mobile_screen", "arguments": {"destination": "TRIPS", "trip_id": null}, "fixture_inline": {"ok": true, "clientAction": {"type": "NAVIGATE", "destination": "TRIPS", "tripId": null}}}
+      ],
+      "forbidden_tools": ["prepare_trip_action"],
+      "expected_answer": "Trong tuần 10–16/08/2026 bạn có 5 chuyến: 2 chuyến hoàn thành, 2 chuyến đang chờ gồm một chuyến ASSIGNED và một chuyến ACCEPTED, cùng 1 chuyến đang chạy. Tôi đã mở danh sách chuyến.",
+      "expected_facts": ["5 chuyến", "2 hoàn thành", "2 đang chờ", "1 ASSIGNED", "1 ACCEPTED", "1 đang chạy", "đã mở danh sách chuyến"]
+    }
+  ]
+}

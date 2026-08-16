@@ -63,4 +63,64 @@ public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificat
               and t.plannedStartTime < :to
             """)
     List<Trip> findPlannedBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    @Query("""
+            select t from Trip t
+            left join fetch t.vehicle
+            where t.deleted = false
+              and t.driver.id = :driverId
+              and t.status in :statuses
+            order by coalesce(t.actualStartTime, t.plannedStartTime, t.createdAt) desc
+            """)
+    List<Trip> findDriverTripsWithoutDate(
+            @Param("driverId") Long driverId,
+            @Param("statuses") List<TripStatus> statuses,
+            Pageable pageable);
+
+    @Query("""
+            select t from Trip t
+            left join fetch t.vehicle
+            where t.deleted = false
+              and t.driver.id = :driverId
+              and t.status in :statuses
+              and coalesce(t.actualStartTime, t.plannedStartTime, t.createdAt) >= :from
+            order by coalesce(t.actualStartTime, t.plannedStartTime, t.createdAt) desc
+            """)
+    List<Trip> findDriverTripsFrom(
+            @Param("driverId") Long driverId,
+            @Param("statuses") List<TripStatus> statuses,
+            @Param("from") LocalDateTime from,
+            Pageable pageable);
+
+    @Query("""
+            select t from Trip t
+            left join fetch t.vehicle
+            where t.deleted = false
+              and t.driver.id = :driverId
+              and t.status in :statuses
+              and coalesce(t.actualEndTime, t.actualStartTime, t.plannedStartTime, t.createdAt) < :to
+            order by coalesce(t.actualStartTime, t.plannedStartTime, t.createdAt) desc
+            """)
+    List<Trip> findDriverTripsTo(
+            @Param("driverId") Long driverId,
+            @Param("statuses") List<TripStatus> statuses,
+            @Param("to") LocalDateTime to,
+            Pageable pageable);
+
+    @Query("""
+            select t from Trip t
+            left join fetch t.vehicle
+            where t.deleted = false
+              and t.driver.id = :driverId
+              and t.status in :statuses
+              and coalesce(t.actualStartTime, t.plannedStartTime, t.createdAt) >= :from
+              and coalesce(t.actualEndTime, t.actualStartTime, t.plannedStartTime, t.createdAt) < :to
+            order by coalesce(t.actualStartTime, t.plannedStartTime, t.createdAt) desc
+            """)
+    List<Trip> findDriverTripsBetween(
+            @Param("driverId") Long driverId,
+            @Param("statuses") List<TripStatus> statuses,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            Pageable pageable);
 }

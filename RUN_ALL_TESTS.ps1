@@ -114,14 +114,26 @@ function Start-AndroidInterface {
     }
 
     $deviceId = $android[0].id
+    $apiHost = "10.0.2.2"
+    if ($deviceId -notlike "emulator-*") {
+        $apiHost = Get-NetIPConfiguration |
+            Where-Object { $_.NetAdapter.Status -eq "Up" -and $_.IPv4DefaultGateway } |
+            ForEach-Object { $_.IPv4Address.IPAddress } |
+            Where-Object { $_ -match '^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)' } |
+            Select-Object -First 1
+        if ([string]::IsNullOrWhiteSpace($apiHost)) {
+            throw "Không tìm thấy IPv4 LAN để điện thoại thật kết nối backend."
+        }
+    }
+    $apiBaseUrl = "http://${apiHost}:8080/api/v1"
     $flutterPath = (Get-Command flutter.bat).Source
-    Write-Host "Mở Flutter app trên Android device: $deviceId"
+    Write-Host "Mở Flutter app trên Android device: $deviceId -> $apiBaseUrl"
     Start-Process `
         -FilePath $flutterPath `
         -ArgumentList @(
             "run",
             "-d", $deviceId,
-            "--dart-define=API_BASE_URL=http://10.0.2.2:8080/api/v1"
+            "--dart-define=API_BASE_URL=$apiBaseUrl"
         ) `
         -WorkingDirectory $mobile
 }
@@ -156,7 +168,7 @@ try {
     & node.exe (Join-Path $root "docker\scripts\websocket-smoke.mjs")
     Assert-LastExitCode "WebSocket smoke"
 
-    Write-Step "4/10 - Backend: unit/controller/MySQL integration"
+    Write-Step "4/10 - Backend: unit/controller/PostgreSQL integration"
     Push-Location $backend
     try {
         & mvn.cmd -q test
@@ -164,6 +176,8 @@ try {
     } finally {
         Pop-Location
     }
+    & node.exe (Join-Path $root "docker\scripts\verify-api-happy-path-coverage.mjs")
+    Assert-LastExitCode "Backend OpenAPI happy-path coverage"
 
     Write-Step "5/10 - Frontend: cài dependency, lint và production build"
     Push-Location $frontend

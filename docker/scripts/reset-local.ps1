@@ -5,7 +5,7 @@ if (-not (Test-Path -LiteralPath $expectedCompose)) {
     throw "Không tìm thấy docker-compose.yml tại workspace SafeFleet."
 }
 
-$answer = Read-Host "Thao tác này xóa toàn bộ volume MySQL/MinIO/AI local. Nhập RESET-SAFEFLEET để xác nhận"
+$answer = Read-Host "Thao tác này xóa toàn bộ volume PostgreSQL/MinIO/AI local. Nhập RESET-SAFEFLEET để xác nhận"
 if ($answer -cne "RESET-SAFEFLEET") {
     Write-Host "Đã hủy reset."
     exit 0

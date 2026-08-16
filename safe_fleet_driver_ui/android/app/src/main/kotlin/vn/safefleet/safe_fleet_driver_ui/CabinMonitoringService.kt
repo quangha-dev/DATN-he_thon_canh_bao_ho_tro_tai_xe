@@ -17,11 +17,15 @@ import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.media.ImageReader
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
 import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
@@ -91,7 +95,10 @@ class CabinMonitoringService : Service() {
             ACTION_UPDATE -> {
                 intent.getStringExtra("model")?.let { model = it }
                 intent.getStringExtra("status")?.let { status = it }
-                warningCount = intent.getIntExtra("warningCount", warningCount)
+                val nextWarningCount = intent.getIntExtra("warningCount", warningCount)
+                val hasNewWarning = nextWarningCount > warningCount
+                warningCount = nextWarningCount
+                if (hasNewWarning) playAlertSignal()
                 notificationManager.notify(NOTIFICATION_ID, buildNotification())
             }
             else -> {
@@ -252,6 +259,7 @@ class CabinMonitoringService : Service() {
             val metricReason = "$reason · EAR ${ear?.let { "%.3f".format(it) } ?: "--"} · MAR ${"%.3f".format(mar)}"
             warningCount++
             status = metricReason
+            playAlertSignal()
             notificationManager.notify(NOTIFICATION_ID, buildNotification())
             sendBroadcast(
                 Intent(ACTION_BACKGROUND_DETECTION)
@@ -293,6 +301,29 @@ class CabinMonitoringService : Service() {
     private fun normalizeRotation(rotation: Int): Int = when (rotation) {
         90, 180, 270 -> rotation
         else -> 0
+    }
+
+    @Suppress("DEPRECATION")
+    private fun playAlertSignal() {
+        try {
+            val tone = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+            tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1_800)
+            Handler(mainLooper).postDelayed({ tone.release() }, 2_000)
+        } catch (_: RuntimeException) {
+            // The visual warning and notification remain available if audio is unavailable.
+        }
+
+        try {
+            val vibrator = getSystemService(Vibrator::class.java)
+            val pattern = longArrayOf(0, 500, 250, 500)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
+            } else {
+                vibrator.vibrate(pattern, -1)
+            }
+        } catch (_: RuntimeException) {
+            // Some devices can disable vibration globally; audio still alerts the driver.
+        }
     }
 
     private fun stopNativeCamera() {

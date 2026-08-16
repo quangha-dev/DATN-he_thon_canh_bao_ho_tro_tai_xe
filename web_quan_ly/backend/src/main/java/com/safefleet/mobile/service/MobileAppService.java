@@ -26,6 +26,7 @@ import com.safefleet.incident.enums.IncidentStatus;
 import com.safefleet.incident.service.IncidentService;
 import com.safefleet.infrastructure.security.SecurityUtils;
 import com.safefleet.infrastructure.security.ActionRateLimiter;
+import com.safefleet.infrastructure.ai.SafeFleetAiGateway;
 import com.safefleet.mobile.dto.request.MobileAgentCommandRequest;
 import com.safefleet.mobile.dto.request.MobileAgentConfirmRequest;
 import com.safefleet.mobile.dto.request.MobilePreTripChecklistRequest;
@@ -59,6 +60,7 @@ import com.safefleet.safety.dto.request.StartDrivingSessionRequest;
 import com.safefleet.safety.dto.response.DrivingSessionResponse;
 import com.safefleet.safety.dto.response.SafetyEventResponse;
 import com.safefleet.safety.enums.AlertSeverity;
+import com.safefleet.safety.enums.DrivingSessionStatus;
 import com.safefleet.safety.service.DrivingTimeService;
 import com.safefleet.safety.service.SafetyEventService;
 import com.safefleet.settings.service.SystemSettingService;
@@ -117,7 +119,7 @@ public class MobileAppService {
     private final ObjectMapper objectMapper;
     private final JdbcTemplate jdbcTemplate;
     private final ActionRateLimiter actionRateLimiter;
-    private final AgentIntentClassificationService agentIntentClassificationService;
+    private final SafeFleetAiGateway aiGateway;
 
     @Transactional(readOnly = true)
     public MobileProfileResponse profile() {
@@ -231,7 +233,7 @@ public class MobileAppService {
                 """, driver.getId(), start, end);
         double distanceKm = decimal("""
                 SELECT COALESCE(SUM(
-                    CAST(JSON_UNQUOTE(JSON_EXTRACT(planned_route_json, '$.route.distanceKm')) AS DECIMAL(12,2))
+                    CAST(planned_route_json::jsonb #>> '{route,distanceKm}' AS DECIMAL(12,2))
                 ), 0)
                 FROM trips WHERE driver_id = ? AND deleted = FALSE
                   AND COALESCE(actual_start_time, planned_start_time, created_at) >= ?
@@ -372,8 +374,46 @@ public class MobileAppService {
     }
 
     @Transactional(readOnly = true)
+    public List<TripResponse> trips(
+            List<TripStatus> statuses,
+            LocalDate startDate,
+            LocalDate endDate,
+            int requestedLimit
+    ) {
+        if (statuses == null || statuses.isEmpty()) {
+            throw new BadRequestException("Cần chọn ít nhất một trạng thái chuyến");
+        }
+        if (startDate != null && endDate != null && endDate.isBefore(startDate)) {
+            throw new BadRequestException("Ngày kết thúc phải từ ngày bắt đầu trở đi");
+        }
+        Driver driver = currentDriver();
+        int limit = Math.max(1, Math.min(50, requestedLimit));
+        LocalDateTime from = startDate == null ? null : startDate.atStartOfDay();
+        LocalDateTime to = endDate == null ? null : endDate.plusDays(1).atStartOfDay();
+        List<TripStatus> requestedStatuses = statuses.stream().distinct().toList();
+        PageRequest page = PageRequest.of(0, limit);
+        List<Trip> trips;
+        if (from == null && to == null) {
+            trips = tripRepository.findDriverTripsWithoutDate(driver.getId(), requestedStatuses, page);
+        } else if (to == null) {
+            trips = tripRepository.findDriverTripsFrom(driver.getId(), requestedStatuses, from, page);
+        } else if (from == null) {
+            trips = tripRepository.findDriverTripsTo(driver.getId(), requestedStatuses, to, page);
+        } else {
+            trips = tripRepository.findDriverTripsBetween(driver.getId(), requestedStatuses, from, to, page);
+        }
+        return trips
+                .stream()
+                .map(TripMapper::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public TripResponse trip(Long id) {
-        return tripService.get(id);
+        Driver driver = currentDriver();
+        Trip trip = tripService.findTrip(id);
+        assertDriverOwnsTrip(driver, trip);
+        return TripMapper.toResponse(trip);
     }
 
     @Transactional(readOnly = true)
@@ -456,6 +496,7 @@ public class MobileAppService {
         if (replay != null) {
             return replay;
         }
+        assertCurrentDrivingSession(driver, tripId, List.of(DrivingSessionStatus.ACTIVE));
         TripResponse tripResponse = tripService.pause(tripId, defaultAction(request));
         DrivingSessionResponse drivingSession = drivingTimeService.pauseCurrent(driver.getId());
         updateNavigationStatus(tripId, driver.getId(), "PAUSED", false);
@@ -481,6 +522,7 @@ public class MobileAppService {
         if (replay != null) {
             return replay;
         }
+        assertCurrentDrivingSession(driver, tripId, List.of(DrivingSessionStatus.PAUSED));
         TripResponse tripResponse = tripService.resume(tripId, defaultAction(request));
         DrivingSessionResponse drivingSession = drivingTimeService.resumeCurrent(driver.getId());
         updateNavigationStatus(tripId, driver.getId(), "ACTIVE", false);
@@ -506,6 +548,11 @@ public class MobileAppService {
         if (replay != null) {
             return replay;
         }
+        assertCurrentDrivingSession(
+                driver,
+                tripId,
+                List.of(DrivingSessionStatus.ACTIVE, DrivingSessionStatus.PAUSED)
+        );
         TripResponse tripResponse = tripService.complete(tripId, defaultAction(request));
         DrivingSessionResponse drivingSession = drivingTimeService.finishCurrent(driver.getId());
         String navigationSessionId = currentNavigationSessionId(tripId, driver.getId());
@@ -555,9 +602,10 @@ public class MobileAppService {
         Driver driver = currentDriver();
         String batchId = request.batchId().trim();
         int inserted = jdbcTemplate.update("""
-                INSERT IGNORE INTO sync_batches
+                INSERT INTO sync_batches
                     (batch_uuid, user_id, item_count, status, received_at)
                 VALUES (?, ?, ?, 'RECEIVING', CURRENT_TIMESTAMP(6))
+                ON CONFLICT (batch_uuid) DO NOTHING
                 """, batchId, SecurityUtils.currentUserId(), request.items().size());
         Map<String, Object> batch = jdbcTemplate.queryForMap("""
                 SELECT id, user_id, item_count, status
@@ -816,8 +864,8 @@ public class MobileAppService {
             assertDriverOwnsTrip(driver, trip);
         }
 
-        AgentIntentClassificationService.Classification classification =
-                agentIntentClassificationService.classify(request.transcript().trim());
+        SafeFleetAiGateway.Classification classification =
+                aiGateway.classify(request.transcript().trim());
         AgentCommand command = new AgentCommand();
         command.setUser(user);
         command.setDriver(driver);
@@ -989,6 +1037,26 @@ public class MobileAppService {
                 && checklist.isCameraChecked()
                 && checklist.isGpsChecked()
                 && checklist.isDocumentsChecked();
+    }
+
+    private void assertCurrentDrivingSession(Driver driver,
+                                             Long tripId,
+                                             List<DrivingSessionStatus> allowedStatuses) {
+        DrivingSessionResponse current = drivingTimeService.currentForDriver(driver.getId());
+        if (current == null || current.tripId() == null) {
+            throw new BadRequestException("Không có phiên lái hiện tại cho chuyến này");
+        }
+        if (!tripId.equals(current.tripId())) {
+            throw new BadRequestException(
+                    "Phiên lái hiện tại thuộc chuyến " + current.tripId()
+                            + ", không phải chuyến " + tripId
+            );
+        }
+        if (!allowedStatuses.contains(current.status())) {
+            throw new BadRequestException(
+                    "Trạng thái phiên lái " + current.status() + " không phù hợp với thao tác"
+            );
+        }
     }
 
     private String ensureNavigationSession(Trip trip, Driver driver) {

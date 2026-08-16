@@ -1,30 +1,91 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { cn } from "@/lib/utils";
 import { Account } from "@/types";
 import { safeFleetApi } from "@/lib/safeFleetApi";
-import {
-  Search,
-  Plus,
-  Trash2,
-  Lock,
-  Unlock,
-} from "lucide-react";
 import { useToast } from "@/context/ToastContext";
+import { Plus, Ban, Lock, Unlock, UserCog, ShieldCheck, Users, Siren, KeyRound } from "lucide-react";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  IconButton,
+  Modal,
+  SearchInput,
+  Select,
+  SkeletonRows,
+  Stagger,
+  StatCard,
+  StatSkeletonGrid,
+  StatusLabel,
+  Table,
+  TableShell,
+  Td,
+  Toolbar,
+  Tr,
+} from "@/components/ui";
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Quản lý",
+  FLEET_MANAGER: "Quản lý",
+  DISPATCHER: "Quản lý",
+  SAFETY_OFFICER: "Quản lý",
+  RESCUE_TEAM: "Quản lý",
+  DRIVER: "Tài xế",
+};
+
+const EMPTY_ACCOUNT_FORM = {
+  actor: "MANAGER" as "MANAGER" | "DRIVER",
+  username: "",
+  email: "",
+  password: "",
+  fullName: "",
+  phone: "",
+  address: "",
+  licenseNumber: "",
+  licenseClass: "B2",
+  licenseExpiredAt: "",
+};
+
+const STATUS_LABELS: Record<Account["status"], string> = {
+  ACTIVE: "Hoạt động",
+  LOCKED: "Bị khóa",
+  DISABLED: "Vô hiệu hóa",
+  PENDING: "Chờ kích hoạt",
+};
+
+/** Trạng thái tài khoản → khóa tone dùng chung */
+const STATUS_KEY: Record<Account["status"], string> = {
+  ACTIVE: "active",
+  LOCKED: "locked",
+  DISABLED: "inactive",
+  PENDING: "pending",
+};
 
 export default function AccountsPage() {
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [accountForm, setAccountForm] = useState(EMPTY_ACCOUNT_FORM);
+  const [resetTarget, setResetTarget] = useState<Account | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("create") === "driver") {
+      setAccountForm({ ...EMPTY_ACCOUNT_FORM, actor: "DRIVER" });
+      setCreateOpen(true);
+      window.history.replaceState(null, "", "/accounts");
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-
-    const loadAccounts = async () => {
+    const load = async () => {
       setIsLoading(true);
       try {
         const data = await safeFleetApi.accounts();
@@ -36,46 +97,39 @@ export default function AccountsPage() {
         if (!cancelled) setIsLoading(false);
       }
     };
-
-    loadAccounts();
-
+    void load();
     return () => {
       cancelled = true;
     };
   }, [showToast]);
 
-  // Summary stats
-  const stats = useMemo(() => {
-    return {
+  const stats = useMemo(
+    () => ({
       total: accounts.length,
       active: accounts.filter((a) => a.status === "ACTIVE").length,
-      admin: accounts.filter((a) => a.role === "ADMIN").length,
-      dispatcher: accounts.filter((a) => a.role === "DISPATCHER").length,
+      manager: accounts.filter((a) => a.role !== "DRIVER").length,
       driver: accounts.filter((a) => a.role === "DRIVER").length,
       locked: accounts.filter((a) => a.status === "LOCKED").length,
-    };
-  }, [accounts]);
+    }),
+    [accounts]
+  );
 
-  // Filtered accounts
-  const filteredAccounts = useMemo(() => {
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     return accounts.filter((a) => {
       if (roleFilter !== "all" && a.role !== roleFilter) return false;
       if (statusFilter !== "all" && a.status !== statusFilter) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return (
-          a.username.toLowerCase().includes(q) ||
-          a.fullName.toLowerCase().includes(q) ||
-          a.email.toLowerCase().includes(q)
-        );
-      }
-      return true;
+      if (!q) return true;
+      return (
+        a.username.toLowerCase().includes(q) ||
+        a.fullName.toLowerCase().includes(q) ||
+        a.email.toLowerCase().includes(q)
+      );
     });
   }, [accounts, searchQuery, roleFilter, statusFilter]);
 
-  const updateAccount = (next: Account) => {
-    setAccounts((prev) => prev.map((account) => (account.id === next.id ? next : account)));
-  };
+  const updateAccount = (next: Account) =>
+    setAccounts((prev) => prev.map((a) => (a.id === next.id ? next : a)));
 
   const handleToggleLock = async (id: number, currentStatus: Account["status"]) => {
     const nextStatus = currentStatus === "ACTIVE" ? "LOCKED" : "ACTIVE";
@@ -92,177 +146,282 @@ export default function AccountsPage() {
       updateAccount(await safeFleetApi.updateAccountStatus(id, "DISABLED"));
       showToast("Đã vô hiệu hóa tài khoản.", "success");
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Không thể vô hiệu hóa tài khoản.", "error");
+      showToast(
+        error instanceof Error ? error.message : "Không thể vô hiệu hóa tài khoản.",
+        "error"
+      );
+    }
+  };
+
+  const handleCreate = async () => {
+    setSaving(true);
+    try {
+      const common = {
+        username: accountForm.username.trim(),
+        email: accountForm.email.trim(),
+        password: accountForm.password,
+        fullName: accountForm.fullName.trim(),
+        phone: accountForm.phone.trim(),
+      };
+      const created = accountForm.actor === "DRIVER"
+        ? await safeFleetApi.createDriverAccount({
+            ...common,
+            phone: common.phone,
+            address: accountForm.address.trim() || undefined,
+            licenseNumber: accountForm.licenseNumber.trim(),
+            licenseClass: accountForm.licenseClass.trim(),
+            licenseExpiredAt: accountForm.licenseExpiredAt,
+          })
+        : await safeFleetApi.createManagerAccount(common);
+      setAccounts((prev) => [created, ...prev]);
+      setAccountForm(EMPTY_ACCOUNT_FORM);
+      setCreateOpen(false);
+      showToast("Đã tạo tài khoản và kích hoạt quyền truy cập.", "success");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Không thể tạo tài khoản.", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetTarget) return;
+    setSaving(true);
+    try {
+      await safeFleetApi.resetAccountPassword(resetTarget.id, resetPassword);
+      showToast("Đã đặt lại mật khẩu và thu hồi các phiên cũ.", "success");
+      setResetTarget(null);
+      setResetPassword("");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Không thể đặt lại mật khẩu.", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* ===== Stat Cards ===== */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">Tổng tài khoản</span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1 block">{stats.total}</span>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm border-l-4 border-l-emerald-500">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">Đang hoạt động</span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1 block">{stats.active}</span>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm border-l-4 border-l-blue-500">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">Admin</span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1 block">{stats.admin}</span>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm border-l-4 border-l-purple-500">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">Điều phối viên</span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1 block">{stats.dispatcher}</span>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm border-l-4 border-l-cyan-500">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">Tài xế</span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1 block">{stats.driver}</span>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm border-l-4 border-l-red-500">
-          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">Bị khóa</span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-white mt-1 block">{stats.locked}</span>
-        </div>
-      </div>
-
-      {/* ===== Toolbar & Filters ===== */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm tên đăng nhập, họ tên, email..."
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-transparent rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-slate-200 dark:focus:border-slate-700 transition"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none"
-          >
-            <option value="all">Tất cả vai trò</option>
-            <option value="ADMIN">Quản trị viên (ADMIN)</option>
-            <option value="FLEET_MANAGER">Quản lý đội xe (FLEET_MANAGER)</option>
-            <option value="DISPATCHER">Điều phối viên (DISPATCHER)</option>
-            <option value="SAFETY_OFFICER">An toàn vận hành (SAFETY_OFFICER)</option>
-            <option value="RESCUE_TEAM">Đội cứu hộ (RESCUE_TEAM)</option>
-            <option value="DRIVER">Tài xế (DRIVER)</option>
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none"
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="ACTIVE">Đang hoạt động</option>
-            <option value="LOCKED">Bị khóa</option>
-            <option value="DISABLED">Vô hiệu hóa</option>
-            <option value="PENDING">Chờ kích hoạt</option>
-          </select>
-
-          <button className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow transition cursor-pointer">
-            <Plus className="w-3.5 h-3.5" /> Tạo tài khoản
-          </button>
-        </div>
-      </div>
-
-      {/* ===== Table ===== */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        {isLoading && (
-          <div className="px-4 py-2 text-xs text-blue-600 dark:text-blue-400 border-b border-slate-100 dark:border-slate-800">
-            Đang tải tài khoản từ backend...
-          </div>
+    <div className="space-y-5">
+      {/* ===== Thống kê ===== */}
+      <Stagger className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
+        {isLoading && accounts.length === 0 ? (
+          <StatSkeletonGrid count={5} />
+        ) : (
+          <>
+            <StatCard label="Tổng tài khoản" value={stats.total} icon={Users} tone="primary" />
+            <StatCard
+              label="Đang hoạt động"
+              value={stats.active}
+              icon={ShieldCheck}
+              tone="success"
+              onClick={() => setStatusFilter(statusFilter === "ACTIVE" ? "all" : "ACTIVE")}
+              active={statusFilter === "ACTIVE"}
+            />
+            <StatCard label="Quản lý" value={stats.manager} icon={UserCog} tone="primary" />
+            <StatCard
+              label="Tài xế"
+              value={stats.driver}
+              icon={Users}
+              tone="primary"
+              onClick={() => setRoleFilter(roleFilter === "DRIVER" ? "all" : "DRIVER")}
+              active={roleFilter === "DRIVER"}
+            />
+            <StatCard
+              label="Bị khóa"
+              value={stats.locked}
+              icon={Siren}
+              tone="danger"
+              onClick={() => setStatusFilter(statusFilter === "LOCKED" ? "all" : "LOCKED")}
+              active={statusFilter === "LOCKED"}
+            />
+          </>
         )}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                <th className="py-3.5 px-4">Tên đăng nhập</th>
-                <th className="py-3.5 px-4">Họ và tên</th>
-                <th className="py-3.5 px-4">Email</th>
-                <th className="py-3.5 px-4">Vai trò</th>
-                <th className="py-3.5 px-4">Trạng thái</th>
-                <th className="py-3.5 px-4">Ngày tạo</th>
-                <th className="py-3.5 px-4 text-center">Hành động</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-              {filteredAccounts.map((account) => {
-                return (
-                  <tr key={account.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-white text-xs">
-                      {account.username}
-                    </td>
-                    <td className="py-3 px-4 text-xs text-slate-700 dark:text-slate-300">
-                      {account.fullName}
-                    </td>
-                    <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-400">
-                      {account.email}
-                    </td>
-                    <td className="py-3 px-4 text-xs">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-                        account.role === "ADMIN" && "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400",
-                        account.role === "DISPATCHER" && "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-400",
-                        account.role === "DRIVER" && "bg-cyan-100 text-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-400",
-                        account.role === "FLEET_MANAGER" && "bg-slate-100 text-slate-800 dark:bg-slate-950/40 dark:text-slate-300",
-                        account.role === "SAFETY_OFFICER" && "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400",
-                        account.role === "RESCUE_TEAM" && "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-400"
-                      )}>
-                        {account.role}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-xs">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
-                        account.status === "ACTIVE" && "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400",
-                        account.status === "LOCKED" && "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400",
-                        account.status === "DISABLED" && "bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400",
-                        account.status === "PENDING" && "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400"
-                      )}>
-                        {account.status === "ACTIVE"
-                          ? "Hoạt động"
-                          : account.status === "LOCKED"
-                            ? "Bị khóa"
-                            : account.status === "PENDING"
-                              ? "Chờ kích hoạt"
-                              : "Vô hiệu hóa"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-400">
-                      {account.createdAt}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => handleToggleLock(account.id, account.status)}
-                          className="p-1 rounded text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-                          title={account.status === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
-                        >
-                          {account.status === "ACTIVE" ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                        </button>
-                        <button
-                          onClick={() => handleDisable(account.id)}
-                          className="p-1 rounded text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-                          title="Vô hiệu hóa tài khoản"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      </Stagger>
+
+      {/* ===== Thanh công cụ ===== */}
+      <Toolbar>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Tìm tên đăng nhập, họ tên, email…"
+          className="sm:max-w-sm"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            ariaLabel="Lọc theo vai trò"
+            value={roleFilter}
+            onChange={setRoleFilter}
+            options={[
+              { value: "all", label: "Tất cả vai trò" },
+              { value: "DRIVER", label: "Tài xế" },
+            ]}
+            className="min-w-[11rem]"
+          />
+          <Select
+            ariaLabel="Lọc theo trạng thái"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: "all", label: "Tất cả trạng thái" },
+              ...Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label })),
+            ]}
+          />
+          <Button icon={Plus} size="sm" onClick={() => setCreateOpen(true)}>
+            Tạo tài khoản
+          </Button>
         </div>
-      </div>
+      </Toolbar>
+
+      {/* ===== Bảng ===== */}
+      <TableShell loading={isLoading}>
+        <Table
+          head={["Tên đăng nhập", "Họ và tên", "Email", "Vai trò", "Trạng thái", "Ngày tạo", ""]}
+        >
+          {isLoading && accounts.length === 0 ? (
+            <SkeletonRows rows={6} cols={7} />
+          ) : filtered.length === 0 ? (
+            <tr>
+              <Td colSpan={7}>
+                <EmptyState
+                  icon={UserCog}
+                  title="Không tìm thấy tài khoản"
+                  description="Thử đổi từ khóa hoặc bỏ bớt bộ lọc đang áp dụng."
+                />
+              </Td>
+            </tr>
+          ) : (
+            filtered.map((account) => (
+              <Tr key={account.id}>
+                <Td>
+                  <span className="flex items-center gap-2.5">
+                    <span
+                      className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)] text-[12.5px] font-extrabold"
+                      style={{ background: "var(--sf-primary-soft)", color: "var(--sf-primary)" }}
+                    >
+                      {account.fullName.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="font-mono text-[12.5px] font-bold text-sf-text">
+                      {account.username}
+                    </span>
+                  </span>
+                </Td>
+                <Td className="font-semibold text-sf-text-secondary">{account.fullName}</Td>
+                <Td>{account.email}</Td>
+                <Td>
+                  <Badge tone={account.role === "ADMIN" ? "primary" : "neutral"} size="sm">
+                    {ROLE_LABELS[account.role] || account.role}
+                  </Badge>
+                </Td>
+                <Td>
+                  <StatusLabel
+                    status={STATUS_KEY[account.status]}
+                    label={STATUS_LABELS[account.status]}
+                    pulse={account.status === "ACTIVE"}
+                  />
+                </Td>
+                <Td className="sf-tnum">{account.createdAt}</Td>
+                <Td align="center">
+                  <span className="flex items-center justify-center gap-1">
+                    <IconButton
+                      icon={KeyRound}
+                      label="Đặt lại mật khẩu"
+                      size="sm"
+                      tone="neutral"
+                      onClick={() => setResetTarget(account)}
+                    />
+                    <IconButton
+                      icon={account.status === "ACTIVE" ? Lock : Unlock}
+                      label={account.status === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                      size="sm"
+                      tone="primary"
+                      onClick={() => handleToggleLock(account.id, account.status)}
+                    />
+                    <IconButton
+                      icon={Ban}
+                      label="Vô hiệu hóa tài khoản"
+                      size="sm"
+                      tone="danger"
+                      onClick={() => handleDisable(account.id)}
+                    />
+                  </span>
+                </Td>
+              </Tr>
+            ))
+          )}
+        </Table>
+      </TableShell>
+
+      <Modal
+        open={createOpen}
+        onClose={() => !saving && setCreateOpen(false)}
+        title="Tạo tài khoản"
+        subtitle="Chọn đúng actor để hệ thống tạo quyền và hồ sơ tương ứng."
+        size="lg"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={saving}>Hủy</Button>
+            <Button onClick={() => void handleCreate()} loading={saving}>Tạo tài khoản</Button>
+          </>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="space-y-1.5 text-sm font-semibold text-sf-text-secondary">
+            Actor
+            <select
+              className="sf-input sf-select"
+              value={accountForm.actor}
+              onChange={(event) => setAccountForm((prev) => ({ ...prev, actor: event.target.value as "MANAGER" | "DRIVER" }))}
+            >
+              <option value="MANAGER">Quản lý</option>
+              <option value="DRIVER">Tài xế</option>
+            </select>
+          </label>
+          <FormField label="Họ và tên" required value={accountForm.fullName} onChange={(value) => setAccountForm((prev) => ({ ...prev, fullName: value }))} />
+          <FormField label="Tên đăng nhập" required value={accountForm.username} onChange={(value) => setAccountForm((prev) => ({ ...prev, username: value }))} />
+          <FormField label="Email" type="email" required value={accountForm.email} onChange={(value) => setAccountForm((prev) => ({ ...prev, email: value }))} />
+          <FormField label="Mật khẩu ban đầu" type="password" required value={accountForm.password} onChange={(value) => setAccountForm((prev) => ({ ...prev, password: value }))} />
+          <FormField label="Số điện thoại" required={accountForm.actor === "DRIVER"} value={accountForm.phone} onChange={(value) => setAccountForm((prev) => ({ ...prev, phone: value }))} />
+          {accountForm.actor === "DRIVER" && (
+            <>
+              <FormField label="Địa chỉ" value={accountForm.address} onChange={(value) => setAccountForm((prev) => ({ ...prev, address: value }))} />
+              <FormField label="Số giấy phép lái xe" required value={accountForm.licenseNumber} onChange={(value) => setAccountForm((prev) => ({ ...prev, licenseNumber: value }))} />
+              <FormField label="Hạng giấy phép" required value={accountForm.licenseClass} onChange={(value) => setAccountForm((prev) => ({ ...prev, licenseClass: value }))} />
+              <FormField label="Ngày hết hạn giấy phép" type="date" required value={accountForm.licenseExpiredAt} onChange={(value) => setAccountForm((prev) => ({ ...prev, licenseExpiredAt: value }))} />
+            </>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(resetTarget)}
+        onClose={() => !saving && setResetTarget(null)}
+        title="Đặt lại mật khẩu"
+        subtitle={resetTarget ? `Tài khoản ${resetTarget.username} sẽ bị đăng xuất khỏi các phiên cũ.` : undefined}
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setResetTarget(null)} disabled={saving}>Hủy</Button>
+            <Button onClick={() => void handleResetPassword()} loading={saving} disabled={resetPassword.length < 8}>Đặt lại</Button>
+          </>
+        }
+      >
+        <FormField label="Mật khẩu mới" type="password" required value={resetPassword} onChange={setResetPassword} />
+        <p className="mt-2 text-xs text-sf-text-muted">Tối thiểu 8 ký tự.</p>
+      </Modal>
     </div>
+  );
+}
+
+function FormField({ label, value, onChange, type = "text", required = false }: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="space-y-1.5 text-sm font-semibold text-sf-text-secondary">
+      {label}{required && <span className="text-[var(--sf-danger)]"> *</span>}
+      <input className="sf-input" type={type} value={value} required={required} onChange={(event) => onChange(event.target.value)} />
+    </label>
   );
 }

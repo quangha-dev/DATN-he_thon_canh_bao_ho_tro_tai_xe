@@ -26,12 +26,14 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
 
     boolean existsByEmail(String email);
 
+    Page<UserAccount> findByDeletedFalse(Pageable pageable);
+
     @Query("""
             select u from UserAccount u
             where u.deleted = false
-              and (:keyword is null or lower(u.username) like lower(concat('%', :keyword, '%'))
+              and (lower(u.username) like lower(concat('%', :keyword, '%'))
                    or lower(u.email) like lower(concat('%', :keyword, '%'))
                    or lower(u.fullName) like lower(concat('%', :keyword, '%')))
             """)
-    Page<UserAccount> search(@Param("keyword") String keyword, Pageable pageable);
+    Page<UserAccount> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 }

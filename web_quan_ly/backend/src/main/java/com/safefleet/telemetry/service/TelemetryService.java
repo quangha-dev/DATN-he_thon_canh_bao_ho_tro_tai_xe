@@ -1,5 +1,6 @@
 package com.safefleet.telemetry.service;
 
+import com.safefleet.common.exception.BadRequestException;
 import com.safefleet.common.exception.ForbiddenActionException;
 import com.safefleet.common.exception.NotFoundException;
 import com.safefleet.driver.entity.Driver;
@@ -21,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +33,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class TelemetryService {
 
+    private static final long MAX_FUTURE_CLOCK_SKEW_MINUTES = 5;
+
     private final TelemetryLogRepository telemetryLogRepository;
     private final VehicleRepository vehicleRepository;
     private final DriverRepository driverRepository;
@@ -38,7 +43,7 @@ public class TelemetryService {
 
     @Transactional
     public TelemetryResponse ingest(TelemetryRequest request) {
-        Vehicle vehicle = vehicleRepository.findById(request.vehicleId())
+        Vehicle vehicle = vehicleRepository.findByIdForUpdate(request.vehicleId())
                 .filter(item -> !item.isDeleted())
                 .orElseThrow(() -> new NotFoundException("Vehicle", request.vehicleId()));
         Driver driver = request.driverId() == null ? null : driverRepository.findById(request.driverId())
@@ -49,6 +54,7 @@ public class TelemetryService {
                 .orElseThrow(() -> new NotFoundException("Trip", request.tripId()));
 
         assertDriverCanIngest(driver);
+        assertDriverAssignment(driver, vehicle, trip);
 
         if (driver != null && request.clientEventId() != null && !request.clientEventId().isBlank()) {
             Optional<TelemetryLog> existing = telemetryLogRepository.findByDriverIdAndClientEventId(
@@ -62,6 +68,9 @@ public class TelemetryService {
 
         LocalDateTime receivedAt = LocalDateTime.now();
         LocalDateTime recordedAt = request.createdAt() == null ? receivedAt : request.createdAt();
+        if (recordedAt.isAfter(receivedAt.plusMinutes(MAX_FUTURE_CLOCK_SKEW_MINUTES))) {
+            throw new BadRequestException("Thời điểm GPS vượt quá độ lệch cho phép");
+        }
         TelemetryLog log = new TelemetryLog();
         log.setVehicle(vehicle);
         log.setDriver(driver);
@@ -88,10 +97,19 @@ public class TelemetryService {
         TelemetryResponse response = TelemetryMapper.toResponse(telemetryLogRepository.save(log));
         if (newestPosition) {
             VehicleRealtimeStatusResponse status = VehicleMapper.toRealtimeStatus(vehicle);
-            messagingTemplate.convertAndSend("/topic/vehicles/positions", status);
-            messagingTemplate.convertAndSend("/topic/vehicles/" + vehicle.getId() + "/position", status);
+            publishAfterCommit(vehicle.getId(), status);
         }
         return response;
+    }
+
+    void publishAfterCommit(Long vehicleId, VehicleRealtimeStatusResponse status) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                messagingTemplate.convertAndSend("/topic/vehicles/positions", status);
+                messagingTemplate.convertAndSend("/topic/vehicles/" + vehicleId + "/position", status);
+            }
+        });
     }
 
     @Transactional(readOnly = true)
@@ -133,6 +151,22 @@ public class TelemetryService {
         }
         if (driver == null || driver.getUser() == null || !driver.getUser().getId().equals(SecurityUtils.currentUserId())) {
             throw new ForbiddenActionException("Tài xế chỉ được gửi GPS của chính mình");
+        }
+    }
+
+    private void assertDriverAssignment(Driver driver, Vehicle vehicle, Trip trip) {
+        if (!SecurityUtils.hasRole("DRIVER")) {
+            return;
+        }
+        if (driver.getCurrentVehicle() == null
+                || !driver.getCurrentVehicle().getId().equals(vehicle.getId())) {
+            throw new ForbiddenActionException("Tài xế chỉ được gửi GPS cho xe đang được phân công");
+        }
+        if (trip != null && (trip.getDriver() == null
+                || !trip.getDriver().getId().equals(driver.getId())
+                || trip.getVehicle() == null
+                || !trip.getVehicle().getId().equals(vehicle.getId()))) {
+            throw new ForbiddenActionException("Tài xế chỉ được gửi GPS cho chuyến đang được phân công");
         }
     }
 

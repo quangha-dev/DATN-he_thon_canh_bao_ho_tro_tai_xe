@@ -36,7 +36,7 @@ public class DockerSecurityConfigurationValidator {
     @PostConstruct
     void validate() {
         requireSecret("JWT_SECRET", jwtSecret, 32);
-        requireSecret("MYSQL_PASSWORD", databasePassword, 12);
+        requireSecret("POSTGRES_PASSWORD", databasePassword, 12);
         if (corsAllowedOrigins == null
                 || corsAllowedOrigins.isBlank()
                 || corsAllowedOrigins.contains("*")) {

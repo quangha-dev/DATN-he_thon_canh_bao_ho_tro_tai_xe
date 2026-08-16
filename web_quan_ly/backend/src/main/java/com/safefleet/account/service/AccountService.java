@@ -2,6 +2,7 @@ package com.safefleet.account.service;
 
 import com.safefleet.account.dto.request.CreateDriverAccountRequest;
 import com.safefleet.account.dto.request.CreateUserRequest;
+import com.safefleet.account.dto.request.ResetPasswordRequest;
 import com.safefleet.account.dto.request.UpdateAccountStatusRequest;
 import com.safefleet.account.dto.response.UserResponse;
 import com.safefleet.account.entity.Role;
@@ -13,12 +14,15 @@ import com.safefleet.account.repository.RoleRepository;
 import com.safefleet.account.repository.UserAccountRepository;
 import com.safefleet.common.dto.PageResponse;
 import com.safefleet.common.exception.BadRequestException;
+import com.safefleet.common.exception.ForbiddenActionException;
 import com.safefleet.common.exception.NotFoundException;
 import com.safefleet.driver.entity.Driver;
 import com.safefleet.driver.enums.DriverStatus;
 import com.safefleet.driver.repository.DriverRepository;
+import com.safefleet.infrastructure.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,10 +35,15 @@ public class AccountService {
     private final RoleRepository roleRepository;
     private final DriverRepository driverRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
 
     @Transactional(readOnly = true)
     public PageResponse<UserResponse> search(String keyword, Pageable pageable) {
-        return PageResponse.from(userAccountRepository.search(keyword, pageable).map(UserMapper::toResponse));
+        String normalizedKeyword = keyword == null ? null : keyword.trim();
+        var users = normalizedKeyword == null || normalizedKeyword.isEmpty()
+                ? userAccountRepository.findByDeletedFalse(pageable)
+                : userAccountRepository.searchByKeyword(normalizedKeyword, pageable);
+        return PageResponse.from(users.map(UserMapper::toResponse));
     }
 
     @Transactional(readOnly = true)
@@ -44,6 +53,11 @@ public class AccountService {
 
     @Transactional
     public UserResponse create(CreateUserRequest request) {
+        if (!SecurityUtils.hasRole("ADMIN")
+                && request.role() != RoleName.FLEET_MANAGER
+                && request.role() != RoleName.DRIVER) {
+            throw new ForbiddenActionException("Quản lý chỉ được tạo tài khoản quản lý hoặc tài xế");
+        }
         validateUniqueUser(request.username(), request.email());
         Role role = roleRepository.findByName(request.role())
                 .orElseThrow(() -> new NotFoundException("Không tìm thấy vai trò: " + request.role()));
@@ -96,8 +110,41 @@ public class AccountService {
     @Transactional
     public UserResponse updateStatus(Long id, UpdateAccountStatusRequest request) {
         UserAccount user = findUser(id);
+        assertManageable(user);
+        if (id.equals(SecurityUtils.currentUserId()) && request.status() != AccountStatus.ACTIVE) {
+            throw new BadRequestException("Không thể tự khóa hoặc vô hiệu hóa tài khoản đang đăng nhập");
+        }
         user.setStatus(request.status());
+        if (request.status() != AccountStatus.ACTIVE) {
+            revokeAllSessions(id);
+        }
         return UserMapper.toResponse(user);
+    }
+
+    @Transactional
+    public void resetPassword(Long id, ResetPasswordRequest request) {
+        UserAccount user = findUser(id);
+        assertManageable(user);
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new BadRequestException("Mật khẩu mới phải khác mật khẩu hiện tại");
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        revokeAllSessions(id);
+    }
+
+    private void revokeAllSessions(Long userId) {
+        jdbcTemplate.update("""
+                UPDATE refresh_tokens
+                SET revoked_at = COALESCE(revoked_at, CURRENT_TIMESTAMP),
+                    last_used_at = CURRENT_TIMESTAMP
+                WHERE user_id = ? AND revoked_at IS NULL
+                """, userId);
+    }
+
+    private void assertManageable(UserAccount user) {
+        if (!SecurityUtils.hasRole("ADMIN") && user.getRole().getName() == RoleName.ADMIN) {
+            throw new ForbiddenActionException("Quản lý không được thay đổi tài khoản quản trị hệ thống");
+        }
     }
 
     private UserAccount findUser(Long id) {

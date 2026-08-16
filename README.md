@@ -1,7 +1,7 @@
 # SafeFleet MVP
 
 SafeFleet là hệ thống cảnh báo và hỗ trợ tài xế gồm web điều phối, ứng dụng Flutter
-cho tài xế, backend Spring Boot, dịch vụ AI cục bộ/OpenAI tùy chọn, MySQL và kho
+cho tài xế, backend Spring Boot, dịch vụ AI cục bộ/OpenAI tùy chọn, PostgreSQL và kho
 evidence MinIO riêng tư.
 
 ## Chạy nhanh bằng Docker
@@ -37,7 +37,7 @@ Các địa chỉ mặc định:
 | Backend / Swagger | `http://localhost:8080` / `/swagger-ui/index.html` |
 | AI service | `http://localhost:8000` |
 | MinIO console | `http://localhost:9001` |
-| MySQL từ máy host | `127.0.0.1:3307` |
+| PostgreSQL từ máy host | `127.0.0.1:${POSTGRES_PORT:-5432}` |
 
 ## Kiểm thử
 
@@ -50,7 +50,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RUN_ALL_TESTS.ps1
 Có thể bỏ qua Android hoặc diễn tập database khi cần chạy nhanh bằng `-SkipAndroid` và `-SkipDatabaseRestore`.
 
 ```powershell
-# Backend: unit, controller và Testcontainers MySQL thật
+# Backend: unit, controller và Testcontainers PostgreSQL thật
 cd web_quan_ly\backend
 $env:JAVA_HOME='D:\DEV\Kit\jdk-21'
 mvn.cmd test

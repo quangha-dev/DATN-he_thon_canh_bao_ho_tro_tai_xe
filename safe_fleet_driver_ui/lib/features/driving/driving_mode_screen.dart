@@ -9,6 +9,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import '../../app.dart';
 import '../../core/config/app_config.dart';
 import '../../core/ai/cabin_safety_provider.dart';
+import '../../core/ai/stgt_drowsiness_engine.dart';
 import '../../core/ai/temporal_safety_engine.dart';
 import '../../core/widgets/ui.dart';
 import '../../models/driver_models.dart';
@@ -61,6 +62,7 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
 
   @override
   void dispose() {
+    unawaited(ref.read(cabinSafetyProvider.notifier).stop());
     _sheetController.removeListener(_onSheetMoved);
     _sheetController.dispose();
     _sheetSize.dispose();
@@ -300,7 +302,8 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
                         zoom: 15,
                       ),
                       myLocationEnabled: true,
-                      myLocationTrackingMode: MyLocationTrackingMode.trackingGps,
+                      myLocationTrackingMode:
+                          MyLocationTrackingMode.trackingGps,
                       compassEnabled: false,
                       onMapCreated: (controller) => _map = controller,
                       onStyleLoadedCallback: () {
@@ -568,61 +571,109 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
     );
   }
 
-  Widget _cabinRow(CabinSafetyState cabin) => Container(
-    padding: const EdgeInsets.all(SfSpace.x16),
-    decoration: BoxDecoration(
-      color: SfColors.darkSurfaceAlt,
-      borderRadius: SfRadius.controlR,
-      border: Border.all(color: SfColors.darkBorder),
-    ),
-    child: Row(
-      children: [
-        Icon(
-          cabin.active
-              ? Icons.visibility_rounded
-              : Icons.visibility_off_outlined,
-          size: 26,
-          color: cabin.active ? SfColors.mint : SfColors.darkTextSecondary,
-        ),
-        const SizedBox(width: SfSpace.x12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Giám sát tỉnh táo',
-                style: SfType.titleCard.copyWith(
-                  color: SfColors.darkTextPrimary,
-                  fontSize: SfTouch.driveFontFloor,
-                ),
-              ),
-              const SizedBox(height: SfSpace.x4),
-              Text(
-                cabin.enabled ? cabin.message : 'Đang tắt',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: SfType.body.copyWith(
-                  color: SfColors.darkTextSecondary,
-                  fontSize: SfTouch.driveFontFloor,
-                ),
-              ),
-              const SizedBox(height: SfSpace.x4),
-              // Engine nào đang chạy: STGT học sâu hay ML Kit luật thời gian.
-              Text(
-                cabin.modelMode.label.toUpperCase(),
-                style: SfType.label.copyWith(color: SfColors.darkTextMuted),
-              ),
-            ],
+  Widget _cabinRow(CabinSafetyState cabin) {
+    final metrics = cabin.metrics;
+    final ready = cabin.active && metrics?.calibrated == true;
+    final riskLevel = ready ? drowsinessRiskLevel(metrics!.score) : null;
+    final predictedLevel = ready
+        ? drowsinessRiskLevel(metrics!.predictedScore)
+        : null;
+    final riskColor = switch (riskLevel) {
+      null => SfColors.darkTextSecondary,
+      <= 3 => SfColors.mint,
+      <= 5 => SfColors.amber,
+      _ => SfColors.danger,
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(SfSpace.x16),
+      decoration: BoxDecoration(
+        color: SfColors.darkSurfaceAlt,
+        borderRadius: SfRadius.controlR,
+        border: Border.all(color: riskColor.withValues(alpha: 0.55)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            cabin.active
+                ? Icons.visibility_rounded
+                : Icons.visibility_off_outlined,
+            size: 26,
+            color: cabin.active ? riskColor : SfColors.darkTextSecondary,
           ),
-        ),
-        SfStatusPill(
-          cabin.active ? 'Đang bật' : 'Đang tắt',
-          status: cabin.active ? SfStatus.good : SfStatus.pending,
-          dense: true,
-        ),
-      ],
-    ),
-  );
+          const SizedBox(width: SfSpace.x12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Nguy cơ buồn ngủ',
+                  style: SfType.titleCard.copyWith(
+                    color: SfColors.darkTextPrimary,
+                    fontSize: SfTouch.driveFontFloor,
+                  ),
+                ),
+                const SizedBox(height: SfSpace.x4),
+                Text(
+                  riskLevel == null
+                      ? (cabin.enabled ? cabin.message : 'Đang tắt')
+                      : '${drowsinessRiskLabel(riskLevel)} · ${metrics!.statusText}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: SfType.body.copyWith(
+                    color: riskColor,
+                    fontSize: SfTouch.driveFontFloor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: SfSpace.x4),
+                Text(
+                  '${cabin.modelMode.label.toUpperCase()} · NGƯỠNG 1–10',
+                  style: SfType.label.copyWith(color: SfColors.darkTextMuted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: SfSpace.x12),
+          Container(
+            width: 92,
+            padding: const EdgeInsets.symmetric(
+              horizontal: SfSpace.x8,
+              vertical: SfSpace.x8,
+            ),
+            decoration: BoxDecoration(
+              color: riskColor.withValues(alpha: 0.12),
+              borderRadius: SfRadius.controlR,
+            ),
+            child: Column(
+              children: [
+                Text(
+                  riskLevel?.toString() ?? '--',
+                  style: SfType.displayDrive.copyWith(
+                    color: riskColor,
+                    fontSize: 34,
+                  ),
+                ),
+                Text(
+                  '/10 hiện tại',
+                  style: SfType.label.copyWith(
+                    color: SfColors.darkTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  predictedLevel == null
+                      ? 'Dự báo --'
+                      : 'Dự báo $predictedLevel/10',
+                  style: SfType.label.copyWith(color: riskColor),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _actions() => Column(
     children: [
@@ -631,9 +682,7 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
           Expanded(
             child: SfDriveAction(
               label: _paused ? 'Tiếp tục' : 'Tạm nghỉ',
-              icon: _paused
-                  ? Icons.play_arrow_rounded
-                  : Icons.pause_rounded,
+              icon: _paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
               onPressed: _busy ? null : _togglePause,
             ),
           ),

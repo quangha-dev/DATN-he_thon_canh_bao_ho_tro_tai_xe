@@ -88,8 +88,9 @@ public class NotificationService {
         Notification notification = notificationRepository.findVisibleById(id, userId)
                 .orElseThrow(() -> new NotFoundException("Notification", id));
         jdbcTemplate.update("""
-                INSERT IGNORE INTO notification_reads (notification_id, user_id, read_at)
+                INSERT INTO notification_reads (notification_id, user_id, read_at)
                 VALUES (?, ?, CURRENT_TIMESTAMP(6))
+                ON CONFLICT (notification_id, user_id) DO NOTHING
                 """, notification.getId(), userId);
         return NotificationMapper.toResponse(notification, true);
     }
@@ -98,19 +99,20 @@ public class NotificationService {
     public void markAllRead() {
         Long userId = SecurityUtils.currentUserId();
         jdbcTemplate.update("""
-                INSERT IGNORE INTO notification_reads (notification_id, user_id, read_at)
+                INSERT INTO notification_reads (notification_id, user_id, read_at)
                 SELECT id, ?, CURRENT_TIMESTAMP(6)
                 FROM notifications
                 WHERE recipient_id IS NULL OR recipient_id = ?
+                ON CONFLICT (notification_id, user_id) DO NOTHING
                 """, userId, userId);
     }
 
     private boolean isRead(Long notificationId, Long userId) {
-        Integer count = jdbcTemplate.queryForObject("""
+        Long count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM notification_reads
                 WHERE notification_id = ? AND user_id = ?
-                """, Integer.class, notificationId, userId);
+                """, Long.class, notificationId, userId);
         return count != null && count > 0;
     }
 }

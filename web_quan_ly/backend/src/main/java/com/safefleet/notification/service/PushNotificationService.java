@@ -92,8 +92,8 @@ public class PushNotificationService {
                 INSERT INTO push_tokens
                     (user_id, device_id, provider, token, enabled, last_used_at, created_at, updated_at)
                 VALUES (?, ?, ?, ?, TRUE, CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))
-                ON DUPLICATE KEY UPDATE
-                    device_id = VALUES(device_id),
+                ON CONFLICT (provider, token) DO UPDATE SET
+                    device_id = EXCLUDED.device_id,
                     enabled = TRUE,
                     last_used_at = CURRENT_TIMESTAMP(6),
                     updated_at = CURRENT_TIMESTAMP(6)
@@ -111,9 +111,10 @@ public class PushNotificationService {
         Long userId = SecurityUtils.currentUserId();
         jdbcTemplate.update("""
                 UPDATE push_tokens pt
-                JOIN mobile_devices md ON md.id = pt.device_id
-                SET pt.enabled = FALSE, pt.updated_at = CURRENT_TIMESTAMP(6)
+                SET enabled = FALSE, updated_at = CURRENT_TIMESTAMP(6)
+                FROM mobile_devices md
                 WHERE md.device_uuid = ? AND md.user_id = ?
+                  AND md.id = pt.device_id
                 """, deviceUuid, userId);
         jdbcTemplate.update("""
                 UPDATE mobile_devices
@@ -135,7 +136,7 @@ public class PushNotificationService {
                         (notification_id, user_id, push_token_id, title, body, data_json,
                          status, attempt_count, next_attempt_at, created_at)
                     SELECT ?, pt.user_id, pt.id, ?, ?,
-                           JSON_OBJECT('referenceType', ?, 'referenceId', ?),
+                           jsonb_build_object('referenceType', ?, 'referenceId', ?)::text,
                            'PENDING', 0, CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6)
                     FROM push_tokens pt
                     WHERE pt.enabled = TRUE
@@ -146,7 +147,7 @@ public class PushNotificationService {
                         (notification_id, user_id, push_token_id, title, body, data_json,
                          status, attempt_count, next_attempt_at, created_at)
                     SELECT ?, pt.user_id, pt.id, ?, ?,
-                           JSON_OBJECT('referenceType', ?, 'referenceId', ?),
+                           jsonb_build_object('referenceType', ?, 'referenceId', ?)::text,
                            'PENDING', 0, CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6)
                     FROM push_tokens pt
                     WHERE pt.enabled = TRUE AND pt.user_id = ?
@@ -173,7 +174,7 @@ public class PushNotificationService {
         jdbcTemplate.update("""
                 UPDATE pending_push_notifications
                 SET attempt_count = attempt_count + 1,
-                    next_attempt_at = DATE_ADD(CURRENT_TIMESTAMP(6), INTERVAL 5 MINUTE),
+                    next_attempt_at = CURRENT_TIMESTAMP(6) + INTERVAL '5 minutes',
                     last_error = 'FCM adapter requires deployment credentials'
                 WHERE status = 'PENDING' AND next_attempt_at <= CURRENT_TIMESTAMP(6)
                 """);

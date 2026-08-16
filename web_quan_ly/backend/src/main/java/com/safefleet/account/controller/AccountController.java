@@ -2,6 +2,7 @@ package com.safefleet.account.controller;
 
 import com.safefleet.account.dto.request.CreateDriverAccountRequest;
 import com.safefleet.account.dto.request.CreateUserRequest;
+import com.safefleet.account.dto.request.ResetPasswordRequest;
 import com.safefleet.account.dto.request.UpdateAccountStatusRequest;
 import com.safefleet.account.dto.response.UserResponse;
 import com.safefleet.account.service.AccountService;
@@ -47,7 +48,7 @@ public class AccountController {
 
     @Operation(summary = "Create staff account")
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FLEET_MANAGER')")
     public ApiResponse<UserResponse> create(@Valid @RequestBody CreateUserRequest request) {
         return ApiResponse.ok("Account created", accountService.create(request));
     }
@@ -61,9 +62,18 @@ public class AccountController {
 
     @Operation(summary = "Change account status")
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FLEET_MANAGER')")
     public ApiResponse<UserResponse> updateStatus(@PathVariable Long id,
                                                   @Valid @RequestBody UpdateAccountStatusRequest request) {
         return ApiResponse.ok("Account status updated", accountService.updateStatus(id, request));
+    }
+
+    @Operation(summary = "Reset account password and revoke active sessions")
+    @PostMapping("/{id}/reset-password")
+    @PreAuthorize("hasAnyRole('ADMIN','FLEET_MANAGER')")
+    public ApiResponse<Void> resetPassword(@PathVariable Long id,
+                                           @Valid @RequestBody ResetPasswordRequest request) {
+        accountService.resetPassword(id, request);
+        return ApiResponse.ok("Password reset successfully");
     }
 }

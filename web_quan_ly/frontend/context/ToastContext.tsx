@@ -1,24 +1,9 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  ReactNode,
-} from "react";
+import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  Info,
-  X,
-} from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, Info, X } from "lucide-react";
 
-// =============================================================================
-// TYPES
-// =============================================================================
 type ToastType = "success" | "error" | "warning" | "info";
 
 interface Toast {
@@ -33,53 +18,26 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
-// =============================================================================
-// ICONS & STYLES
-// =============================================================================
+/** Toast dùng token semantic — chỉ tô màu icon và vạch tiến trình, nền vẫn là surface. */
 const TOAST_CONFIG: Record<
   ToastType,
-  { icon: typeof CheckCircle2; bg: string; border: string; text: string }
+  { icon: typeof CheckCircle2; color: string; soft: string }
 > = {
-  success: {
-    icon: CheckCircle2,
-    bg: "bg-emerald-50 dark:bg-emerald-950/50",
-    border: "border-emerald-200 dark:border-emerald-800",
-    text: "text-emerald-700 dark:text-emerald-300",
-  },
-  error: {
-    icon: XCircle,
-    bg: "bg-red-50 dark:bg-red-950/50",
-    border: "border-red-200 dark:border-red-800",
-    text: "text-red-700 dark:text-red-300",
-  },
-  warning: {
-    icon: AlertTriangle,
-    bg: "bg-amber-50 dark:bg-amber-950/50",
-    border: "border-amber-200 dark:border-amber-800",
-    text: "text-amber-700 dark:text-amber-300",
-  },
-  info: {
-    icon: Info,
-    bg: "bg-blue-50 dark:bg-blue-950/50",
-    border: "border-blue-200 dark:border-blue-800",
-    text: "text-blue-700 dark:text-blue-300",
-  },
+  success: { icon: CheckCircle2, color: "var(--sf-success)", soft: "var(--sf-success-soft)" },
+  error: { icon: XCircle, color: "var(--sf-danger)", soft: "var(--sf-danger-soft)" },
+  warning: { icon: AlertTriangle, color: "var(--sf-warning)", soft: "var(--sf-warning-soft)" },
+  info: { icon: Info, color: "var(--sf-primary)", soft: "var(--sf-primary-soft)" },
 };
 
-// =============================================================================
-// PROVIDER
-// =============================================================================
+const DURATION = 4200;
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const showToast = useCallback((message: string, type: ToastType = "success") => {
-    const id = Date.now();
+    const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, type }]);
-
-    // Auto-remove after 4 seconds
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), DURATION);
   }, []);
 
   const removeToast = useCallback((id: number) => {
@@ -90,9 +48,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
 
-      {/* Toast Container */}
-      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
-        <AnimatePresence>
+      <div className="pointer-events-none fixed right-4 top-4 z-[200] flex w-full max-w-sm flex-col gap-2.5">
+        <AnimatePresence initial={false}>
           {toasts.map((toast) => {
             const config = TOAST_CONFIG[toast.type];
             const Icon = config.icon;
@@ -100,22 +57,45 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             return (
               <motion.div
                 key={toast.id}
-                initial={{ opacity: 0, x: 80, scale: 0.95 }}
+                layout
+                initial={{ opacity: 0, x: 60, scale: 0.96 }}
                 animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 80, scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl border shadow-lg backdrop-blur-sm ${config.bg} ${config.border}`}
+                exit={{ opacity: 0, x: 60, scale: 0.96 }}
+                transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                className="sf-glass-panel pointer-events-auto relative flex items-start gap-3 overflow-hidden px-4 py-3.5"
               >
-                <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${config.text}`} />
-                <p className={`text-sm font-medium flex-1 ${config.text}`}>
+                <span
+                  aria-hidden
+                  className="absolute inset-y-0 left-0 w-[3px]"
+                  style={{ background: config.color }}
+                />
+                <span
+                  className="mt-px grid h-7 w-7 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)]"
+                  style={{ background: config.soft, color: config.color }}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <p className="flex-1 pt-0.5 text-[13px] font-semibold leading-snug text-sf-text">
                   {toast.message}
                 </p>
                 <button
+                  type="button"
                   onClick={() => removeToast(toast.id)}
-                  className={`flex-shrink-0 ${config.text} opacity-60 hover:opacity-100 transition-opacity`}
+                  aria-label="Đóng thông báo"
+                  className="mt-px grid h-6 w-6 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)] text-sf-text-muted transition-colors hover:bg-[var(--sf-bg-inset)] hover:text-sf-text cursor-pointer"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
+
+                {/* Vạch đếm ngược */}
+                <motion.span
+                  aria-hidden
+                  className="absolute bottom-0 left-0 h-[2px]"
+                  style={{ background: config.color, opacity: 0.55 }}
+                  initial={{ width: "100%" }}
+                  animate={{ width: "0%" }}
+                  transition={{ duration: DURATION / 1000, ease: "linear" }}
+                />
               </motion.div>
             );
           })}

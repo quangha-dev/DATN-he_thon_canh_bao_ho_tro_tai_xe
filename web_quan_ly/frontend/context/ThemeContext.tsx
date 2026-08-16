@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -16,15 +17,19 @@ interface ThemeContextValue {
   resolvedTheme: "light" | "dark";
   setMode: (mode: ThemeMode) => void;
   toggleTheme: () => void;
+  /** True trong lúc đang chuyển sáng/tối — dùng để khóa animation phụ */
+  isSwitching: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+const STORAGE_KEY = "safefleet-theme";
+const TRANSITION_CLASS = "sf-theme-transition";
+const TRANSITION_MS = 460;
+
 function systemTheme(): "light" | "dark" {
   if (typeof window === "undefined") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function applyTheme(mode: ThemeMode) {
@@ -33,21 +38,24 @@ function applyTheme(mode: ThemeMode) {
   root.classList.toggle("dark", resolved === "dark");
   root.dataset.theme = resolved;
   root.style.colorScheme = resolved;
+
+  // Cập nhật theme-color để thanh trình duyệt trên mobile khớp giao diện
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", resolved === "dark" ? "#060e14" : "#eef2f4");
+
   return resolved;
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">(
-    "light"
-  );
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+  const [isSwitching, setIsSwitching] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem("safefleet-theme");
+    const stored = window.localStorage.getItem(STORAGE_KEY);
     const initialMode: ThemeMode =
-      stored === "light" || stored === "dark" || stored === "system"
-        ? stored
-        : "system";
+      stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
     setModeState(initialMode);
     setResolvedTheme(applyTheme(initialMode));
   }, []);
@@ -61,8 +69,28 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => media.removeEventListener("change", onSystemThemeChange);
   }, [mode]);
 
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    []
+  );
+
   const setMode = useCallback((nextMode: ThemeMode) => {
-    window.localStorage.setItem("safefleet-theme", nextMode);
+    const root = document.documentElement;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (!reduce) {
+      root.classList.add(TRANSITION_CLASS);
+      setIsSwitching(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        root.classList.remove(TRANSITION_CLASS);
+        setIsSwitching(false);
+      }, TRANSITION_MS);
+    }
+
+    window.localStorage.setItem(STORAGE_KEY, nextMode);
     setModeState(nextMode);
     setResolvedTheme(applyTheme(nextMode));
   }, []);
@@ -72,13 +100,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [resolvedTheme, setMode]);
 
   const value = useMemo(
-    () => ({ mode, resolvedTheme, setMode, toggleTheme }),
-    [mode, resolvedTheme, setMode, toggleTheme]
+    () => ({ mode, resolvedTheme, setMode, toggleTheme, isSwitching }),
+    [mode, resolvedTheme, setMode, toggleTheme, isSwitching]
   );
 
-  return (
-    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

@@ -52,7 +52,7 @@ public class PreTripChecklist extends BaseEntity {
     @Column(name = "documents_checked", nullable = false)
     private boolean documentsChecked;
 
-    @Column(name = "checklist_json", columnDefinition = "json")
+    @Column(name = "checklist_json", columnDefinition = "text")
     private String checklistJson;
 
     @Column(length = 500)

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app.dart';
 import '../../core/widgets/ui.dart';
+import '../documents/driving_log_list_screen.dart';
 
 class MonthlyInsightsScreen extends ConsumerStatefulWidget {
   const MonthlyInsightsScreen({super.key});
@@ -68,9 +69,23 @@ class _MonthlyInsightsScreenState extends ConsumerState<MonthlyInsightsScreen> {
               title: 'Chưa tải được báo cáo',
               message:
                   '${snapshot.error}\nBáo cáo lấy từ máy chủ nên cần kết nối mạng.',
-              action: TextButton(
-                onPressed: () => setState(_load),
-                child: const Text('Tải lại'),
+              action: Column(
+                children: [
+                  FilledButton.icon(
+                    onPressed: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DrivingLogListScreen(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.table_view_outlined),
+                    label: const Text('Mở nhật trình offline'),
+                  ),
+                  TextButton(
+                    onPressed: () => setState(_load),
+                    child: const Text('Tải lại báo cáo máy chủ'),
+                  ),
+                ],
               ),
             );
           }
@@ -96,6 +111,56 @@ class _MonthlyInsightsScreenState extends ConsumerState<MonthlyInsightsScreen> {
               ),
               children: [
                 _MonthSelector(month: _month, onChange: _changeMonth),
+                const SizedBox(height: SfSpace.x16),
+                SfCard(
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const DrivingLogListScreen(),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: SfTouch.min,
+                        height: SfTouch.min,
+                        decoration: BoxDecoration(
+                          color: context.sf.accentTint,
+                          borderRadius: SfRadius.controlR,
+                        ),
+                        child: Icon(
+                          Icons.table_view_outlined,
+                          color: context.sf.accent,
+                        ),
+                      ),
+                      const SizedBox(width: SfSpace.x12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Nhật trình từ phiếu',
+                              style: SfType.titleCard.copyWith(
+                                color: context.sf.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: SfSpace.x4),
+                            Text(
+                              'Xem phiếu đã lưu và xuất Excel offline',
+                              style: SfType.meta.copyWith(
+                                color: context.sf.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: context.sf.textMuted,
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: SfSpace.x16),
                 _AchievementHero(data: data),
                 const SizedBox(height: SfSpace.x24),
@@ -209,7 +274,10 @@ class _AchievementHero extends StatelessWidget {
               Container(
                 width: 56,
                 height: 56,
-                decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                ),
                 child: const Icon(
                   Icons.workspace_premium_rounded,
                   color: SfColors.navy,

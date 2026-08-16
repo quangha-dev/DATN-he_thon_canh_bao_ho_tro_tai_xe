@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { UserRole } from "@/types";
 
 export type RealtimeStatus = "disconnected" | "connecting" | "connected";
 
@@ -20,13 +21,21 @@ const RealtimeContext = createContext<RealtimeContextValue>({
   status: "disconnected",
 });
 
-const TOPICS = [
-  "/topic/telemetry",
+const BACK_OFFICE_TOPICS = [
+  "/topic/vehicles/positions",
   "/topic/safety-events",
   "/topic/incidents",
   "/topic/flood-reports",
   "/topic/notifications",
 ];
+
+function topicsForRole(role?: UserRole): string[] {
+  if (role === "RESCUE_TEAM") return ["/topic/incidents"];
+  if (["ADMIN", "FLEET_MANAGER", "DISPATCHER", "SAFETY_OFFICER"].includes(role ?? "")) {
+    return BACK_OFFICE_TOPICS;
+  }
+  return [];
+}
 
 function websocketUrl() {
   const configured = process.env.NEXT_PUBLIC_WS_URL?.trim();
@@ -62,7 +71,7 @@ function parseFrame(frame: string) {
 }
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [status, setStatus] = useState<RealtimeStatus>("disconnected");
   const retryRef = useRef(0);
 
@@ -107,7 +116,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           if (frame.command === "CONNECTED") {
             retryRef.current = 0;
             setStatus("connected");
-            TOPICS.forEach((destination, index) => {
+            topicsForRole(user?.role).forEach((destination, index) => {
               socket?.send(
                 stompFrame("SUBSCRIBE", {
                   id: `safefleet-${index}`,
@@ -158,7 +167,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       }
       socket?.close();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.role]);
 
   return (
     <RealtimeContext.Provider value={{ status }}>

@@ -1,0 +1,36 @@
+flowchart TB
+    Driver["👤 Tài xế"]:::actor
+    Operator["👤 Điều phối / An toàn"]:::actor
+    Rescue["👤 Đội cứu hộ"]:::actor
+    Admin["👤 Quản trị viên"]:::actor
+
+    subgraph SafeFleet["HỆ THỐNG SAFEFLEET"]
+      direction TB
+      subgraph DriverCases["Nghiệp vụ tài xế"]
+        direction LR
+        UC1(["Thực hiện chuyến<br/>và dẫn đường"])
+        UC2(["Giám sát cabin<br/>và phản hồi cảnh báo"])
+        UC3(["Trợ lý rảnh tay<br/>và yêu cầu hỗ trợ"])
+        UC4(["Số hóa<br/>nhật trình OCR"])
+      end
+      subgraph OperationCases["Nghiệp vụ quản lý"]
+        direction LR
+        UC5(["Giám sát realtime<br/>và điều phối"])
+        UC6(["Xử lý cảnh báo,<br/>sự cố và cứu hộ"])
+        UC7(["Quản lý nguồn lực,<br/>dữ liệu và báo cáo"])
+        UC8(["Quản lý tài khoản,<br/>quyền và cấu hình"])
+      end
+    end
+
+    Driver --- UC1
+    Driver --- UC2
+    Driver --- UC3
+    Driver --- UC4
+    Operator --- UC5
+    Operator --- UC6
+    Operator --- UC7
+    Rescue --- UC6
+    Admin --- UC7
+    Admin --- UC8
+
+    classDef actor fill:#ffffff,stroke:#263238,stroke-width:2px;

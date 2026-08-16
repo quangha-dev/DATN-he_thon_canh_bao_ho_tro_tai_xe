@@ -52,9 +52,9 @@ export interface Vehicle {
   currentDriverId?: string;
   currentDriverName?: string;
   currentSpeed: number;
-  lat: number;
-  lng: number;
-  lastUpdated: string;
+  lat: number | null;
+  lng: number | null;
+  lastUpdated: string | null;
   registrationExpiry: string;
   insuranceExpiry: string;
   totalTrips: number;
@@ -62,6 +62,12 @@ export interface Vehicle {
   totalAlerts: number;
   nextMaintenanceKm: number;
   imageUrl?: string;
+  backendType?: string;
+  backendStatus?: string;
+  fuelType?: string;
+  seatCount?: number;
+  gpsDeviceId?: string;
+  cameraDeviceId?: string;
 }
 
 export type VehicleType = 'Xe tải' | 'Xe khách' | 'Xe container' | 'Xe van' | 'Xe bồn' | 'Xe con' | 'Xe bán tải' | 'Xe máy';
@@ -71,13 +77,17 @@ export type GpsStatus = 'online' | 'offline' | 'weak';
 // ===== DRIVER =====
 export interface Driver {
   id: string;
+  userId?: string;
   code?: string;
   fullName: string;
   phone: string;
   email: string;
+  address?: string;
+  licenseNumber?: string;
   licenseClass: string;
   licenseExpiry: string;
   status: DriverStatus;
+  backendStatus?: string;
   currentVehicleId?: string;
   currentVehiclePlate?: string;
   safetyScore: number;
@@ -123,6 +133,35 @@ export interface Trip {
 export type TripType = 'delivery' | 'passenger' | 'transfer' | 'return';
 export type TripStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'incident';
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+// ===== DOCUMENT PLATE REVIEW =====
+export type DocumentPlateReviewStatus =
+  | 'REVIEW_REQUIRED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'MATCHED';
+
+export interface DocumentPlateReview {
+  id: string;
+  driverId?: string;
+  driverName: string;
+  tripId?: string;
+  tripCode?: string;
+  expectedVehiclePlate?: string;
+  recognizedVehiclePlate?: string;
+  reviewStatus: DocumentPlateReviewStatus;
+  reviewReason?: string;
+  reviewNote?: string;
+  reviewedByName?: string;
+  reviewedAt?: string;
+  voucherNumber?: string;
+  voucherDate?: string;
+  projectAddress?: string;
+  originalFilename?: string;
+  imageUrl?: string;
+  createdAt: string;
+  completedAt?: string;
+}
 
 // ===== ALERT =====
 export interface Alert {

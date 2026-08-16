@@ -65,46 +65,50 @@ export const INCIDENT_STATUS_LABELS: Record<string, string> = {
   overdue: 'Quá hạn',
 };
 
-// Status color mappings
+/**
+ * Màu trạng thái — trỏ về design token nên tự đổi theo chế độ sáng/tối.
+ * Ưu tiên dùng `toneOf()` + `<StatusLabel>` / `<Badge>` trong components/ui;
+ * bảng này chỉ dành cho nơi bắt buộc phải có giá trị màu thô (canvas, SVG).
+ */
 export const STATUS_COLORS: Record<string, string> = {
   // Vehicle
-  running: '#3b82f6',
-  idle: '#22c55e',
-  maintenance: '#f59e0b',
-  offline: '#6b7280',
-  
+  running: 'var(--sf-primary)',
+  idle: 'var(--sf-success)',
+  maintenance: 'var(--sf-warning)',
+  offline: 'var(--sf-neutral)',
+
   // Driver
-  driving: '#3b82f6',
-  available: '#22c55e',
-  resting: '#f59e0b',
-  off_duty: '#6b7280',
-  suspended: '#ef4444',
-  high_risk: '#ef4444',
-  inactive: '#6b7280',
-  
+  driving: 'var(--sf-primary)',
+  available: 'var(--sf-success)',
+  resting: 'var(--sf-warning)',
+  off_duty: 'var(--sf-neutral)',
+  suspended: 'var(--sf-danger)',
+  high_risk: 'var(--sf-danger)',
+  inactive: 'var(--sf-neutral)',
+
   // Trip
-  pending: '#6b7280',
-  in_progress: '#3b82f6',
-  completed: '#22c55e',
-  cancelled: '#6b7280',
-  incident: '#ef4444',
-  
+  pending: 'var(--sf-neutral)',
+  in_progress: 'var(--sf-primary)',
+  completed: 'var(--sf-success)',
+  cancelled: 'var(--sf-neutral)',
+  incident: 'var(--sf-danger)',
+
   // Alert severity
-  low: '#22c55e',
-  medium: '#f59e0b',
-  high: '#f97316',
-  critical: '#ef4444',
+  low: 'var(--sf-success)',
+  medium: 'var(--sf-warning)',
+  high: 'var(--sf-warning)',
+  critical: 'var(--sf-danger)',
 
   // Incident
-  open: '#ef4444',
-  overdue: '#7c3aed',
-  resolved: '#22c55e',
+  open: 'var(--sf-danger)',
+  overdue: 'var(--sf-danger)',
+  resolved: 'var(--sf-success)',
 
   // Flood
-  light: '#06b6d4',
-  moderate: '#f59e0b',
-  heavy: '#f97316',
-  impassable: '#ef4444',
+  light: 'var(--sf-info)',
+  moderate: 'var(--sf-warning)',
+  heavy: 'var(--sf-warning)',
+  impassable: 'var(--sf-danger)',
 };
 
 // Map configuration
@@ -117,10 +121,10 @@ export const MAP_CONFIG = {
 
 // Safety score thresholds
 export const SAFETY_SCORE = {
-  EXCELLENT: { min: 90, label: 'Rất tốt', color: '#22c55e' },
-  GOOD: { min: 75, label: 'Tốt', color: '#3b82f6' },
-  MONITOR: { min: 60, label: 'Cần theo dõi', color: '#f59e0b' },
-  HIGH_RISK: { min: 0, label: 'Rủi ro cao', color: '#ef4444' },
+  EXCELLENT: { min: 90, label: 'Rất tốt', color: 'var(--sf-success)' },
+  GOOD: { min: 75, label: 'Tốt', color: 'var(--sf-primary)' },
+  MONITOR: { min: 60, label: 'Cần theo dõi', color: 'var(--sf-warning)' },
+  HIGH_RISK: { min: 0, label: 'Rủi ro cao', color: 'var(--sf-danger)' },
 };
 
 // Driving time limits (minutes)

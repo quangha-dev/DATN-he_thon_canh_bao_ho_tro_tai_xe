@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    actor Driver as Tài xế
+    participant Cam as Camera + On-device AI
+    participant Risk as Event/Risk Engine
+    participant App as Flutter App
+    participant Local as SQLite Queue
+    participant API as Spring Backend
+    participant DB as MySQL
+    participant WS as STOMP trong Backend
+    participant Web as Web giám sát
+    participant Rescue as Đội cứu hộ
+
+    loop Trong Driving Session
+        Cam->>Risk: Prediction stream + speed + timestamp
+        Risk->>Risk: Sliding window, duration, frequency
+    end
+    Risk-->>App: HIGH drowsiness event
+    App-->>Driver: Cảnh báo TTS/rung + yêu cầu xác nhận
+    alt Tài xế xác nhận an toàn
+        Driver->>App: Phản hồi bằng giọng nói/nút
+        App->>Local: Lưu event + response + clientEventId
+    else Không phản hồi và nguy cơ tiếp diễn
+        Risk-->>App: CRITICAL override
+        App->>App: Lấy GPS gần nhất
+        App->>Local: Lưu CRITICAL event ưu tiên cao
+        alt Có mạng
+            Local->>API: POST safety event / SOS có clientEventId
+            API->>API: JWT, ownership, policy, idempotency
+            API->>DB: Transaction: event + incident + timeline
+            DB-->>API: Commit
+            API->>WS: Publish sau commit
+            WS-->>Web: Event/incident CRITICAL
+            API-->>Local: ACK đúng item
+            Web->>API: Phân công cứu hộ
+            API-->>Rescue: Notification / incident topic
+        else Mất mạng
+            Local-->>App: Giữ queue, không báo gửi thành công
+            App-->>Driver: Lặp cảnh báo cục bộ và yêu cầu dừng xe
+        end
+    end

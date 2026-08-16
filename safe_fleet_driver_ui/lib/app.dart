@@ -6,10 +6,17 @@ import 'core/design/tokens.dart';
 import 'core/network/api_client.dart';
 import 'core/network/driver_repository.dart';
 import 'core/ai/cabin_safety_provider.dart';
+import 'core/notifications/trip_assignment_notification_monitor.dart';
 import 'core/storage/local_database.dart';
 import 'core/storage/sync_queue.dart';
 import 'features/auth/login_screen.dart';
 import 'features/camera/cabin_camera_screen.dart';
+import 'features/documents/document_ocr_queue_repository.dart';
+import 'features/documents/document_ocr_sync_queue.dart';
+import 'features/documents/document_scan_service.dart';
+import 'features/documents/driving_log_export_service.dart';
+import 'features/documents/driving_log_repository.dart';
+import 'features/documents/server_document_ocr_service.dart';
 import 'features/shell/driver_shell.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
@@ -26,6 +33,32 @@ final syncQueueProvider = Provider<SyncQueue>((ref) {
   ref.onDispose(queue.dispose);
   return queue;
 });
+final drivingLogRepositoryProvider = Provider<DrivingLogRepository>(
+  (ref) => DrivingLogRepository(ref.read(databaseProvider)),
+);
+final documentScanServiceProvider = Provider<DocumentScanService>((ref) {
+  final service = DocumentScanService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+final serverDocumentOcrServiceProvider = Provider<DocumentOcrGateway>(
+  (ref) => ServerDocumentOcrService(ref.read(apiClientProvider)),
+);
+final documentOcrQueueRepositoryProvider = Provider<DocumentOcrQueueRepository>(
+  (ref) => DocumentOcrQueueRepository(ref.read(databaseProvider)),
+);
+final documentOcrSyncQueueProvider = Provider<DocumentOcrSyncQueue>((ref) {
+  final queue = DocumentOcrSyncQueue(
+    queueRepository: ref.read(documentOcrQueueRepositoryProvider),
+    drivingLogRepository: ref.read(drivingLogRepositoryProvider),
+    gateway: ref.read(serverDocumentOcrServiceProvider),
+  );
+  ref.onDispose(queue.dispose);
+  return queue;
+});
+final drivingLogExportServiceProvider = Provider<DrivingLogExportService>(
+  (_) => DrivingLogExportService(),
+);
 final driverRepositoryProvider = Provider<DriverRepository>(
   (ref) => DriverRepository(
     ref.read(apiClientProvider),
@@ -33,6 +66,15 @@ final driverRepositoryProvider = Provider<DriverRepository>(
     ref.read(syncQueueProvider),
   ),
 );
+final tripAssignmentNotificationMonitorProvider =
+    Provider<TripAssignmentNotificationMonitor>((ref) {
+      final monitor = TripAssignmentNotificationMonitor(
+        ref.read(driverRepositoryProvider),
+        ref.read(databaseProvider),
+      );
+      ref.onDispose(monitor.dispose);
+      return monitor;
+    });
 
 enum SessionStatus { checking, signedOut, signedIn }
 
@@ -48,18 +90,25 @@ class SessionController extends Notifier<SessionStatus> {
     final api = ref.read(apiClientProvider);
     await api.initialize();
     ref.read(syncQueueProvider).start();
-    state = await api.hasSession()
-        ? SessionStatus.signedIn
-        : SessionStatus.signedOut;
+    final signedIn = await api.hasSession();
+    state = signedIn ? SessionStatus.signedIn : SessionStatus.signedOut;
+    if (signedIn) {
+      await ref.read(documentOcrSyncQueueProvider).start();
+      await ref.read(tripAssignmentNotificationMonitorProvider).start();
+    }
   }
 
   Future<void> login(String account, String password) async {
     await ref.read(apiClientProvider).login(account, password);
+    await ref.read(documentOcrSyncQueueProvider).start();
+    await ref.read(tripAssignmentNotificationMonitorProvider).start();
     state = SessionStatus.signedIn;
   }
 
   Future<void> logout() async {
     await ref.read(cabinSafetyProvider.notifier).stop();
+    await ref.read(documentOcrSyncQueueProvider).stop();
+    await ref.read(tripAssignmentNotificationMonitorProvider).stop();
     await ref.read(apiClientProvider).logout();
     state = SessionStatus.signedOut;
   }
@@ -95,6 +144,8 @@ class _SafeFleetDriverAppState extends ConsumerState<SafeFleetDriverApp>
     switch (state) {
       case AppLifecycleState.resumed:
         controller.enterForeground();
+        ref.read(documentOcrSyncQueueProvider).syncNow();
+        ref.read(tripAssignmentNotificationMonitorProvider).syncNow();
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
         controller.enterBackground();
@@ -136,7 +187,6 @@ class _SafeFleetDriverAppState extends ConsumerState<SafeFleetDriverApp>
       },
     );
   }
-
 }
 
 class _GlobalCabinIndicator extends StatelessWidget {

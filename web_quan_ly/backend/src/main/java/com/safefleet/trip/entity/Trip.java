@@ -53,13 +53,13 @@ public class Trip extends BaseEntity {
     @Column(name = "end_lng")
     private Double endLng;
 
-    @Column(name = "waypoints_json", columnDefinition = "json")
+    @Column(name = "waypoints_json", columnDefinition = "text")
     private String waypoints;
 
-    @Column(name = "planned_route_json", columnDefinition = "json")
+    @Column(name = "planned_route_json", columnDefinition = "text")
     private String plannedRoute;
 
-    @Column(name = "actual_route_json", columnDefinition = "json")
+    @Column(name = "actual_route_json", columnDefinition = "text")
     private String actualRoute;
 
     @Column(name = "planned_start_time")

@@ -12,6 +12,8 @@ import com.safefleet.driver.entity.Driver;
 import com.safefleet.driver.enums.DriverStatus;
 import com.safefleet.driver.repository.DriverRepository;
 import com.safefleet.infrastructure.security.SecurityUtils;
+import com.safefleet.notification.enums.NotificationType;
+import com.safefleet.notification.service.NotificationService;
 import com.safefleet.trip.dto.request.AssignTripRequest;
 import com.safefleet.trip.dto.request.CancelTripRequest;
 import com.safefleet.trip.dto.request.CreateTripRequest;
@@ -49,6 +51,7 @@ public class TripService {
     private final VehicleRepository vehicleRepository;
     private final DriverRepository driverRepository;
     private final UserAccountRepository userAccountRepository;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public PageResponse<TripResponse> search(TripStatus status,
@@ -116,6 +119,7 @@ public class TripService {
         addTimeline(saved, "CREATED", "Trip created");
         if (saved.getStatus() == TripStatus.ASSIGNED) {
             addTimeline(saved, "ASSIGNED", "Trip assigned at creation");
+            notifyAssignedTrip(saved);
         }
         return TripMapper.toResponse(saved);
     }
@@ -161,6 +165,7 @@ public class TripService {
         vehicle.setCurrentDriver(driver);
         driver.setCurrentVehicle(vehicle);
         addTimeline(trip, "ASSIGNED", "Assigned to driver and vehicle");
+        notifyAssignedTrip(trip);
         return TripMapper.toResponse(trip);
     }
 
@@ -365,6 +370,27 @@ public class TripService {
         timeline.setActor(currentActor());
         timeline.setNote(note);
         timelineRepository.save(timeline);
+    }
+
+    private void notifyAssignedTrip(Trip trip) {
+        Driver driver = trip.getDriver();
+        if (driver == null || driver.getUser() == null) {
+            return;
+        }
+        String content = "%s: %s → %s. Khởi hành dự kiến %s".formatted(
+                trip.getTripCode(),
+                trip.getStartLocation(),
+                trip.getEndLocation(),
+                trip.getPlannedStartTime()
+        );
+        notificationService.createForUser(
+                driver.getUser().getId(),
+                NotificationType.TRIP_ASSIGNED,
+                "Bạn có chuyến mới",
+                content,
+                "TRIP",
+                trip.getId()
+        );
     }
 
     private UserAccount currentActor() {

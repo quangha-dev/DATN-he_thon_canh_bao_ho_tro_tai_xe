@@ -1,21 +1,22 @@
--- Idempotent showcase dataset for the single driver 001 and vehicle 001.
--- It never creates a driver or vehicle.
-SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
-SET @driver_id := (
-    SELECT d.id FROM drivers d
-    JOIN users u ON u.id = d.user_id
-    WHERE u.username = 'driver001' AND d.deleted = FALSE AND u.deleted = FALSE
-    LIMIT 1
-);
-SET @vehicle_id := (
-    SELECT id FROM vehicles
-    WHERE plate_number = '001' AND deleted = FALSE
-    LIMIT 1
-);
-SET @month_start := DATE_FORMAT(CURDATE(), '%Y-%m-01');
+-- Idempotent PostgreSQL showcase dataset for driver001 and vehicle plate 001.
+CREATE TEMP TABLE demo_context AS
+SELECT
+    (
+        SELECT d.id
+        FROM drivers d
+        JOIN users u ON u.id = d.user_id
+        WHERE u.username = 'driver001' AND NOT d.deleted AND NOT u.deleted
+        LIMIT 1
+    ) AS driver_id,
+    (
+        SELECT v.id
+        FROM vehicles v
+        WHERE v.plate_number = '001' AND NOT v.deleted
+        LIMIT 1
+    ) AS vehicle_id,
+    date_trunc('month', CURRENT_DATE)::date AS month_start;
 
-DROP TEMPORARY TABLE IF EXISTS demo_monthly_trips;
-CREATE TEMPORARY TABLE demo_monthly_trips (
+CREATE TEMP TABLE demo_monthly_trips (
     trip_code VARCHAR(50) PRIMARY KEY,
     day_offset INT NOT NULL,
     start_time TIME NOT NULL,
@@ -52,22 +53,22 @@ INSERT INTO trips (
     status, progress, risk_level, cancel_reason, created_at, updated_at, deleted
 )
 SELECT
-    source.trip_code, @vehicle_id, @driver_id, source.start_location, 21.0278, 105.8342,
+    source.trip_code, context.vehicle_id, context.driver_id, source.start_location, 21.0278, 105.8342,
     source.end_location, 20.9500, 105.8800,
-    JSON_OBJECT(
+    jsonb_build_object(
         'tripType', 'delivery',
-        'cargoInfo', CONCAT(source.cargo_name, ' · ', source.quantity_value, ' ', source.unit_name),
-        'warehouseDocument', JSON_OBJECT(
-            'issueNumber', REPLACE(source.trip_code, 'DEMO-001-M', 'PXK-001-'),
-            'issueDate', DATE_ADD(@month_start, INTERVAL source.day_offset DAY),
+        'cargoInfo', concat(source.cargo_name, ' · ', source.quantity_value, ' ', source.unit_name),
+        'warehouseDocument', jsonb_build_object(
+            'issueNumber', replace(source.trip_code, 'DEMO-001-M', 'PXK-001-'),
+            'issueDate', context.month_start + source.day_offset,
             'warehouseName', source.start_location,
             'projectName', source.end_location,
             'workItem', 'Cung ứng vật tư xây dựng',
-            'recipient', JSON_OBJECT('name', 'Nguyễn Văn Minh', 'phone', '0912345678'),
-            'preparedBy', JSON_OBJECT('fullName', 'Quản trị hệ thống'),
-            'deliveryDriver', JSON_OBJECT('code', '001', 'fullName', 'Nguyễn Văn An'),
-            'vehicle', JSON_OBJECT('code', '001', 'plate', '001'),
-            'items', JSON_ARRAY(JSON_OBJECT(
+            'recipient', jsonb_build_object('name', 'Nguyễn Văn Minh', 'phone', '0912345678'),
+            'preparedBy', jsonb_build_object('fullName', 'Quản trị hệ thống'),
+            'deliveryDriver', jsonb_build_object('code', '001', 'fullName', 'Nguyễn Văn An'),
+            'vehicle', jsonb_build_object('code', '001', 'plate', '001'),
+            'items', jsonb_build_array(jsonb_build_object(
                 'itemCode', source.item_code,
                 'description', source.cargo_name,
                 'unit', source.unit_name,
@@ -75,37 +76,47 @@ SELECT
                 'quantityReturned', 0,
                 'confirmation', 'Hàng nguyên vẹn khi xuất kho'
             )),
-            'confirmationStatus', IF(source.status = 'COMPLETED', 'CONFIRMED', 'PENDING')
+            'confirmationStatus', CASE WHEN source.status = 'COMPLETED' THEN 'CONFIRMED' ELSE 'PENDING' END
         ),
-        'route', JSON_OBJECT('provider', 'OSRM', 'distanceKm', source.distance_km, 'durationMinutes', source.planned_minutes),
+        'route', jsonb_build_object('provider', 'OSRM', 'distanceKm', source.distance_km, 'durationMinutes', source.planned_minutes),
         'notes', 'Dữ liệu minh họa báo cáo tháng cho tài xế 001'
-    ),
-    TIMESTAMP(DATE_ADD(@month_start, INTERVAL source.day_offset DAY), source.start_time),
-    IF(source.status = 'COMPLETED', DATE_ADD(TIMESTAMP(DATE_ADD(@month_start, INTERVAL source.day_offset DAY), source.start_time), INTERVAL source.actual_delay_minutes MINUTE), NULL),
-    DATE_ADD(TIMESTAMP(DATE_ADD(@month_start, INTERVAL source.day_offset DAY), source.start_time), INTERVAL source.planned_minutes MINUTE),
-    IF(source.status = 'COMPLETED', DATE_ADD(DATE_ADD(TIMESTAMP(DATE_ADD(@month_start, INTERVAL source.day_offset DAY), source.start_time), INTERVAL source.actual_delay_minutes MINUTE), INTERVAL source.actual_duration_minutes MINUTE), NULL),
-    source.status, source.progress, 'LOW', IF(source.status = 'CANCELLED', 'Điều chỉnh kế hoạch giao hàng', NULL),
-    TIMESTAMP(DATE_ADD(@month_start, INTERVAL source.day_offset DAY), source.start_time), NOW(6), FALSE
+    )::text,
+    context.month_start + source.day_offset + source.start_time,
+    CASE WHEN source.status = 'COMPLETED'
+        THEN context.month_start + source.day_offset + source.start_time + source.actual_delay_minutes * INTERVAL '1 minute'
+        ELSE NULL END,
+    context.month_start + source.day_offset + source.start_time + source.planned_minutes * INTERVAL '1 minute',
+    CASE WHEN source.status = 'COMPLETED'
+        THEN context.month_start + source.day_offset + source.start_time
+            + (source.actual_delay_minutes + source.actual_duration_minutes) * INTERVAL '1 minute'
+        ELSE NULL END,
+    source.status, source.progress, 'LOW',
+    CASE WHEN source.status = 'CANCELLED' THEN 'Điều chỉnh kế hoạch giao hàng' ELSE NULL END,
+    context.month_start + source.day_offset + source.start_time, CURRENT_TIMESTAMP(6), FALSE
 FROM demo_monthly_trips source
-WHERE @driver_id IS NOT NULL AND @vehicle_id IS NOT NULL
-ON DUPLICATE KEY UPDATE
-    start_location = VALUES(start_location),
-    end_location = VALUES(end_location),
-    planned_route_json = VALUES(planned_route_json),
-    updated_at = NOW(6);
+CROSS JOIN demo_context context
+WHERE context.driver_id IS NOT NULL AND context.vehicle_id IS NOT NULL
+ON CONFLICT (trip_code) DO UPDATE SET
+    start_location = EXCLUDED.start_location,
+    end_location = EXCLUDED.end_location,
+    planned_route_json = EXCLUDED.planned_route_json,
+    updated_at = CURRENT_TIMESTAMP(6);
 
-INSERT INTO driver_work_logs (driver_id, trip_id, work_date, driving_minutes, rest_minutes, note, created_at, updated_at, deleted)
-SELECT @driver_id, NULL, DATE_ADD(@month_start, INTERVAL seed.day_offset DAY), seed.driving_minutes, seed.rest_minutes,
-       'Dữ liệu minh họa báo cáo tháng tài xế 001', NOW(6), NOW(6), FALSE
-FROM (
-    SELECT 0 day_offset, 360 driving_minutes, 65 rest_minutes
-    UNION ALL SELECT 1, 420, 80
-) seed
-WHERE @driver_id IS NOT NULL
+INSERT INTO driver_work_logs (
+    driver_id, trip_id, work_date, driving_minutes, rest_minutes,
+    note, created_at, updated_at, deleted
+)
+SELECT context.driver_id, NULL, context.month_start + seed.day_offset,
+       seed.driving_minutes, seed.rest_minutes,
+       'Dữ liệu minh họa báo cáo tháng tài xế 001',
+       CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6), FALSE
+FROM (VALUES (0, 360, 65), (1, 420, 80)) seed(day_offset, driving_minutes, rest_minutes)
+CROSS JOIN demo_context context
+WHERE context.driver_id IS NOT NULL
   AND NOT EXISTS (
       SELECT 1 FROM driver_work_logs existing
-      WHERE existing.driver_id = @driver_id
-        AND existing.work_date = DATE_ADD(@month_start, INTERVAL seed.day_offset DAY)
+      WHERE existing.driver_id = context.driver_id
+        AND existing.work_date = context.month_start + seed.day_offset
         AND existing.note = 'Dữ liệu minh họa báo cáo tháng tài xế 001'
   );
 
@@ -113,26 +124,32 @@ INSERT INTO safety_events (
     event_type, severity, vehicle_id, driver_id, trip_id, lat, lng, speed,
     confidence, status, note, created_at, updated_at, deleted
 )
-SELECT seed.event_type, seed.severity, @vehicle_id, @driver_id, NULL, 21.0278, 105.8342,
-       seed.speed_value, seed.confidence_value, 'RESOLVED', seed.note_value,
-       DATE_ADD(TIMESTAMP(@month_start, seed.event_time), INTERVAL seed.day_offset DAY), NOW(6), FALSE
+SELECT seed.event_type, seed.severity, context.vehicle_id, context.driver_id, NULL,
+       21.0278, 105.8342, seed.speed_value, seed.confidence_value,
+       'RESOLVED', seed.note_value,
+       context.month_start + seed.day_offset + seed.event_time,
+       CURRENT_TIMESTAMP(6), FALSE
 FROM (
-    SELECT 'DISTRACTION' event_type, 'MEDIUM' severity, 0 day_offset, '11:20:00' event_time, 36.0 speed_value, 0.72 confidence_value, 'Minh họa: mất tập trung ngắn, tài xế đã xác nhận' note_value
-    UNION ALL SELECT 'SPEEDING', 'LOW', 0, '15:05:00', 54.0, 0.68, 'Minh họa: vượt ngưỡng tốc độ trong thời gian ngắn'
-) seed
-WHERE @driver_id IS NOT NULL AND @vehicle_id IS NOT NULL
+    VALUES
+        ('DISTRACTION', 'MEDIUM', 0, '11:20:00'::time, 36.0, 0.72, 'Minh họa: mất tập trung ngắn, tài xế đã xác nhận'),
+        ('SPEEDING', 'LOW', 0, '15:05:00'::time, 54.0, 0.68, 'Minh họa: vượt ngưỡng tốc độ trong thời gian ngắn')
+) seed(event_type, severity, day_offset, event_time, speed_value, confidence_value, note_value)
+CROSS JOIN demo_context context
+WHERE context.driver_id IS NOT NULL AND context.vehicle_id IS NOT NULL
   AND NOT EXISTS (
       SELECT 1 FROM safety_events existing
-      WHERE existing.driver_id = @driver_id AND existing.note = seed.note_value
+      WHERE existing.driver_id = context.driver_id AND existing.note = seed.note_value
   );
 
-UPDATE drivers
+UPDATE drivers driver
 SET safety_score = 94,
-    driving_time_today_minutes = IF(CURDATE() = DATE_ADD(@month_start, INTERVAL 1 DAY), 420, driving_time_today_minutes),
+    driving_time_today_minutes = CASE
+        WHEN CURRENT_DATE = context.month_start + 1 THEN 420
+        ELSE driver.driving_time_today_minutes
+    END,
     continuous_driving_minutes = 0,
-    total_trips = (SELECT COUNT(*) FROM trips WHERE driver_id = @driver_id AND deleted = FALSE),
-    total_alerts = (SELECT COUNT(*) FROM safety_events WHERE driver_id = @driver_id AND deleted = FALSE),
-    updated_at = NOW(6)
-WHERE id = @driver_id;
-
-DROP TEMPORARY TABLE demo_monthly_trips;
+    total_trips = (SELECT COUNT(*) FROM trips WHERE driver_id = context.driver_id AND NOT deleted),
+    total_alerts = (SELECT COUNT(*) FROM safety_events WHERE driver_id = context.driver_id AND NOT deleted),
+    updated_at = CURRENT_TIMESTAMP(6)
+FROM demo_context context
+WHERE driver.id = context.driver_id;

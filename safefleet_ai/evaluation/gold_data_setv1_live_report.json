@@ -1,0 +1,1698 @@
+{
+  "dataset": "safefleet-driver-agent-gold-v1",
+  "mode": "LIVE_BACKEND",
+  "baseUrl": "http://localhost:8080/api/v1",
+  "summary": {
+    "total": 20,
+    "passed": 0,
+    "failed": 20,
+    "passRate": 0.0,
+    "durationSeconds": 204.208,
+    "failureReasonCounts": {
+      "TOOL_SELECTION_MISMATCH": 16,
+      "TOOL_ARGUMENT_MISMATCH": 16,
+      "ANSWER_SEMANTIC_MISMATCH": 20,
+      "EXPECTED_FACTS_MISSING": 20,
+      "TOOL_ORDER_MISMATCH": 15,
+      "TOOL_EXECUTION_FAILED": 3,
+      "AGENT_STATUS_FAILED": 1,
+      "AGENT_STATUS_NEEDS_CLARIFICATION": 1
+    }
+  },
+  "results": [
+    {
+      "id": "SFV1-001",
+      "question": "Hôm nay tôi đã hoàn thành bao nhiêu chuyến, còn bao nhiêu chuyến đang chờ và chuyến nào cần đi trước?",
+      "status": "COMPLETED",
+      "plan": [
+        "Sử dụng tool list_completed_trips để lấy số lượng chuyến đã hoàn thành hôm nay.",
+        "Sử dụng tool list_active_trips để lấy số lượng chuyến đang chờ.",
+        "Sử dụng tool rank_upcoming_trips để xác định chuyến cần đi trước."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "list_completed_trips",
+          "arguments": {
+            "start_date": "2026-08-14",
+            "end_date": "2026-08-14",
+            "limit": 50
+          },
+          "fixture": "completed_today"
+        },
+        {
+          "step": 2,
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": "2026-08-14",
+            "end_date": "2026-08-14",
+            "limit": 50
+          },
+          "fixture": "ranked_upcoming_today"
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "list_completed_trips",
+          "arguments": {
+            "start_date": "2026-08-14",
+            "end_date": "2026-08-14",
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy được số chuyến đã hoàn thành hôm nay (0 chuyến). Cần tiếp tục với bước tiếp theo để lấy thông tin về chuyến đang chờ và chuyến cần đi trước."
+        },
+        {
+          "name": "list_active_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy được số chuyến đang chờ (0 chuyến). Cần tiếp tục với bước tiếp theo để xác định chuyến cần đi trước."
+        },
+        {
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã hoàn thành tất cả các bước trong kế hoạch và có đủ thông tin về chuyến đã hoàn thành, chuyến đang chờ và chuyến cần đi trước."
+        }
+      ],
+      "expectedAnswer": "Hôm nay bạn đã hoàn thành 1 chuyến và còn 2 chuyến đang chờ. Chuyến DEMO-U21 đi từ Kho Long Biên đến Công trình Hà Đông, dự kiến khởi hành lúc 16:00, là chuyến nên thực hiện trước.",
+      "actualAnswer": "Hôm nay bạn đã hoàn thành 0 chuyến. Hiện tại có 0 chuyến đang chờ. Chuyến cần đi trước là chuyến mã số **DEMO-001-M09**, bắt đầu từ **Kho trung tâm Long Biên, Hà Nội** đến **Công trình Hà Đông**. Chuyến này có thời gian khởi hành dự kiến là **2026-08-03 07:00:00** và đang ở trạng thái **ASSIGNED**.",
+      "scores": {
+        "toolSelection": 0.8,
+        "toolArguments": 0.5,
+        "toolOrder": 1.0,
+        "semanticSimilarity": 0.7462568500729019,
+        "factCoverage": 0.5
+      },
+      "missingFacts": [
+        "DEMO-U21",
+        "16:00",
+        "Kho Long Biên"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 14.374
+    },
+    {
+      "id": "SFV1-002",
+      "question": "Chuyến tôi đang chạy là chuyến nào, đang chở hàng gì và giao tới đâu?",
+      "status": "COMPLETED",
+      "plan": [
+        "Sử dụng tool get_current_assignment để lấy thông tin chuyến đi hiện tại."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "get_current_assignment",
+          "arguments": {},
+          "fixture": "current_assignment_24"
+        },
+        {
+          "step": 2,
+          "name": "get_warehouse_issue",
+          "arguments": {
+            "trip_id": 24
+          },
+          "fixture": "warehouse_24",
+          "depends_on": 1
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "get_current_assignment",
+          "arguments": {},
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Dữ liệu từ tool get_current_assignment đã cung cấp đầy đủ thông tin về chuyến đi hiện tại, bao gồm mã chuyến, hàng hóa, địa điểm giao hàng và thông tin tài xế."
+        }
+      ],
+      "expectedAnswer": "Bạn đang chạy chuyến DEMO-A24 đến Nhà máy Bao bì Phương Bắc. Phiếu PXK-A24 ghi nhận 200 bao xi măng PC40, nhận tại Kho Long Biên và giao cho Trần Văn Bình.",
+      "actualAnswer": "Chuyến bạn đang chạy có mã chuyến là DEMO-001-M09. Bạn đang chở hàng là cọc bê tông PHC D300 với chiều dài 160.00 mét. Điểm giao hàng là Công trình Hà Đông.",
+      "scores": {
+        "toolSelection": 0.6666666666666666,
+        "toolArguments": 0.5,
+        "toolOrder": 0.5,
+        "semanticSimilarity": 0.2258769757263128,
+        "factCoverage": 0.0
+      },
+      "missingFacts": [
+        "DEMO-A24",
+        "Nhà máy Bao bì Phương Bắc",
+        "200 bao",
+        "Xi măng PC40",
+        "Kho Long Biên",
+        "Trần Văn Bình"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 6.256
+    },
+    {
+      "id": "SFV1-003",
+      "question": "Kiểm tra chuyến đang chạy, thời gian lái liên tục và cho tôi biết hiện còn được lái bao lâu trước khi cần nghỉ.",
+      "status": "COMPLETED",
+      "plan": [
+        "Kiểm tra lại trạng thái của chuyến lái xem có đang chạy hay không.",
+        "Nếu không có chuyến nào đang chạy, thông báo cho người dùng rằng không có thông tin chuyến lái."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "get_current_assignment",
+          "arguments": {},
+          "fixture": "current_assignment_24"
+        },
+        {
+          "step": 2,
+          "name": "get_current_driving_session",
+          "arguments": {},
+          "fixture": "session_active_24"
+        },
+        {
+          "step": 3,
+          "name": "get_safety_summary",
+          "arguments": {},
+          "fixture": "safety_current"
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "get_current_driving_session",
+          "arguments": {},
+          "success": true,
+          "planCheck": "REPLAN",
+          "reason": "Kết quả từ tool cho thấy không có thông tin về chuyến đang chạy (session là null). Cần điều chỉnh kế hoạch để xử lý trường hợp này."
+        },
+        {
+          "name": "list_active_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 1
+          },
+          "success": true,
+          "planCheck": "REPLAN",
+          "reason": "Kết quả từ tool cho thấy không có chuyến nào đang chạy. Cần điều chỉnh kế hoạch để xử lý trường hợp này."
+        }
+      ],
+      "expectedAnswer": "Bạn đang chạy chuyến DEMO-A24. Phiên lái hiện tại đã kéo dài tổng cộng 85 phút, trong đó 60 phút liên tục; bạn còn 180 phút lái liên tục trước khi cần nghỉ. Chưa phát sinh cảnh báo lái quá thời gian.",
+      "actualAnswer": "Hiện tại không có chuyến nào đang chạy. Bạn không có thông tin về chuyến lái tại thời điểm này.",
+      "scores": {
+        "toolSelection": 0.4,
+        "toolArguments": 0.3333333333333333,
+        "toolOrder": 0.0,
+        "semanticSimilarity": 0.3145570470222877,
+        "factCoverage": 0.0
+      },
+      "missingFacts": [
+        "DEMO-A24",
+        "85 phút",
+        "60 phút liên tục",
+        "còn 180 phút",
+        "chưa có cảnh báo quá thời gian"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 9.237
+    },
+    {
+      "id": "SFV1-004",
+      "question": "So sánh điểm an toàn hiện tại với báo cáo tháng 8 năm 2026 và tóm tắt hiệu suất tháng của tôi.",
+      "status": "FAILED",
+      "plan": [
+        "Lấy báo cáo điểm an toàn hiện tại bằng cách sử dụng get_safety_summary.",
+        "Lấy báo cáo tháng 8 năm 2026 bằng cách sử dụng get_monthly_report.",
+        "Lấy tóm tắt hiệu suất tháng bằng cách sử dụng get_trip_summary."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "get_monthly_report",
+          "arguments": {
+            "year": 2026,
+            "month": 8
+          },
+          "fixture": "monthly_2026_08"
+        },
+        {
+          "step": 2,
+          "name": "get_safety_summary",
+          "arguments": {},
+          "fixture": "safety_current"
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "get_safety_summary",
+          "arguments": {},
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy báo cáo điểm an toàn hiện tại. Cần tiếp tục với các bước tiếp theo để hoàn thành kế hoạch."
+        },
+        {
+          "name": "get_monthly_report",
+          "arguments": {
+            "year": 2026,
+            "month": 8
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy báo cáo tháng 8 năm 2026. Cần tiếp tục với bước cuối cùng để hoàn thành kế hoạch."
+        },
+        {
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 1
+          },
+          "success": false,
+          "planCheck": "ERROR",
+          "reason": "Không thể lấy tóm tắt hiệu suất tháng do không tìm thấy chuyến đi với ID 1."
+        }
+      ],
+      "expectedAnswer": "Điểm an toàn hiện tại của bạn là 96, cao hơn 2 điểm so với mức 94 trong báo cáo tháng 8/2026. Tháng này bạn hoàn thành 18/20 chuyến, tỷ lệ hoàn thành 90%, đúng giờ 94%, đi 1.350,5 km và không có cảnh báo nghiêm trọng.",
+      "actualAnswer": "Tôi không thể hoàn tất yêu cầu: Không thể lấy tóm tắt hiệu suất tháng do không tìm thấy chuyến đi với ID 1.",
+      "scores": {
+        "toolSelection": 0.8,
+        "toolArguments": 1.0,
+        "toolOrder": 0.5,
+        "semanticSimilarity": 0.22710603822921685,
+        "factCoverage": 0.0
+      },
+      "missingFacts": [
+        "hiện tại 96",
+        "tháng 94",
+        "cao hơn 2 điểm",
+        "18/20 chuyến",
+        "90%",
+        "đúng giờ 94%",
+        "1.350,5 km",
+        "0 cảnh báo nghiêm trọng"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "TOOL_EXECUTION_FAILED",
+        "AGENT_STATUS_FAILED",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 11.023
+    },
+    {
+      "id": "SFV1-005",
+      "question": "Kiểm tra chi tiết chuyến 21 và trạng thái chuẩn bị; nếu hợp lệ thì chuẩn bị bắt đầu chuyến cho tôi.",
+      "status": "COMPLETED",
+      "plan": [
+        "Gọi tool get_trip_detail để lấy thông tin chi tiết chuyến 25.",
+        "Kiểm tra trạng thái chuẩn bị của chuyến 25.",
+        "Nếu chuyến 25 hợp lệ, gọi tool prepare_trip_action để chuẩn bị bắt đầu chuyến."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 21
+          },
+          "fixture": "trip_21"
+        },
+        {
+          "step": 2,
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 21
+          },
+          "fixture_inline": {
+            "ok": true,
+            "summary": {
+              "trip": {
+                "id": 21,
+                "status": "ASSIGNED"
+              },
+              "checklistSubmitted": true,
+              "nextAction": "START"
+            }
+          }
+        },
+        {
+          "step": 3,
+          "name": "prepare_trip_action",
+          "arguments": {
+            "action": "START",
+            "trip_id": 21,
+            "note": null
+          },
+          "fixture_inline": {
+            "ok": true,
+            "confirmationRequest": {
+              "type": "TRIP_ACTION",
+              "action": "START",
+              "tripId": 21,
+              "note": null,
+              "prompt": "Bạn có chắc muốn bắt đầu chuyến #21?"
+            }
+          }
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 21
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Chuyến 21 đã hoàn thành với trạng thái 'COMPLETED' và không cần chuẩn bị bắt đầu chuyến mới."
+        },
+        {
+          "name": "get_current_assignment",
+          "arguments": {},
+          "success": true,
+          "planCheck": "REPLAN",
+          "reason": "Chuyến 21 đã hoàn thành với trạng thái 'COMPLETED', không cần chuẩn bị bắt đầu chuyến mới. Cần điều chỉnh kế hoạch để kiểm tra chuyến khác hoặc thực hiện hành động khác."
+        }
+      ],
+      "expectedAnswer": "Chuyến DEMO-U21 đã được giao cho bạn và checklist đã hoàn tất. Hệ thống đã chuẩn bị thao tác bắt đầu chuyến 21; vui lòng xác nhận trước khi thực hiện.",
+      "actualAnswer": "Chuyến 21 đã hoàn thành với trạng thái \"COMPLETED\". Do đó, không thể chuẩn bị bắt đầu chuyến này.\n\nHiện tại, bạn đang có chuyến 25 với trạng thái \"ASSIGNED\". Chuyến này chưa được bắt đầu và có checklist chưa được nộp. Bạn cần hoàn thành checklist trước khi có thể chuẩn bị bắt đầu chuyến.",
+      "scores": {
+        "toolSelection": 0.4,
+        "toolArguments": 0.3333333333333333,
+        "toolOrder": 0.3333333333333333,
+        "semanticSimilarity": 0.5153385008824813,
+        "factCoverage": 0.5
+      },
+      "missingFacts": [
+        "DEMO-U21",
+        "cần xác nhận"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 12.516
+    },
+    {
+      "id": "SFV1-006",
+      "question": "Đối chiếu chuyến 21 với phiếu xuất kho: biển số, điểm đến và hàng hóa có khớp không?",
+      "status": "COMPLETED",
+      "plan": [
+        "Lấy thông tin chi tiết của chuyến 21 bằng cách sử dụng get_trip_detail.",
+        "Kiểm tra lý do không tìm thấy phiếu xuất kho cho chuyến 21.",
+        "Nếu có thể, tìm kiếm phiếu xuất kho bằng cách khác hoặc xác nhận lại thông tin chuyến 21."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 21
+          },
+          "fixture": "trip_21"
+        },
+        {
+          "step": 2,
+          "name": "get_warehouse_issue",
+          "arguments": {
+            "trip_id": 21
+          },
+          "fixture": "warehouse_21"
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 21
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Cần lấy thông tin về phiếu xuất kho liên quan đến chuyến 21 để so sánh."
+        },
+        {
+          "name": "get_warehouse_issue",
+          "arguments": {
+            "trip_id": 21
+          },
+          "success": false,
+          "planCheck": "REPLAN",
+          "reason": "Không tìm thấy phiếu xuất kho của chuyến 21, cần điều chỉnh kế hoạch để xử lý tình huống này."
+        },
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 21
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Thông tin về chuyến 21 đã được lấy thành công và có phiếu xuất kho liên quan. Biển số, điểm đến và hàng hóa đều khớp nhau."
+        }
+      ],
+      "expectedAnswer": "Thông tin khớp: chuyến và phiếu PXK-U21 đều dùng xe 29C-12345, xuất từ Kho Long Biên và giao tới Công trình Hà Đông. Hàng hóa là 280 mét cọc bê tông PHC D300.",
+      "actualAnswer": "Chuyến 21 có thông tin như sau:\n\n- Biển số xe: 001\n- Điểm xuất phát: Kho trung tâm Long Biên, Hà Nội\n- Điểm đến: Công trình Vành đai 4\n- Hàng hóa: Cọc bê tông PHC D400, số lượng 240 mét\n\nTuy nhiên, không tìm thấy phiếu xuất kho liên quan đến chuyến 21. Do đó, không thể đối chiếu sự khớp nhau về biển số, điểm đến và hàng hóa.",
+      "scores": {
+        "toolSelection": 1.0,
+        "toolArguments": 1.0,
+        "toolOrder": 1.0,
+        "semanticSimilarity": 0.45665044678394784,
+        "factCoverage": 0.16666666666666666
+      },
+      "missingFacts": [
+        "thông tin khớp",
+        "29C-12345",
+        "Công trình Hà Đông",
+        "280 mét",
+        "PHC D300"
+      ],
+      "failureReasons": [
+        "TOOL_EXECUTION_FAILED",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 14.639
+    },
+    {
+      "id": "SFV1-007",
+      "question": "Tìm chuyến đang chạy, cho tôi biết điểm đến rồi chuẩn bị tạm dừng chuyến đó.",
+      "status": "AWAITING_CONFIRMATION",
+      "plan": [
+        "Sử dụng tool get_current_assignment để tìm chuyến đang chạy.",
+        "Lấy thông tin điểm đến của chuyến đang chạy.",
+        "Sử dụng tool prepare_trip_action để chuẩn bị tạm dừng chuyến đó."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "list_active_trips",
+          "arguments": {
+            "start_date": "2026-08-14",
+            "end_date": "2026-08-14",
+            "limit": 50
+          },
+          "fixture": "active_today"
+        },
+        {
+          "step": 2,
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 24
+          },
+          "fixture": "trip_24",
+          "depends_on": 1
+        },
+        {
+          "step": 3,
+          "name": "prepare_trip_action",
+          "arguments": {
+            "action": "PAUSE",
+            "trip_id": 24,
+            "note": null
+          },
+          "fixture_inline": {
+            "ok": true,
+            "confirmationRequest": {
+              "type": "TRIP_ACTION",
+              "action": "PAUSE",
+              "tripId": 24,
+              "prompt": "Bạn có chắc muốn tạm dừng chuyến #24?"
+            }
+          }
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "get_current_assignment",
+          "arguments": {},
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã tìm thấy chuyến đang chạy với thông tin điểm đến là 'Công trình Hà Đông'. Cần thực hiện bước tiếp theo để chuẩn bị tạm dừng chuyến."
+        },
+        {
+          "name": "prepare_trip_action",
+          "arguments": {
+            "action": "PAUSE",
+            "trip_id": 25,
+            "note": "Tạm dừng chuyến để kiểm tra."
+          },
+          "success": true,
+          "planCheck": "AWAITING_CONFIRMATION",
+          "reason": "Thao tác thay đổi trạng thái cần người dùng xác nhận."
+        }
+      ],
+      "expectedAnswer": "Chuyến đang chạy là DEMO-A24, điểm đến Nhà máy Bao bì Phương Bắc. Hệ thống đã chuẩn bị thao tác tạm dừng chuyến 24 và đang chờ bạn xác nhận.",
+      "actualAnswer": "Bạn có chắc muốn tạm dừng chuyến #25?",
+      "scores": {
+        "toolSelection": 0.4,
+        "toolArguments": 0.0,
+        "toolOrder": 0.0,
+        "semanticSimilarity": 0.29061909685954823,
+        "factCoverage": 0.25
+      },
+      "missingFacts": [
+        "DEMO-A24",
+        "Nhà máy Bao bì Phương Bắc",
+        "chờ xác nhận"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 5.945
+    },
+    {
+      "id": "SFV1-008",
+      "question": "Kiểm tra chuyến hiện tại và hành động tiếp theo; nếu có thể kết thúc thì chuẩn bị kết thúc chuyến.",
+      "status": "AWAITING_CONFIRMATION",
+      "plan": [
+        "Sử dụng tool get_current_assignment để kiểm tra chuyến hiện tại.",
+        "Nếu chuyến hiện tại có thể kết thúc, sử dụng tool prepare_trip_action để chuẩn bị kết thúc chuyến."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "get_current_assignment",
+          "arguments": {},
+          "fixture": "current_assignment_24"
+        },
+        {
+          "step": 2,
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 24
+          },
+          "fixture": "trip_summary_24",
+          "depends_on": 1
+        },
+        {
+          "step": 3,
+          "name": "prepare_trip_action",
+          "arguments": {
+            "action": "COMPLETE",
+            "trip_id": 24,
+            "note": null
+          },
+          "fixture_inline": {
+            "ok": true,
+            "confirmationRequest": {
+              "type": "TRIP_ACTION",
+              "action": "COMPLETE",
+              "tripId": 24,
+              "prompt": "Bạn có chắc muốn kết thúc chuyến #24?"
+            }
+          }
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "get_current_assignment",
+          "arguments": {},
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Chuyến hiện tại vẫn đang ở trạng thái ASSIGNED và chưa thể kết thúc. Cần thực hiện bước tiếp theo để kiểm tra khả năng kết thúc chuyến."
+        },
+        {
+          "name": "prepare_trip_action",
+          "arguments": {
+            "action": "COMPLETE",
+            "trip_id": 25,
+            "note": "Kết thúc chuyến DEMO-001-M09."
+          },
+          "success": true,
+          "planCheck": "AWAITING_CONFIRMATION",
+          "reason": "Thao tác thay đổi trạng thái cần người dùng xác nhận."
+        }
+      ],
+      "expectedAnswer": "Phân công hiện tại là chuyến DEMO-A24, đã hoàn thành checklist và hành động tiếp theo được phép là kết thúc chuyến. Hệ thống đã chuẩn bị kết thúc chuyến 24; vui lòng xác nhận.",
+      "actualAnswer": "Bạn có chắc muốn kết thúc chuyến #25?",
+      "scores": {
+        "toolSelection": 0.8,
+        "toolArguments": 0.3333333333333333,
+        "toolOrder": 0.3333333333333333,
+        "semanticSimilarity": 0.3499999999999999,
+        "factCoverage": 0.25
+      },
+      "missingFacts": [
+        "DEMO-A24",
+        "checklist",
+        "cần xác nhận"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 5.691
+    },
+    {
+      "id": "SFV1-009",
+      "question": "Chọn chuyến cần đi sớm nhất hôm nay, kiểm tra chi tiết rồi mở màn hình chuyến đó.",
+      "status": "COMPLETED",
+      "plan": [
+        "Sử dụng tool rank_upcoming_trips để tìm chuyến cần đi sớm nhất hôm nay.",
+        "Lấy chi tiết chuyến đi bằng tool get_trip_detail.",
+        "Mở màn hình chuyến đi đó bằng tool open_mobile_screen."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": "2026-08-14",
+            "end_date": "2026-08-14",
+            "limit": 50
+          },
+          "fixture": "ranked_upcoming_today"
+        },
+        {
+          "step": 2,
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 21
+          },
+          "fixture": "trip_21",
+          "depends_on": 1
+        },
+        {
+          "step": 3,
+          "name": "open_mobile_screen",
+          "arguments": {
+            "destination": "TRIP_DETAIL",
+            "trip_id": 21
+          },
+          "fixture_inline": {
+            "ok": true,
+            "clientAction": {
+              "type": "NAVIGATE",
+              "destination": "TRIP_DETAIL",
+              "tripId": 21
+            }
+          }
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": "2026-08-14",
+            "end_date": null,
+            "limit": 1
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Không có chuyến nào cần đi sớm nhất hôm nay."
+        }
+      ],
+      "expectedAnswer": "Chuyến cần đi sớm nhất là DEMO-U21, khởi hành lúc 16:00 từ Kho Long Biên đến Công trình Hà Đông. Tôi đã mở màn hình chi tiết chuyến 21.",
+      "actualAnswer": "Hiện tại không có chuyến nào cần đi sớm nhất hôm nay.",
+      "scores": {
+        "toolSelection": 0.5,
+        "toolArguments": 0.0,
+        "toolOrder": 0.3333333333333333,
+        "semanticSimilarity": 0.30151134457776363,
+        "factCoverage": 0.0
+      },
+      "missingFacts": [
+        "DEMO-U21",
+        "16:00",
+        "Kho Long Biên",
+        "Công trình Hà Đông",
+        "đã mở chi tiết chuyến 21"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 6.217
+    },
+    {
+      "id": "SFV1-010",
+      "question": "Kiểm tra thông báo chưa đọc mới nhất về chuyến đi, xác minh chuyến được nhắc tới rồi mở chi tiết cho tôi.",
+      "status": "COMPLETED",
+      "plan": [
+        "Sử dụng tool list_notifications để lấy danh sách thông báo chưa đọc.",
+        "Xác minh thông báo liên quan đến chuyến đi.",
+        "Nếu có thông báo liên quan, lấy ID chuyến đi và sử dụng tool get_trip_detail để mở chi tiết chuyến đi."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "list_notifications",
+          "arguments": {
+            "unread_only": true,
+            "limit": 20
+          },
+          "fixture": "unread_notifications"
+        },
+        {
+          "step": 2,
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 21
+          },
+          "fixture": "trip_21",
+          "depends_on": 1
+        },
+        {
+          "step": 3,
+          "name": "open_mobile_screen",
+          "arguments": {
+            "destination": "TRIP_DETAIL",
+            "trip_id": 21
+          },
+          "fixture_inline": {
+            "ok": true,
+            "clientAction": {
+              "type": "NAVIGATE",
+              "destination": "TRIP_DETAIL",
+              "tripId": 21
+            }
+          }
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "list_notifications",
+          "arguments": {
+            "unread_only": true,
+            "limit": 1
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Thông báo chưa đọc không liên quan đến chuyến đi, mà là về một phiếu OCR. Cần kiểm tra thêm thông báo khác để xác minh chuyến đi."
+        },
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 27
+          },
+          "success": false,
+          "planCheck": "REPLAN",
+          "reason": "Thông báo chưa đọc không liên quan đến chuyến đi, cần kiểm tra thêm thông báo khác để xác minh chuyến đi. Đồng thời, chuyến đi với ID 27 không tồn tại."
+        },
+        {
+          "name": "list_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy được danh sách các chuyến đi sắp tới. Cần xác minh thông báo liên quan đến chuyến đi từ danh sách này."
+        },
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 25
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã kiểm tra thông báo chưa đọc và mở chi tiết chuyến đi thành công. Chuyến đi được nhắc tới đã được xác minh và chi tiết đã được mở."
+        }
+      ],
+      "expectedAnswer": "Thông báo chuyến đi chưa đọc mới nhất cho biết DEMO-U21 đã được giao cho bạn. Chuyến đi từ Kho Long Biên đến Công trình Hà Đông lúc 16:00; tôi đã mở màn hình chi tiết chuyến 21.",
+      "actualAnswer": "Thông báo chưa đọc mới nhất liên quan đến chuyến đi có mã \"DEMO-001-M09\". Chuyến đi này bắt đầu từ \"Kho trung tâm Long Biên, Hà Nội\" và kết thúc tại \"Công trình Hà Đông\". Thời gian dự kiến bắt đầu là 07:00 ngày 03 tháng 08 năm 2026 và thời gian dự kiến kết thúc là 10:00 cùng ngày. Chuyến đi hiện đang ở trạng thái \"ASSIGNED\" và có mức độ rủi ro \"LOW\".",
+      "scores": {
+        "toolSelection": 0.6666666666666666,
+        "toolArguments": 0.0,
+        "toolOrder": 0.6666666666666666,
+        "semanticSimilarity": 0.42513287478830203,
+        "factCoverage": 0.16666666666666666
+      },
+      "missingFacts": [
+        "thông báo chưa đọc",
+        "DEMO-U21",
+        "Kho Long Biên",
+        "16:00",
+        "đã mở chi tiết"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "TOOL_EXECUTION_FAILED",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 18.234
+    },
+    {
+      "id": "SFV1-011",
+      "question": "Trong tuần từ 10 đến 16 tháng 8, so sánh số chuyến đã hoàn thành, đang chờ và đang chạy của tôi.",
+      "status": "COMPLETED",
+      "plan": [
+        "Lấy danh sách chuyến đã hoàn thành trong tuần từ 10 đến 16 tháng 8 bằng tool list_completed_trips.",
+        "Lấy danh sách chuyến đang chờ trong toàn bộ thời gian bằng tool list_all_trips.",
+        "Lấy danh sách chuyến đang chạy bằng tool list_active_trips."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "list_completed_trips",
+          "arguments": {
+            "start_date": "2026-08-10",
+            "end_date": "2026-08-16",
+            "limit": 50
+          },
+          "fixture": "completed_week"
+        },
+        {
+          "step": 2,
+          "name": "list_upcoming_trips",
+          "arguments": {
+            "start_date": "2026-08-10",
+            "end_date": "2026-08-16",
+            "limit": 50
+          },
+          "fixture": "upcoming_week"
+        },
+        {
+          "step": 3,
+          "name": "list_active_trips",
+          "arguments": {
+            "start_date": "2026-08-10",
+            "end_date": "2026-08-16",
+            "limit": 50
+          },
+          "fixture": "active_week"
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "list_completed_trips",
+          "arguments": {
+            "start_date": "2026-08-10",
+            "end_date": "2026-08-16",
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy được danh sách chuyến đã hoàn thành, nhưng không có chuyến nào trong tuần từ 10 đến 16 tháng 8. Cần tiếp tục với các bước tiếp theo để hoàn thành kế hoạch."
+        },
+        {
+          "name": "list_all_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy được danh sách chuyến đang chờ, nhưng cần tiếp tục với bước lấy danh sách chuyến đang chạy để hoàn thành kế hoạch."
+        },
+        {
+          "name": "list_active_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy đủ dữ liệu cho số chuyến đã hoàn thành, đang chờ và đang chạy. Không có chuyến nào trong tuần từ 10 đến 16 tháng 8, và không có chuyến nào đang chạy."
+        }
+      ],
+      "expectedAnswer": "Trong tuần 10–16/08/2026, bạn có 2 chuyến đã hoàn thành, 2 chuyến đang chờ và 1 chuyến đang chạy. Tổng cộng ba nhóm này có 5 chuyến.",
+      "actualAnswer": "Trong tuần từ 10 đến 16 tháng 8, kết quả so sánh số chuyến của bạn như sau:\n\n- **Số chuyến đã hoàn thành**: 0 chuyến.\n- **Số chuyến đang chờ**: 11 chuyến (đây là các chuyến đang chờ trên toàn bộ thời gian).\n- **Số chuyến đang chạy**: 0 chuyến.\n\nNếu bạn cần thêm thông tin hoặc hỗ trợ khác, hãy cho tôi biết!",
+      "scores": {
+        "toolSelection": 0.6666666666666666,
+        "toolArguments": 0.3333333333333333,
+        "toolOrder": 0.3333333333333333,
+        "semanticSimilarity": 0.5931836841290252,
+        "factCoverage": 0.8
+      },
+      "missingFacts": [
+        "10–16/08/2026"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 13.601
+    },
+    {
+      "id": "SFV1-012",
+      "question": "Cho tôi biết phiếu xuất kho của chuyến hiện tại rồi mở trang quét phiếu để tôi bổ sung chứng từ.",
+      "status": "NEEDS_CLARIFICATION",
+      "plan": [],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "get_current_assignment",
+          "arguments": {},
+          "fixture": "current_assignment_24"
+        },
+        {
+          "step": 2,
+          "name": "get_warehouse_issue",
+          "arguments": {
+            "trip_id": 24
+          },
+          "fixture": "warehouse_24",
+          "depends_on": 1
+        },
+        {
+          "step": 3,
+          "name": "open_mobile_screen",
+          "arguments": {
+            "destination": "DOCUMENT_SCAN",
+            "trip_id": null
+          },
+          "fixture_inline": {
+            "ok": true,
+            "clientAction": {
+              "type": "NAVIGATE",
+              "destination": "DOCUMENT_SCAN",
+              "tripId": null
+            }
+          }
+        }
+      ],
+      "actualToolCalls": [],
+      "expectedAnswer": "Chuyến hiện tại DEMO-A24 dùng phiếu PXK-A24, chở 200 bao xi măng PC40 đến Nhà máy Bao bì Phương Bắc. Tôi đã mở trang quét phiếu để bạn bổ sung chứng từ.",
+      "actualAnswer": "Bạn muốn xem tất cả chuyến hay chỉ các chuyến tiếp theo đang chờ nhận?",
+      "scores": {
+        "toolSelection": 0.0,
+        "toolArguments": 0.0,
+        "toolOrder": 0.0,
+        "semanticSimilarity": 0.15339299776947407,
+        "factCoverage": 0.0
+      },
+      "missingFacts": [
+        "DEMO-A24",
+        "PXK-A24",
+        "200 bao xi măng PC40",
+        "Nhà máy Bao bì Phương Bắc",
+        "đã mở trang quét phiếu"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "AGENT_STATUS_NEEDS_CLARIFICATION",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 0.014
+    },
+    {
+      "id": "SFV1-013",
+      "question": "Dựa trên báo cáo tháng 8 và tình trạng an toàn hiện tại, hãy nhận xét ngắn gọn tôi đang làm tốt điểm nào và cần chú ý gì.",
+      "status": "COMPLETED",
+      "plan": [
+        "Lấy báo cáo tháng 8 để xem xét hiệu suất và các chỉ số liên quan.",
+        "Lấy báo cáo an toàn hiện tại để đánh giá tình hình an toàn.",
+        "So sánh các chỉ số trong báo cáo tháng 8 với các tiêu chuẩn an toàn hiện tại.",
+        "Đưa ra nhận xét về những điểm mạnh và điểm cần cải thiện."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "get_monthly_report",
+          "arguments": {
+            "year": 2026,
+            "month": 8
+          },
+          "fixture": "monthly_2026_08"
+        },
+        {
+          "step": 2,
+          "name": "get_safety_summary",
+          "arguments": {},
+          "fixture": "safety_current"
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "get_monthly_report",
+          "arguments": {
+            "year": 2026,
+            "month": 8
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy báo cáo tháng 8 thành công, cần lấy báo cáo an toàn hiện tại để hoàn thành kế hoạch."
+        },
+        {
+          "name": "get_safety_summary",
+          "arguments": {},
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã có đủ dữ liệu từ báo cáo tháng 8 và báo cáo an toàn hiện tại để đưa ra nhận xét về hiệu suất và an toàn."
+        }
+      ],
+      "expectedAnswer": "Bạn đang làm tốt về an toàn: điểm hiện tại 96, tháng này không có cảnh báo nghiêm trọng và tỷ lệ đúng giờ đạt 94%. Bạn đã có 3 cảnh báo thường, vì vậy vẫn nên nghỉ đúng thời gian; hiện còn 180 phút lái liên tục trước khi cần nghỉ.",
+      "actualAnswer": "Dựa trên báo cáo tháng 8 và tình trạng an toàn hiện tại, bạn đang làm tốt ở một số điểm như sau:\n\n1. **Điểm an toàn cao**: Bạn đạt được điểm an toàn là 87, gần với mức tối đa. Điều này cho thấy bạn có ý thức tốt về an toàn khi lái xe.\n2. **Không có cảnh báo nghiêm trọng**: Trong tháng này, bạn không gặp phải bất kỳ cảnh báo nghiêm trọng nào, điều này cho thấy bạn đã lái xe một cách cẩn thận.\n3. **Tỷ lệ giao hàng đúng hẹn cao**: Bạn có 88% chuyến đi hoàn thành đúng giờ, cho thấy bạn có khả năng quản lý thời gian tốt.\n\nTuy nhiên, vẫn có một số điểm cần chú ý:\n\n1. **Tỷ lệ hoàn thành chuyến đi**: Chỉ có 73% chuyến đi được hoàn thành, điều này có thể cải thiện hơn nữa.\n2. **Số lượng chuyến đi ít**: Bạn chỉ thực hiện 11 chuyến trong tháng, có thể cần xem xét lại lịch trình làm việc để tăng số chuyến đi.\n3. **Số lượng cảnh báo**: Mặc dù không có cảnh báo nghiêm trọng, nhưng bạn đã nhận được 6 cảnh báo trong tháng, cần chú ý để giảm thiểu số lượng này.\n\nTóm lại, bạn đang làm tốt trong việc duy trì an toàn và đúng giờ, nhưng cần cải thiện tỷ lệ hoàn thành chuyến đi và giảm số lượng cảnh báo.",
+      "scores": {
+        "toolSelection": 1.0,
+        "toolArguments": 1.0,
+        "toolOrder": 1.0,
+        "semanticSimilarity": 0.6127891482267397,
+        "factCoverage": 0.4
+      },
+      "missingFacts": [
+        "điểm 96",
+        "đúng giờ 94%",
+        "còn 180 phút"
+      ],
+      "failureReasons": [
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 13.17
+    },
+    {
+      "id": "SFV1-014",
+      "question": "Kiểm tra phiên lái có đang tạm dừng không, xác định đúng chuyến rồi chuẩn bị tiếp tục chuyến.",
+      "status": "AWAITING_CONFIRMATION",
+      "plan": [
+        "Lấy thông tin phiên lái hiện tại để kiểm tra trạng thái.",
+        "Nếu phiên lái đang tạm dừng, xác định chuyến đi hiện tại.",
+        "Chuẩn bị hành động tiếp tục chuyến đi."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "get_current_driving_session",
+          "arguments": {},
+          "fixture": "session_paused_24"
+        },
+        {
+          "step": 2,
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 24
+          },
+          "fixture": "trip_24",
+          "depends_on": 1
+        },
+        {
+          "step": 3,
+          "name": "prepare_trip_action",
+          "arguments": {
+            "action": "RESUME",
+            "trip_id": 24,
+            "note": null
+          },
+          "fixture_inline": {
+            "ok": true,
+            "confirmationRequest": {
+              "type": "TRIP_ACTION",
+              "action": "RESUME",
+              "tripId": 24,
+              "prompt": "Bạn có chắc muốn tiếp tục chuyến #24?"
+            }
+          }
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "get_current_driving_session",
+          "arguments": {},
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Phiên lái hiện tại không tồn tại (session là null), cần kiểm tra bước tiếp theo để xác định chuyến đi hiện tại."
+        },
+        {
+          "name": "get_current_assignment",
+          "arguments": {},
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy thông tin chuyến đi hiện tại, cần thực hiện bước tiếp theo để chuẩn bị hành động tiếp tục chuyến đi."
+        },
+        {
+          "name": "prepare_trip_action",
+          "arguments": {
+            "action": "RESUME",
+            "trip_id": 25,
+            "note": "Tiếp tục chuyến đi DEMO-001-M09 từ Kho trung tâm Long Biên, Hà Nội đến Công trình Hà Đông."
+          },
+          "success": true,
+          "planCheck": "AWAITING_CONFIRMATION",
+          "reason": "Thao tác thay đổi trạng thái cần người dùng xác nhận."
+        }
+      ],
+      "expectedAnswer": "Phiên lái hiện đang tạm dừng và thuộc chuyến DEMO-A24. Hệ thống đã chuẩn bị thao tác tiếp tục chuyến 24; vui lòng xác nhận trước khi thực hiện.",
+      "actualAnswer": "Bạn có chắc muốn tiếp tục chuyến #25?",
+      "scores": {
+        "toolSelection": 0.6666666666666666,
+        "toolArguments": 0.3333333333333333,
+        "toolOrder": 0.3333333333333333,
+        "semanticSimilarity": 0.24253562503633297,
+        "factCoverage": 0.25
+      },
+      "missingFacts": [
+        "phiên lái đang tạm dừng",
+        "DEMO-A24",
+        "cần xác nhận"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 8.487
+    },
+    {
+      "id": "SFV1-015",
+      "question": "Tổng kết chuyến 23 và đối chiếu số hàng đã xuất với số đã giao.",
+      "status": "COMPLETED",
+      "plan": [
+        "Lấy thông tin chi tiết chuyến 23 bằng cách sử dụng get_trip_detail.",
+        "Lấy tóm tắt chuyến 23 bằng cách sử dụng get_trip_summary."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 23
+          },
+          "fixture": "trip_23"
+        },
+        {
+          "step": 2,
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 23
+          },
+          "fixture": "trip_summary_23"
+        },
+        {
+          "step": 3,
+          "name": "get_warehouse_issue",
+          "arguments": {
+            "trip_id": 23
+          },
+          "fixture": "warehouse_23"
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 23
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy thông tin chi tiết chuyến 23, cần tiếp tục với bước tiếp theo là lấy tóm tắt chuyến 23."
+        },
+        {
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 23
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy đầy đủ thông tin chi tiết và tóm tắt chuyến 23, có thể tổng kết và đối chiếu số hàng đã xuất với số đã giao."
+        }
+      ],
+      "expectedAnswer": "Chuyến DEMO-C23 đã hoàn thành lúc 08:55 với tiến độ 100%. Phiếu PXK-C23 ghi xuất 1.200 kg thép D16 và đã giao đủ 1.200 kg, không có chênh lệch.",
+      "actualAnswer": "Tổng kết chuyến 23 như sau:\n\n- **Mã chuyến**: DEMO-001-M07\n- **Xe**: 001\n- **Tài xế**: Nguyễn Văn An\n- **Điểm xuất phát**: Kho vật tư Đông Anh, Hà Nội\n- **Điểm đến**: Dự án đường cao tốc Nội Bài\n- **Thông tin hàng hóa**: Thép cây D20 · 18.00 tấn\n- **Số lượng hàng đã xuất**: 18.00 tấn\n- **Số lượng hàng đã giao**: 18.00 tấn\n- **Trạng thái chuyến**: Hoàn thành (COMPLETED)\n- **Thời gian bắt đầu dự kiến**: 2026-08-02 13:00\n- **Thời gian bắt đầu thực tế**: 2026-08-02 13:06\n- **Thời gian kết thúc dự kiến**: 2026-08-02 16:00\n- **Thời gian kết thúc thực tế**: 2026-08-02 15:56\n- **Mức độ rủi ro**: Thấp (LOW)\n\nChuyến đã hoàn thành với số hàng đã xuất và số hàng đã giao là tương đương.",
+      "scores": {
+        "toolSelection": 0.8,
+        "toolArguments": 0.6666666666666666,
+        "toolOrder": 0.6666666666666666,
+        "semanticSimilarity": 0.2812356516082859,
+        "factCoverage": 0.0
+      },
+      "missingFacts": [
+        "DEMO-C23",
+        "hoàn thành lúc 08:55",
+        "100%",
+        "1.200 kg thép D16",
+        "giao đủ",
+        "không chênh lệch"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 10.538
+    },
+    {
+      "id": "SFV1-016",
+      "question": "Trong các chuyến còn lại hôm nay, chuyến nào đi sớm nhất và chuyến đó chở gì?",
+      "status": "COMPLETED",
+      "plan": [
+        "Sử dụng tool rank_upcoming_trips để tìm chuyến đi sớm nhất trong các chuyến còn lại hôm nay.",
+        "Lấy thông tin chi tiết về chuyến đi sớm nhất bằng tool get_trip_detail."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": "2026-08-14",
+            "end_date": "2026-08-14",
+            "limit": 50
+          },
+          "fixture": "ranked_upcoming_today"
+        },
+        {
+          "step": 2,
+          "name": "get_warehouse_issue",
+          "arguments": {
+            "trip_id": 21
+          },
+          "fixture": "warehouse_21",
+          "depends_on": 1
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": "2026-08-14",
+            "end_date": null,
+            "limit": 1
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Không có chuyến nào còn lại hôm nay để tìm kiếm thông tin."
+        }
+      ],
+      "expectedAnswer": "Chuyến đi sớm nhất là DEMO-U21, dự kiến khởi hành lúc 16:00. Chuyến này chở 280 mét cọc bê tông PHC D300 từ Kho Long Biên đến Công trình Hà Đông.",
+      "actualAnswer": "Hiện tại không có chuyến đi nào còn lại hôm nay.",
+      "scores": {
+        "toolSelection": 0.6666666666666666,
+        "toolArguments": 0.0,
+        "toolOrder": 0.5,
+        "semanticSimilarity": 0.20385887657505022,
+        "factCoverage": 0.0
+      },
+      "missingFacts": [
+        "DEMO-U21",
+        "16:00",
+        "280 mét",
+        "cọc bê tông PHC D300",
+        "Kho Long Biên",
+        "Công trình Hà Đông"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 7.622
+    },
+    {
+      "id": "SFV1-017",
+      "question": "Gợi ý chuyến nên đi tiếp theo, kiểm tra điểm đi và điểm đến rồi mở bản đồ tuyến đường.",
+      "status": "COMPLETED",
+      "plan": [
+        "Sử dụng tool rank_upcoming_trips để tìm chuyến đi tiếp theo.",
+        "Lấy thông tin chi tiết về chuyến đi tiếp theo bằng tool get_trip_detail.",
+        "Kiểm tra điểm đi và điểm đến của chuyến đi.",
+        "Mở bản đồ tuyến đường cho chuyến đi đó bằng tool open_mobile_screen."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": "2026-08-14",
+            "end_date": "2026-08-14",
+            "limit": 50
+          },
+          "fixture": "ranked_upcoming_today"
+        },
+        {
+          "step": 2,
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 21
+          },
+          "fixture": "trip_21",
+          "depends_on": 1
+        },
+        {
+          "step": 3,
+          "name": "open_mobile_screen",
+          "arguments": {
+            "destination": "ROUTE",
+            "trip_id": null
+          },
+          "fixture_inline": {
+            "ok": true,
+            "clientAction": {
+              "type": "NAVIGATE",
+              "destination": "ROUTE",
+              "tripId": null
+            }
+          }
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 1
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã tìm thấy chuyến đi tiếp theo và thông tin chi tiết về điểm đi và điểm đến. Cần thực hiện bước tiếp theo để mở bản đồ tuyến đường."
+        },
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 25
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy thông tin chi tiết về chuyến đi tiếp theo, bao gồm điểm đi và điểm đến. Cần thực hiện bước tiếp theo để mở bản đồ tuyến đường."
+        },
+        {
+          "name": "open_mobile_screen",
+          "arguments": {
+            "destination": "ROUTE",
+            "trip_id": 25
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Tất cả các bước trong kế hoạch đã được thực hiện thành công và bản đồ tuyến đường đã được mở."
+        }
+      ],
+      "expectedAnswer": "Chuyến nên đi tiếp theo là DEMO-U21, từ Kho Long Biên đến Công trình Hà Đông, dự kiến 16:00. Tôi đã mở màn hình bản đồ tuyến đường.",
+      "actualAnswer": "Chuyến đi tiếp theo được gợi ý là chuyến \"DEMO-001-M09\". Dưới đây là thông tin chi tiết về chuyến đi:\n\n- **Điểm đi**: Kho trung tâm Long Biên, Hà Nội (Vĩ độ: 21.0278, Kinh độ: 105.8342)\n- **Điểm đến**: Công trình Hà Đông (Vĩ độ: 20.95, Kinh độ: 105.88)\n- **Loại chuyến**: Giao hàng\n- **Thông tin hàng hóa**: Cọc bê tông PHC D300, số lượng 160 mét\n- **Thời gian khởi hành dự kiến**: 2026-08-03 07:00\n- **Thời gian kết thúc dự kiến**: 2026-08-03 10:00\n- **Trạng thái**: Đã được phân công\n- **Mức độ rủi ro**: Thấp\n\nBản đồ tuyến đường cho chuyến đi này đã được mở. Bạn có thể theo dõi lộ trình trên ứng dụng di động.",
+      "scores": {
+        "toolSelection": 1.0,
+        "toolArguments": 0.0,
+        "toolOrder": 1.0,
+        "semanticSimilarity": 0.5448932025181977,
+        "factCoverage": 0.4
+      },
+      "missingFacts": [
+        "DEMO-U21",
+        "Kho Long Biên",
+        "16:00"
+      ],
+      "failureReasons": [
+        "TOOL_ARGUMENT_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 17.419
+    },
+    {
+      "id": "SFV1-018",
+      "question": "Tôi có thông báo chưa đọc nào cần chú ý và nó có ảnh hưởng tới chuyến đang chạy không?",
+      "status": "COMPLETED",
+      "plan": [
+        "Sử dụng tool list_notifications để lấy danh sách thông báo chưa đọc.",
+        "Kiểm tra thông báo nào có thể ảnh hưởng tới chuyến đang chạy bằng cách so sánh với thông tin chuyến hiện tại."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "list_notifications",
+          "arguments": {
+            "unread_only": true,
+            "limit": 20
+          },
+          "fixture": "unread_notifications"
+        },
+        {
+          "step": 2,
+          "name": "get_current_assignment",
+          "arguments": {},
+          "fixture": "current_assignment_24"
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "list_notifications",
+          "arguments": {
+            "unread_only": true,
+            "limit": 100
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy danh sách thông báo chưa đọc, cần kiểm tra thông báo nào có thể ảnh hưởng tới chuyến đang chạy."
+        },
+        {
+          "name": "get_current_driving_session",
+          "arguments": {},
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy thông tin chuyến hiện tại và không có chuyến nào đang chạy, do đó không có thông báo nào có thể ảnh hưởng tới chuyến."
+        }
+      ],
+      "expectedAnswer": "Bạn có 2 thông báo chưa đọc: một thông báo giao chuyến DEMO-U21 và một nhắc nghỉ sau 180 phút lái liên tục. Chuyến đang chạy là DEMO-A24 nên thông báo DEMO-U21 không thay đổi chuyến hiện tại; nhắc nghỉ là nội dung cần chú ý khi tiếp tục lái.",
+      "actualAnswer": "Hiện tại bạn có 29 thông báo chưa đọc. Trong số đó, có một số thông báo cảnh báo AI liên quan đến tình trạng buồn ngủ (DROWSINESS - HIGH) mà có thể ảnh hưởng tới chuyến đi của bạn. Tuy nhiên, không có chuyến nào đang chạy tại thời điểm này. Bạn nên kiểm tra các thông báo này để đảm bảo an toàn trong các chuyến đi tiếp theo.",
+      "scores": {
+        "toolSelection": 0.5,
+        "toolArguments": 0.0,
+        "toolOrder": 0.5,
+        "semanticSimilarity": 0.48357986294870037,
+        "factCoverage": 0.6
+      },
+      "missingFacts": [
+        "DEMO-U21",
+        "nhắc nghỉ sau 180 phút"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 12.455
+    },
+    {
+      "id": "SFV1-019",
+      "question": "Tìm chuyến chờ sớm nhất hôm nay, xác minh đó là chuyến của tôi rồi chuẩn bị nhận chuyến.",
+      "status": "COMPLETED",
+      "plan": [
+        "Sử dụng tool list_all_trips để tìm tất cả các chuyến chờ.",
+        "Lọc ra chuyến chờ sớm nhất trong danh sách.",
+        "Xác minh chuyến đó có phải là chuyến của người dùng hay không.",
+        "Nếu đúng, sử dụng tool prepare_trip_action để chuẩn bị nhận chuyến."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": "2026-08-14",
+            "end_date": "2026-08-14",
+            "limit": 50
+          },
+          "fixture": "ranked_upcoming_today"
+        },
+        {
+          "step": 2,
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 21
+          },
+          "fixture": "trip_21",
+          "depends_on": 1
+        },
+        {
+          "step": 3,
+          "name": "prepare_trip_action",
+          "arguments": {
+            "action": "ACCEPT",
+            "trip_id": 21,
+            "note": null
+          },
+          "fixture_inline": {
+            "ok": true,
+            "confirmationRequest": {
+              "type": "TRIP_ACTION",
+              "action": "ACCEPT",
+              "tripId": 21,
+              "prompt": "Bạn có chắc muốn nhận chuyến #21?"
+            }
+          }
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": "2026-08-14",
+            "end_date": "2026-08-14",
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Không có chuyến chờ nào được tìm thấy cho ngày hôm nay, do đó không cần thực hiện các bước tiếp theo."
+        }
+      ],
+      "expectedAnswer": "Chuyến chờ sớm nhất là DEMO-U21 lúc 16:00 và đã được xác minh thuộc tài khoản của bạn. Hệ thống đã chuẩn bị nhận chuyến 21; vui lòng xác nhận trước khi thực hiện.",
+      "actualAnswer": "Hiện tại không có chuyến nào chờ nhận hôm nay.",
+      "scores": {
+        "toolSelection": 0.5,
+        "toolArguments": 0.3333333333333333,
+        "toolOrder": 0.3333333333333333,
+        "semanticSimilarity": 0.3337119062359573,
+        "factCoverage": 0.2
+      },
+      "missingFacts": [
+        "DEMO-U21",
+        "16:00",
+        "thuộc tài khoản",
+        "cần xác nhận"
+      ],
+      "failureReasons": [
+        "TOOL_SELECTION_MISMATCH",
+        "TOOL_ARGUMENT_MISMATCH",
+        "TOOL_ORDER_MISMATCH",
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 6.92
+    },
+    {
+      "id": "SFV1-020",
+      "question": "Tổng hợp tất cả chuyến của tôi trong tuần 10 đến 16 tháng 8 theo trạng thái rồi mở danh sách chuyến.",
+      "status": "COMPLETED",
+      "plan": [
+        "Lấy danh sách tất cả chuyến đi trong tuần từ 2026-08-10 đến 2026-08-16.",
+        "Mở danh sách chuyến đi."
+      ],
+      "expectedToolCalls": [
+        {
+          "step": 1,
+          "name": "list_all_trips",
+          "arguments": {
+            "start_date": "2026-08-10",
+            "end_date": "2026-08-16",
+            "limit": 50
+          },
+          "fixture": "all_week"
+        },
+        {
+          "step": 2,
+          "name": "open_mobile_screen",
+          "arguments": {
+            "destination": "TRIPS",
+            "trip_id": null
+          },
+          "fixture_inline": {
+            "ok": true,
+            "clientAction": {
+              "type": "NAVIGATE",
+              "destination": "TRIPS",
+              "tripId": null
+            }
+          }
+        }
+      ],
+      "actualToolCalls": [
+        {
+          "name": "list_all_trips",
+          "arguments": {
+            "start_date": "2026-08-10",
+            "end_date": "2026-08-16",
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy danh sách chuyến đi trong tuần 10 đến 16 tháng 8 và không có chuyến nào được ghi nhận."
+        },
+        {
+          "name": "open_mobile_screen",
+          "arguments": {
+            "destination": "TRIPS",
+            "trip_id": null
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã hoàn thành tất cả các bước trong kế hoạch và mở danh sách chuyến thành công."
+        }
+      ],
+      "expectedAnswer": "Trong tuần 10–16/08/2026 bạn có 5 chuyến: 2 chuyến hoàn thành, 2 chuyến đang chờ gồm một chuyến ASSIGNED và một chuyến ACCEPTED, cùng 1 chuyến đang chạy. Tôi đã mở danh sách chuyến.",
+      "actualAnswer": "Trong tuần từ 10 đến 16 tháng 8, không có chuyến nào được ghi nhận. Danh sách chuyến đã được mở.",
+      "scores": {
+        "toolSelection": 1.0,
+        "toolArguments": 1.0,
+        "toolOrder": 1.0,
+        "semanticSimilarity": 0.4989400529829092,
+        "factCoverage": 0.2857142857142857
+      },
+      "missingFacts": [
+        "2 hoàn thành",
+        "2 đang chờ",
+        "1 ASSIGNED",
+        "1 ACCEPTED",
+        "1 đang chạy"
+      ],
+      "failureReasons": [
+        "ANSWER_SEMANTIC_MISMATCH",
+        "EXPECTED_FACTS_MISSING"
+      ],
+      "passed": false,
+      "durationSeconds": 9.848
+    }
+  ]
+}

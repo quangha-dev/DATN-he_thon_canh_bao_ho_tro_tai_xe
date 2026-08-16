@@ -8,4 +8,9 @@
 **/build
 **/__pycache__
 **/.pytest_cache
+**/.venv
+**/.venv_*
+safefleet_ai/.local
+safefleet_ai/artifacts
+safefleet_ai/benchmarks
 **/*.log

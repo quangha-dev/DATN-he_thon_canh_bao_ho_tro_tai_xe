@@ -1,0 +1,20 @@
+flowchart TD
+    A["Giọng nói / văn bản / safety context"] --> B["STT + chuẩn hóa tiếng Việt"]
+    B --> C["Context Builder<br/>user, role, trip, event, GPS, history"]
+    C --> D{"Yêu cầu thời gian thực khẩn cấp?"}
+    D -- "Có" --> E["Deterministic Safety Policy"]
+    D -- "Không" --> F["Agent Planner<br/>lập kế hoạch có giới hạn bước"]
+    F --> G["Tool Registry theo RBAC / ownership"]
+    G --> H["Safety Guard<br/>schema, allowlist, precondition"]
+    E --> H
+    H --> I{"Hành động nhạy cảm?"}
+    I -- "Có" --> J{"Có xác nhận / đủ điều kiện?"}
+    J -- "Không" --> K["Từ chối an toàn / yêu cầu làm rõ"]
+    J -- "Có" --> L["Tool Executor"]
+    I -- "Không" --> L
+    L --> M["Backend service / Map / RAG / Notification"]
+    M --> N["Quan sát kết quả và kiểm tra hậu điều kiện"]
+    N --> O{"Hoàn thành?"}
+    O -- "Chưa, còn bước" --> F
+    O -- "Có" --> P["TTS / UI response + audit log"]
+    O -- "Lỗi / quá giới hạn" --> Q["Fallback cục bộ + thông báo trạng thái thật"]

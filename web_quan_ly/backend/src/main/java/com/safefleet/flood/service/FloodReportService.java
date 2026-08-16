@@ -13,6 +13,7 @@ import com.safefleet.flood.dto.request.FloodActionRequest;
 import com.safefleet.flood.dto.request.RouteCheckRequest;
 import com.safefleet.flood.dto.response.FloodReportResponse;
 import com.safefleet.flood.dto.response.RouteRiskSummaryResponse;
+import com.safefleet.flood.dto.response.FloodWarningResponse;
 import com.safefleet.flood.entity.FloodReport;
 import com.safefleet.flood.enums.FloodSeverity;
 import com.safefleet.flood.enums.FloodSource;
@@ -35,6 +36,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +45,7 @@ public class FloodReportService {
 
     private static final double ROUTE_RISK_RADIUS_KM = 0.5;
     private static final double NEARBY_CLUSTER_RADIUS_KM = 0.3;
+    private static final double DRIVER_WARNING_RADIUS_KM = 10.0;
 
     private final FloodReportRepository floodReportRepository;
     private final DriverRepository driverRepository;
@@ -133,6 +137,31 @@ public class FloodReportService {
         return FloodReportMapper.toResponse(report);
     }
 
+    @Transactional
+    public FloodWarningResponse warnNearby(Long id) {
+        FloodReport report = findReport(id);
+        if (report.getStatus() == FloodStatus.RESOLVED || !notExpired(report)) {
+            throw new com.safefleet.common.exception.BadRequestException("Không thể gửi cảnh báo cho điểm ngập đã hết hiệu lực");
+        }
+        Set<Long> notifiedUsers = new HashSet<>();
+        driverRepository.findAll().stream()
+                .filter(driver -> !driver.isDeleted())
+                .filter(driver -> driver.getUser() != null && !driver.getUser().isDeleted())
+                .filter(driver -> driver.getUser().getStatus() == com.safefleet.account.enums.AccountStatus.ACTIVE)
+                .filter(driver -> driver.getCurrentVehicle() != null)
+                .filter(driver -> driver.getCurrentVehicle().getLastLat() != null && driver.getCurrentVehicle().getLastLng() != null)
+                .filter(driver -> GeoUtils.distanceKm(
+                        driver.getCurrentVehicle().getLastLat(), driver.getCurrentVehicle().getLastLng(),
+                        report.getLat(), report.getLng()) <= DRIVER_WARNING_RADIUS_KM)
+                .filter(driver -> notifiedUsers.add(driver.getUser().getId()))
+                .forEach(driver -> notificationService.createForUser(
+                        driver.getUser().getId(), NotificationType.FLOOD,
+                        "Cảnh báo điểm ngập gần xe",
+                        report.getAddress() == null ? "Phát hiện điểm ngập trong bán kính 10 km" : report.getAddress(),
+                        "FLOOD_REPORT", report.getId()));
+        return new FloodWarningResponse(report.getId(), notifiedUsers.size(), DRIVER_WARNING_RADIUS_KM);
+    }
+
     @Transactional(readOnly = true)
     public RouteRiskSummaryResponse routeRisk(RouteCheckRequest request) {
         List<FloodReport> activeReports = floodReportRepository.findByStatusIn(List.of(FloodStatus.UNVERIFIED, FloodStatus.VERIFIED));
@@ -178,11 +207,6 @@ public class FloodReportService {
     private void publish(FloodReport report) {
         FloodReportResponse response = FloodReportMapper.toResponse(report);
         messagingTemplate.convertAndSend("/topic/flood-reports", response);
-        notificationService.createGlobal(NotificationType.FLOOD,
-                "Diem ngap moi",
-                report.getAddress() == null ? report.getSeverity().name() : report.getAddress(),
-                "FLOOD_REPORT",
-                report.getId());
     }
 
     private Driver resolveReporter(Long driverId) {

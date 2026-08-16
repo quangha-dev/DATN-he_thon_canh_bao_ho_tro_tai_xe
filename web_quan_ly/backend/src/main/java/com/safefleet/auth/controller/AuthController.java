@@ -1,6 +1,7 @@
 package com.safefleet.auth.controller;
 
 import com.safefleet.auth.dto.request.LoginRequest;
+import com.safefleet.auth.dto.request.ChangePasswordRequest;
 import com.safefleet.auth.dto.request.RefreshTokenRequest;
 import com.safefleet.auth.dto.response.AuthResponse;
 import com.safefleet.auth.dto.response.CurrentUserResponse;
@@ -47,5 +48,12 @@ public class AuthController {
     @GetMapping("/me")
     public ApiResponse<CurrentUserResponse> me() {
         return ApiResponse.ok(authService.currentUser());
+    }
+
+    @Operation(summary = "Change current password and revoke all refresh sessions")
+    @PostMapping("/change-password")
+    public ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(request);
+        return ApiResponse.ok("Password changed successfully");
     }
 }

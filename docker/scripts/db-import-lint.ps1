@@ -1,89 +1,29 @@
 param(
-    [string]$InputPath = "SAFEEFLEET_FULL_DATABASE.sql"
+    [Parameter(Mandatory = $true)]
+    [string]$InputPath
 )
 
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $source = (Resolve-Path (Join-Path $root $InputPath)).Path
-$temporaryDatabase = "safefleet_import_lint_20260727"
-$temporaryHostFile = Join-Path $root "backups\safefleet-import-lint.sql"
-$temporaryContainerFile = "/tmp/safefleet-import-lint.sql"
-
-if ($temporaryDatabase -notmatch '^safefleet_import_lint_[a-z0-9_]+$') {
-    throw "Tên database kiểm tra không an toàn."
-}
 if (-not $source.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) {
     throw "File SQL phải nằm trong workspace SafeFleet."
 }
-
-function Invoke-MySqlContainer {
-    param([Parameter(Mandatory = $true)][string]$Command)
-
-    $encodedCommand = [Convert]::ToBase64String(
-        [Text.Encoding]::UTF8.GetBytes($Command)
-    )
-    $dockerArguments = @(
-        "compose", "exec", "-T", "mysql", "sh", "-c",
-        'echo$IFS"$1"|base64$IFS-d|sh',
-        "safefleet",
-        $encodedCommand
-    )
-    $previousErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    try {
-        $output = & docker @dockerArguments 2>&1
-        $exitCode = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $previousErrorActionPreference
-    }
-    if ($exitCode -ne 0) {
-        throw (($output | ForEach-Object { "$_" }) -join "`n")
-    }
-    return $output
-}
+$suffix = [guid]::NewGuid().ToString("N").Substring(0, 12)
+$temporaryDatabase = "safefleet_import_lint_$suffix"
+$temporaryContainerFile = "/tmp/$temporaryDatabase.sql"
 
 Push-Location $root
 try {
-    $sql = [IO.File]::ReadAllText($source)
-    $temporarySql = $sql.Replace('`safefleet`', ('`' + $temporaryDatabase + '`'))
-    if ($temporarySql -eq $sql) {
-        throw "Không tìm thấy database safefleet trong dump."
-    }
-    [IO.File]::WriteAllText(
-        $temporaryHostFile,
-        $temporarySql,
-        [Text.UTF8Encoding]::new($false)
-    )
-
-    docker compose cp $temporaryHostFile "mysql:$temporaryContainerFile" | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        throw "Không thể copy dump kiểm tra vào MySQL container."
-    }
-
-    $output = Invoke-MySqlContainer -Command (
-        'mysql --show-warnings --default-character-set=utf8mb4 ' +
-        '-uroot -p"$MYSQL_ROOT_PASSWORD" < "' + $temporaryContainerFile + '"'
-    )
-    $warnings = @($output | Where-Object { "$_" -match '^(Warning|Note|Error)' })
-
-    [pscustomobject]@{
-        Success = $true
-        Input = $source
-        TemporaryDatabase = $temporaryDatabase
-        WarningCount = $warnings.Count
-        Warnings = ($warnings -join " | ")
-    }
+    docker compose exec -T postgres sh -c "PGPASSWORD=`"`$POSTGRES_PASSWORD`" dropdb --if-exists -U `"`$POSTGRES_USER`" '$temporaryDatabase'"
+    docker compose exec -T postgres sh -c "PGPASSWORD=`"`$POSTGRES_PASSWORD`" createdb -U `"`$POSTGRES_USER`" '$temporaryDatabase'"
+    docker compose cp $source "postgres:$temporaryContainerFile"
+    if ($LASTEXITCODE -ne 0) { throw "Không thể copy SQL vào PostgreSQL container." }
+    $output = docker compose exec -T postgres sh -c "PGPASSWORD=`"`$POSTGRES_PASSWORD`" psql -v ON_ERROR_STOP=1 -U `"`$POSTGRES_USER`" -d '$temporaryDatabase' -f '$temporaryContainerFile'" 2>&1
+    if ($LASTEXITCODE -ne 0) { throw (($output | ForEach-Object { "$_" }) -join "`n") }
+    [pscustomobject]@{ Success=$true; Input=$source; TemporaryDatabase=$temporaryDatabase; OutputLines=@($output).Count }
 } finally {
-    try {
-        Invoke-MySqlContainer -Command (
-            'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "DROP DATABASE IF EXISTS ' +
-            $temporaryDatabase + '"'
-        ) | Out-Null
-        Invoke-MySqlContainer -Command ('rm -f -- "' + $temporaryContainerFile + '"') | Out-Null
-    } finally {
-        if (Test-Path -LiteralPath $temporaryHostFile) {
-            Remove-Item -Force -LiteralPath $temporaryHostFile
-        }
-        Pop-Location
-    }
+    docker compose exec -T postgres sh -c "PGPASSWORD=`"`$POSTGRES_PASSWORD`" dropdb --if-exists -U `"`$POSTGRES_USER`" '$temporaryDatabase'" 2>$null | Out-Null
+    docker compose exec -T postgres rm -f -- $temporaryContainerFile 2>$null | Out-Null
+    Pop-Location
 }

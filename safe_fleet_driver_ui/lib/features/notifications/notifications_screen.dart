@@ -56,7 +56,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             return const SfEmptyState(
               icon: Icons.notifications_none_rounded,
               title: 'Không có thông báo mới',
-              message: 'Chuyến mới, cảnh báo ngập và phản hồi SOS sẽ hiện ở đây.',
+              message:
+                  'Chuyến mới, cảnh báo ngập và phản hồi SOS sẽ hiện ở đây.',
             );
           }
           return ListView.separated(
@@ -133,6 +134,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   SfStatus _status(String? type) => switch (type) {
     'SOS' => SfStatus.danger,
     'AI_ALERT' || 'FLOOD' || 'GPS_LOST' => SfStatus.warning,
+    'TRIP_ASSIGNED' => SfStatus.good,
     'TRIP_DELAYED' || 'DRIVING_TIME' => SfStatus.pending,
     _ => SfStatus.pending,
   };
@@ -143,6 +145,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     'AI_ALERT' => Icons.visibility_outlined,
     'GPS_LOST' => Icons.gps_off_rounded,
     'DRIVING_TIME' => Icons.timelapse_rounded,
+    'TRIP_ASSIGNED' => Icons.route_rounded,
     'TRIP_DELAYED' => Icons.schedule_rounded,
     'MAINTENANCE' => Icons.build_outlined,
     _ => Icons.notifications_none_rounded,

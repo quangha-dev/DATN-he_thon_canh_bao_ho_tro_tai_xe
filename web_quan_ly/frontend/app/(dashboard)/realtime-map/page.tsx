@@ -5,7 +5,13 @@ import MapView from "@/components/map/MapView";
 import { Vehicle, FloodPoint, Incident } from "@/types";
 import { safeFleetApi } from "@/lib/safeFleetApi";
 import { useToast } from "@/context/ToastContext";
-import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import {
+  cn,
+  VEHICLE_STATUS_LABELS,
+  FLOOD_SEVERITY_LABELS,
+  INCIDENT_STATUS_LABELS,
+} from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Search,
@@ -17,31 +23,69 @@ import {
   X,
   Truck,
   Droplets,
+  Gauge,
+  AlertTriangle,
+  Route as RouteIcon,
+  MapPin,
 } from "lucide-react";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  IconButton,
+  InfoRow,
+  Segmented,
+  StatusDot,
+  TONE,
+  toneOf,
+} from "@/components/ui";
 
-// =============================================================================
-// TYPES & CONSTANTS
-// =============================================================================
 type DetailItem =
   | { type: "vehicle"; data: Vehicle }
   | { type: "flood"; data: FloodPoint }
   | { type: "incident"; data: Incident };
 
+const FILTERS = ["all", "running", "alert", "maintenance", "offline"] as const;
+type FilterKey = (typeof FILTERS)[number];
+
+const FILTER_LABELS: Record<FilterKey, string> = {
+  all: "Tất cả",
+  running: "Đang chạy",
+  alert: "Cảnh báo",
+  maintenance: "Bảo trì",
+  offline: "Mất GPS",
+};
+
 export default function RealtimeMapPage() {
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [floodPoints, setFloodPoints] = useState<FloodPoint[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState<DetailItem | null>(null);
+  const [acceptingIncidentId, setAcceptingIncidentId] = useState<string | null>(null);
+
+  const handleAcceptIncident = async (incident: Incident) => {
+    setAcceptingIncidentId(incident.id);
+    try {
+      const updated = await safeFleetApi.acceptIncident(incident.id);
+      setIncidents((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setSelectedItem({ type: "incident", data: updated });
+      showToast("Đã tiếp nhận sự cố.", "success");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Không thể tiếp nhận sự cố.", "error");
+    } finally {
+      setAcceptingIncidentId(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
-
-    const loadMapData = async () => {
+    const load = async () => {
       setIsLoading(true);
       try {
         const [vehicleData, floodData, incidentData] = await Promise.all([
@@ -49,401 +93,482 @@ export default function RealtimeMapPage() {
           safeFleetApi.floodPoints(),
           safeFleetApi.incidents(),
         ]);
-        if (!cancelled) {
-          setVehicles(vehicleData);
-          setFloodPoints(floodData);
-          setIncidents(incidentData);
-        }
+        if (cancelled) return;
+        setVehicles(vehicleData);
+        setFloodPoints(floodData);
+        setIncidents(incidentData);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Không tải được dữ liệu bản đồ.";
+        const message =
+          error instanceof Error ? error.message : "Không tải được dữ liệu bản đồ.";
         if (!cancelled) showToast(message, "error");
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     };
+    void load();
 
-    loadMapData();
-
+    const onRealtime = () => void load();
+    window.addEventListener("safefleet:realtime", onRealtime);
     return () => {
       cancelled = true;
+      window.removeEventListener("safefleet:realtime", onRealtime);
     };
   }, [showToast]);
 
-  // Filter & Search logic
   const filteredVehicles = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     return vehicles.filter((v) => {
-      // 1. Filter status
       if (activeFilter === "running" && v.status !== "running") return false;
       if (activeFilter === "offline" && v.status !== "offline") return false;
       if (activeFilter === "alert" && v.totalAlerts === 0) return false;
       if (activeFilter === "maintenance" && v.status !== "maintenance") return false;
-      
-      // 2. Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return (
-          v.plate.toLowerCase().includes(q) ||
-          (v.currentDriverName && v.currentDriverName.toLowerCase().includes(q)) ||
-          v.type.toLowerCase().includes(q)
-        );
-      }
-      return true;
+      if (!q) return true;
+      return (
+        v.plate.toLowerCase().includes(q) ||
+        (v.currentDriverName?.toLowerCase().includes(q) ?? false) ||
+        v.type.toLowerCase().includes(q)
+      );
     });
   }, [vehicles, activeFilter, searchQuery]);
 
-  // Handle marker clicks
-  const handleVehicleClick = (vehicle: Vehicle) => {
-    setSelectedItem({ type: "vehicle", data: vehicle });
-  };
+  const counts = useMemo(
+    () => ({
+      all: vehicles.length,
+      running: vehicles.filter((v) => v.status === "running").length,
+      alert: vehicles.filter((v) => v.totalAlerts > 0).length,
+      maintenance: vehicles.filter((v) => v.status === "maintenance").length,
+      offline: vehicles.filter((v) => v.status === "offline").length,
+    }),
+    [vehicles]
+  );
 
-  const handleFloodPointClick = (point: FloodPoint) => {
-    setSelectedItem({ type: "flood", data: point });
-  };
-
-  const handleIncidentClick = (incident: Incident) => {
-    setSelectedItem({ type: "incident", data: incident });
-  };
+  const detailIcon =
+    selectedItem?.type === "vehicle"
+      ? Truck
+      : selectedItem?.type === "flood"
+        ? Droplets
+        : Siren;
+  const detailTone =
+    selectedItem?.type === "incident"
+      ? "danger"
+      : selectedItem?.type === "flood"
+        ? "accent"
+        : "primary";
+  const canAcceptIncident = user?.role === "ADMIN" || user?.role === "DISPATCHER";
 
   return (
-    <div className="relative w-full h-[calc(100vh-64px)] flex overflow-hidden bg-slate-100 dark:bg-slate-950">
-      
-      {/* ===== Map Component (MapLibre GL) ===== */}
-      <div className="absolute inset-0 z-0">
+    <div className="relative flex h-[calc(100vh-68px)] w-full overflow-hidden bg-[var(--sf-bg-inset)]">
+      {/* ===== Bản đồ ===== */}
+      <div className="sf-map-dark absolute inset-0 z-0">
         <MapView
           vehicles={filteredVehicles}
           floodPoints={floodPoints}
           incidents={incidents}
-          onVehicleClick={handleVehicleClick}
-          onFloodPointClick={handleFloodPointClick}
-          onIncidentClick={handleIncidentClick}
+          onVehicleClick={(v) => setSelectedItem({ type: "vehicle", data: v })}
+          onFloodPointClick={(p) => setSelectedItem({ type: "flood", data: p })}
+          onIncidentClick={(i) => setSelectedItem({ type: "incident", data: i })}
           selectedVehicleId={selectedItem?.type === "vehicle" ? selectedItem.data.id : null}
         />
       </div>
 
-      {/* ===== Floating Search & Filters (Top Center) ===== */}
-      <div className="absolute top-4 left-4 right-4 md:left-[300px] md:right-4 z-10 flex flex-col gap-2 pointer-events-none">
-        <div className="flex gap-2 max-w-xl w-full pointer-events-auto">
-          {/* Search bar */}
-          <div className="relative flex-1 shadow-lg rounded-xl">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
+      {/* ===== Tìm kiếm + bộ lọc nổi ===== */}
+      <div
+        className={cn(
+          "pointer-events-none absolute right-4 top-4 z-10 flex flex-col gap-2 transition-[left] duration-[var(--sf-dur-base)]",
+          isLeftPanelOpen ? "left-4 md:left-[22.5rem]" : "left-4 md:left-[4.5rem]"
+        )}
+      >
+        <div className="pointer-events-auto flex w-full max-w-xl gap-2">
+          <div className="sf-glass-panel relative flex-1">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sf-text-muted" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm xe, tài xế, loại xe..."
-              className="w-full pl-11 pr-4 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-slate-200/50 dark:border-slate-800/50 rounded-xl text-sm shadow-md text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              placeholder="Tìm xe, tài xế, loại xe…"
+              className="w-full border-none bg-transparent py-3 pl-11 pr-4 text-[13.5px] font-medium text-sf-text placeholder:text-sf-text-muted focus:outline-none"
             />
           </div>
           {isLoading && (
-            <span className="px-3 py-3 rounded-xl bg-white/95 dark:bg-slate-900/95 border border-slate-200/50 dark:border-slate-800/50 text-xs font-semibold text-blue-600 shadow-md">
-              Đang tải...
+            <span className="sf-glass-panel flex items-center gap-2 px-3.5 text-[12.5px] font-bold text-sf-text-muted">
+              <StatusDot tone="warning" pulse /> Đang tải…
             </span>
           )}
         </div>
 
-        {/* Filters bar */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full pointer-events-auto select-none">
-          {[
-            { key: "all", label: "Tất cả" },
-            { key: "running", label: "Đang chạy" },
-            { key: "alert", label: "Cảnh báo" },
-            { key: "maintenance", label: "Bảo trì" },
-            { key: "offline", label: "Mất GPS" },
-          ].map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setActiveFilter(f.key)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur shadow border transition-all cursor-pointer whitespace-nowrap",
-                activeFilter === f.key
-                  ? "bg-blue-600 text-white border-blue-500 shadow-blue-500/10"
-                  : "bg-white/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300 border-slate-200/50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800"
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div className="pointer-events-auto max-w-full overflow-x-auto">
+          <Segmented
+            value={activeFilter}
+            onChange={setActiveFilter}
+            options={FILTERS.map((f) => ({
+              value: f,
+              label: FILTER_LABELS[f],
+              count: counts[f],
+            }))}
+            size="sm"
+            className="shadow-[var(--sf-shadow-md)]"
+          />
         </div>
       </div>
 
-      {/* ===== Left Panel: Vehicles List ===== */}
-      <div className="absolute left-4 top-4 bottom-4 z-10 pointer-events-none flex items-stretch">
+      {/* ===== Panel trái: danh sách xe ===== */}
+      <div className="pointer-events-none absolute bottom-4 left-4 top-4 z-10 flex items-stretch">
         <AnimatePresence initial={false}>
           {isLeftPanelOpen && (
             <motion.div
               initial={{ opacity: 0, x: -300 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -300 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="w-72 bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-slate-200/50 dark:border-slate-800/50 rounded-2xl shadow-xl flex flex-col overflow-hidden pointer-events-auto"
+              transition={{ type: "spring", stiffness: 320, damping: 32 }}
+              className="sf-glass-panel pointer-events-auto flex w-72 flex-col overflow-hidden"
             >
-              {/* Header */}
-              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
+              <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--sf-border)] px-4 py-3">
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">Danh sách đội xe</h3>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Hiển thị {filteredVehicles.length} xe</p>
+                  <h3 className="text-[13.5px] font-extrabold text-sf-text">Đội xe</h3>
+                  <p className="mt-0.5 text-[12px] text-sf-text-muted">
+                    Hiển thị {filteredVehicles.length}/{vehicles.length} xe
+                  </p>
                 </div>
+                <StatusDot tone={isLoading ? "warning" : "success"} pulse />
               </div>
 
-              {/* List */}
-              <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/50">
-                {filteredVehicles.map((vehicle) => {
-                  const hasAlert = vehicle.totalAlerts > 0;
-                  return (
-                    <button
-                      key={vehicle.id}
-                      onClick={() => handleVehicleClick(vehicle)}
-                      className={cn(
-                        "w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition flex items-center gap-3",
-                        selectedItem?.type === "vehicle" && selectedItem.data.id === vehicle.id && "bg-blue-50/50 dark:bg-blue-950/20 border-r-2 border-blue-500"
-                      )}
-                    >
-                      {/* Status indicator */}
-                      <div className="relative">
-                        <div
-                          className={cn(
-                            "w-8 h-8 rounded-lg flex items-center justify-center text-white",
-                            vehicle.status === "running" && "bg-emerald-500",
-                            vehicle.status === "idle" && "bg-blue-500",
-                            vehicle.status === "maintenance" && "bg-amber-500",
-                            vehicle.status === "offline" && "bg-slate-400"
-                          )}
-                        >
-                          <Truck className="w-4 h-4" />
-                        </div>
-                        {hasAlert && (
-                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 border border-white rounded-full animate-pulse-dot" />
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {filteredVehicles.length === 0 ? (
+                  <EmptyState
+                    icon={Truck}
+                    title="Không có xe phù hợp"
+                    description="Thử đổi từ khóa hoặc bộ lọc."
+                    compact
+                  />
+                ) : (
+                  filteredVehicles.map((vehicle) => {
+                    const active =
+                      selectedItem?.type === "vehicle" && selectedItem.data.id === vehicle.id;
+                    const tone = toneOf(vehicle.status);
+                    return (
+                      <button
+                        key={vehicle.id}
+                        onClick={() => setSelectedItem({ type: "vehicle", data: vehicle })}
+                        className={cn(
+                          "flex w-full items-center gap-3 border-b border-[var(--sf-border-light)] px-4 py-3 text-left transition-colors last:border-0 cursor-pointer",
+                          active
+                            ? "bg-[var(--sf-primary-soft)]"
+                            : "hover:bg-[var(--sf-bg-inset)]"
                         )}
-                      </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-slate-950 dark:text-white">{vehicle.plate}</p>
-                          <span className="text-[9px] text-slate-400 font-medium">
-                            {vehicle.status === "running" ? `${vehicle.currentSpeed} km/h` : "Dừng"}
+                      >
+                        <span className="relative flex-shrink-0">
+                          <span
+                            className="grid h-8 w-8 place-items-center rounded-[var(--sf-r-xs)]"
+                            style={{ background: TONE[tone].bg, color: TONE[tone].fg }}
+                          >
+                            <Truck className="h-4 w-4" />
                           </span>
-                        </div>
-                        <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                          {vehicle.currentDriverName || "Chưa giao xe"}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
+                          {vehicle.totalAlerts > 0 && (
+                            <span
+                              className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-sf-pulse-dot rounded-full border-2"
+                              style={{
+                                background: "var(--sf-danger)",
+                                borderColor: "var(--sf-bg-card)",
+                              }}
+                            />
+                          )}
+                        </span>
 
-                {filteredVehicles.length === 0 && (
-                  <div className="p-8 text-center text-slate-400 text-xs">Không tìm thấy xe phù hợp</div>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="truncate text-[12.5px] font-extrabold text-sf-text">
+                              {vehicle.plate}
+                            </span>
+                            <span className="sf-tnum flex-shrink-0 text-[12px] font-bold text-sf-text-muted">
+                              {vehicle.status === "running"
+                                ? `${vehicle.currentSpeed} km/h`
+                                : "Dừng"}
+                            </span>
+                          </span>
+                          <span className="mt-0.5 block truncate text-[12px] text-sf-text-muted">
+                            {vehicle.currentDriverName || "Chưa giao xe"}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Toggle Panel button */}
-        <div className="flex items-center ml-2 pointer-events-auto">
+        <div className="pointer-events-auto ml-2 flex items-center">
           <button
+            type="button"
             onClick={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
-            className="w-7 h-10 rounded-lg bg-white/95 dark:bg-slate-900/95 border border-slate-200/50 dark:border-slate-800/50 shadow-md flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
+            aria-label={isLeftPanelOpen ? "Ẩn danh sách xe" : "Hiện danh sách xe"}
+            className="sf-glass-panel grid h-11 w-7 place-items-center text-sf-text-muted transition-colors hover:text-sf-text cursor-pointer"
           >
-            {isLeftPanelOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            {isLeftPanelOpen ? (
+              <ChevronLeft className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
           </button>
         </div>
       </div>
 
-      {/* ===== Right Drawer: Details ===== */}
+      {/* ===== Panel phải: chi tiết ===== */}
       <AnimatePresence>
         {selectedItem && (
-          <motion.div
-            initial={{ opacity: 0, x: 360 }}
+          <motion.aside
+            initial={{ opacity: 0, x: 340 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 360 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="absolute right-4 top-4 bottom-4 w-80 bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-slate-200/50 dark:border-slate-800/50 rounded-2xl shadow-2xl flex flex-col z-25 overflow-hidden"
+            exit={{ opacity: 0, x: 340 }}
+            transition={{ type: "spring", stiffness: 320, damping: 32 }}
+            className="sf-glass-panel absolute bottom-4 right-4 top-4 z-20 flex w-80 flex-col overflow-hidden"
           >
-            {/* Header */}
-            <div className="px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                {selectedItem.type === "vehicle" && <Truck className="w-4 h-4 text-blue-500" />}
-                {selectedItem.type === "flood" && <Droplets className="w-4 h-4 text-purple-500" />}
-                {selectedItem.type === "incident" && <Siren className="w-4 h-4 text-red-500 animate-pulse-dot" />}
-                Chi tiết thông tin
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--sf-border)] px-4 py-3.5">
+              <h3 className="flex items-center gap-2 text-[13.5px] font-extrabold text-sf-text">
+                {(() => {
+                  const Icon = detailIcon;
+                  return (
+                    <Icon
+                      className={cn(
+                        "h-4 w-4",
+                        selectedItem.type === "incident" && "animate-sf-breathe"
+                      )}
+                      style={{ color: TONE[detailTone].fg }}
+                    />
+                  );
+                })()}
+                Chi tiết
               </h3>
-              <button
-                onClick={() => setSelectedItem(null)}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <IconButton icon={X} label="Đóng" size="sm" onClick={() => setSelectedItem(null)} />
             </div>
 
-            {/* Content body */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {/* VEHICLE CONTENT */}
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+              {/* --- Xe --- */}
               {selectedItem.type === "vehicle" && (
                 <>
                   <div>
-                    <h4 className="text-xl font-bold text-slate-950 dark:text-white leading-none">
+                    <h4 className="text-[20px] font-black leading-none tracking-tight text-sf-text">
                       {selectedItem.data.plate}
                     </h4>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {selectedItem.data.brand} {selectedItem.data.model} · {selectedItem.data.type}
+                    <p className="mt-1.5 text-[12.5px] text-sf-text-muted">
+                      {selectedItem.data.brand} {selectedItem.data.model} ·{" "}
+                      {selectedItem.data.type}
                     </p>
+                    <Badge
+                      tone={toneOf(selectedItem.data.status)}
+                      className="mt-2.5"
+                    >
+                      <StatusDot
+                        tone={toneOf(selectedItem.data.status)}
+                        pulse={selectedItem.data.status === "running"}
+                      />
+                      {VEHICLE_STATUS_LABELS[selectedItem.data.status]}
+                    </Badge>
                   </div>
 
-                  {/* Status Box */}
-                  <div
-                    className={cn(
-                      "p-3 rounded-xl border flex items-center justify-between",
-                      selectedItem.data.status === "running" && "bg-emerald-50/50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-800 dark:text-emerald-400",
-                      selectedItem.data.status === "idle" && "bg-blue-50/50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800 text-blue-800 dark:text-blue-400",
-                      selectedItem.data.status === "maintenance" && "bg-amber-50/50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800 text-amber-800 dark:text-amber-400",
-                      selectedItem.data.status === "offline" && "bg-slate-50/50 border-slate-200 dark:bg-slate-800/50 dark:border-slate-700 text-slate-800 dark:text-slate-400"
-                    )}
-                  >
-                    <span className="text-xs font-semibold">Trạng thái</span>
-                    <span className="text-xs font-bold uppercase">
-                      {selectedItem.data.status === "running" && "Đang chạy"}
-                      {selectedItem.data.status === "idle" && "Sẵn sàng"}
-                      {selectedItem.data.status === "maintenance" && "Bảo trì"}
-                      {selectedItem.data.status === "offline" && "Mất kết nối"}
-                    </span>
-                  </div>
-
-                  {/* Driver Box */}
                   {selectedItem.data.currentDriverName ? (
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 rounded-xl space-y-2">
+                    <div className="sf-inset p-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-slate-500">Tài xế hiện tại</span>
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                        <span className="text-[12.5px] font-semibold text-sf-text-muted">
+                          Tài xế hiện tại
+                        </span>
+                        <span className="text-[12.5px] font-bold text-sf-text">
                           {selectedItem.data.currentDriverName}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
-                        <span className="text-[10px] text-slate-500">Gọi tài xế</span>
-                        <div className="flex gap-1.5">
-                          <button className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition">
-                            <Phone className="w-3.5 h-3.5" />
-                          </button>
-                          <button className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition">
-                            <MessageSquare className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                      <div className="mt-2.5 flex items-center justify-between border-t border-[var(--sf-border-light)] pt-2.5">
+                        <span className="text-[12px] text-sf-text-muted">Liên hệ nhanh</span>
+                        <span className="flex gap-1">
+                          <IconButton
+                            icon={Phone}
+                            label="Gọi tài xế — chưa có số điện thoại"
+                            size="sm"
+                            tone="success"
+                            disabled
+                          />
+                          <IconButton
+                            icon={MessageSquare}
+                            label="Nhắn tin"
+                            size="sm"
+                            tone="primary"
+                            disabled
+                          />
+                        </span>
                       </div>
+                      <p className="mt-2 text-[11.5px] text-sf-text-muted">
+                        Gọi và nhắn tin chưa khả dụng vì API xe chưa cung cấp thông tin liên hệ.
+                      </p>
                     </div>
                   ) : (
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-800 text-center rounded-xl text-xs text-slate-400">
+                    <div className="rounded-[var(--sf-r-md)] border border-dashed border-[var(--sf-border-strong)] p-3 text-center text-[12.5px] text-sf-text-muted">
                       Chưa giao xe cho tài xế nào
                     </div>
                   )}
 
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 rounded-xl">
-                      <span className="text-[10px] text-slate-500 block">Tốc độ hiện tại</span>
-                      <span className="text-sm font-bold text-slate-900 dark:text-white">
-                        {selectedItem.data.currentSpeed} km/h
-                      </span>
-                    </div>
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 rounded-xl">
-                      <span className="text-[10px] text-slate-500 block">Cảnh báo gần đây</span>
-                      <span className="text-sm font-bold text-rose-500">
-                        {selectedItem.data.totalAlerts} lần
-                      </span>
-                    </div>
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 rounded-xl">
-                      <span className="text-[10px] text-slate-500 block">Tổng km hoạt động</span>
-                      <span className="text-sm font-bold text-slate-900 dark:text-white">
-                        {selectedItem.data.totalKm} km
-                      </span>
-                    </div>
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 rounded-xl">
-                      <span className="text-[10px] text-slate-500 block">Số chuyến đã đi</span>
-                      <span className="text-sm font-bold text-slate-900 dark:text-white">
-                        {selectedItem.data.totalTrips} chuyến
-                      </span>
-                    </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <MetricBox
+                      icon={Gauge}
+                      label="Tốc độ hiện tại"
+                      value={`${selectedItem.data.currentSpeed} km/h`}
+                    />
+                    <MetricBox
+                      icon={AlertTriangle}
+                      label="Cảnh báo"
+                      value={`${selectedItem.data.totalAlerts} lần`}
+                      danger={selectedItem.data.totalAlerts > 0}
+                    />
+                    <MetricBox
+                      icon={RouteIcon}
+                      label="Tổng km"
+                      value={`${selectedItem.data.totalKm} km`}
+                    />
+                    <MetricBox
+                      icon={Truck}
+                      label="Số chuyến"
+                      value={`${selectedItem.data.totalTrips}`}
+                    />
+                  </div>
+                  <div className="sf-inset px-3.5 py-1">
+                    <InfoRow
+                      label="Vị trí GPS"
+                      value={selectedItem.data.lat !== null && selectedItem.data.lng !== null
+                        ? `${selectedItem.data.lat.toFixed(5)}, ${selectedItem.data.lng.toFixed(5)}`
+                        : "Chưa có dữ liệu GPS"}
+                    />
+                    <InfoRow
+                      label="Cập nhật GPS"
+                      value={selectedItem.data.lastUpdated
+                        ? new Date(selectedItem.data.lastUpdated).toLocaleString("vi-VN")
+                        : "Chưa có dữ liệu"}
+                    />
                   </div>
                 </>
               )}
 
-              {/* FLOOD POINT CONTENT */}
+              {/* --- Điểm ngập --- */}
               {selectedItem.type === "flood" && (
                 <>
                   <div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white bg-purple-500">
-                      ĐIỂM NGẬP LỤT
-                    </span>
-                    <h4 className="text-lg font-bold text-slate-950 dark:text-white leading-tight mt-2">
+                    <Badge tone="accent" solid>
+                      Điểm ngập lụt
+                    </Badge>
+                    <h4 className="mt-2.5 text-[17px] font-extrabold leading-tight tracking-tight text-sf-text">
                       {selectedItem.data.location}
                     </h4>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 rounded-xl space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Mức độ ngập:</span>
-                      <span className="font-bold text-red-500">Ngập nặng</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Số tài xế báo cáo:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {selectedItem.data.reportCount} người
+                    <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-sf-text-muted">
+                      <MapPin className="h-3 w-3" />
+                      <span className="sf-tnum font-mono">
+                        {selectedItem.data.lat.toFixed(5)}, {selectedItem.data.lng.toFixed(5)}
                       </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Độ tin cậy:</span>
-                      <span className="font-bold text-emerald-500">{selectedItem.data.confidence}%</span>
-                    </div>
+                    </p>
                   </div>
 
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 rounded-xl text-xs space-y-1">
-                    <span className="text-slate-500 block font-medium">Xe bị ảnh hưởng:</span>
-                    <p className="text-slate-800 dark:text-slate-200">
-                      Có {selectedItem.data.affectedVehicles} phương tiện gần đó.
-                    </p>
+                  <div className="sf-inset px-3.5 py-1">
+                    <InfoRow
+                      label="Mức độ ngập"
+                      value={
+                        <Badge tone={toneOf(selectedItem.data.severity)} size="sm">
+                          {FLOOD_SEVERITY_LABELS[selectedItem.data.severity]}
+                        </Badge>
+                      }
+                    />
+                    <InfoRow
+                      label="Số báo cáo"
+                      value={`${selectedItem.data.reportCount} người`}
+                    />
+                    <InfoRow
+                      label="Độ tin cậy"
+                      value={
+                        <span style={{ color: "var(--sf-success)" }}>
+                          {selectedItem.data.confidence}%
+                        </span>
+                      }
+                    />
+                    <InfoRow
+                      label="Xe bị ảnh hưởng"
+                      value={`${selectedItem.data.affectedVehicles} phương tiện`}
+                    />
                   </div>
                 </>
               )}
 
-              {/* INCIDENT CONTENT */}
+              {/* --- Sự cố --- */}
               {selectedItem.type === "incident" && (
                 <>
                   <div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white bg-red-600 animate-pulse">
-                      SOS KHẨN CẤP
-                    </span>
-                    <h4 className="text-lg font-bold text-slate-950 dark:text-white leading-tight mt-2">
-                      Sự cố: {selectedItem.data.vehiclePlate}
+                    <Badge tone="danger" solid icon={Siren}>
+                      SOS khẩn cấp
+                    </Badge>
+                    <h4 className="mt-2.5 text-[17px] font-extrabold leading-tight tracking-tight text-sf-text">
+                      Sự cố xe {selectedItem.data.vehiclePlate}
                     </h4>
                   </div>
 
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 rounded-xl space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Tài xế:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{selectedItem.data.driverName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Vị trí sự cố:</span>
-                      <span className="font-bold text-slate-900 dark:text-white text-right">{selectedItem.data.location}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Trạng thái xử lý:</span>
-                      <span className="font-bold text-red-500">Chưa tiếp nhận</span>
-                    </div>
+                  <div className="sf-inset px-3.5 py-1">
+                    <InfoRow label="Tài xế" value={selectedItem.data.driverName} />
+                    <InfoRow label="Vị trí" value={selectedItem.data.location} />
+                    <InfoRow
+                      label="Trạng thái"
+                      value={
+                        <Badge tone={toneOf(selectedItem.data.status)} size="sm">
+                          {INCIDENT_STATUS_LABELS[selectedItem.data.status]}
+                        </Badge>
+                      }
+                    />
                   </div>
 
-                  {/* Actions */}
-                  <div className="pt-2">
-                    <button className="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md shadow-red-500/20 transition flex items-center justify-center gap-1.5 cursor-pointer">
-                      <Siren className="w-4 h-4 animate-bounce" /> TIẾP NHẬN SỰ CỐ NGAY
-                    </button>
-                  </div>
+                  <Button
+                    block
+                    variant="danger"
+                    size="sm"
+                    icon={Siren}
+                    loading={acceptingIncidentId === selectedItem.data.id}
+                    disabled={selectedItem.data.status !== "open" || !canAcceptIncident}
+                    title={!canAcceptIncident
+                      ? "Chỉ điều phối viên được tiếp nhận sự cố tại màn hình này"
+                      : undefined}
+                    onClick={() => void handleAcceptIncident(selectedItem.data)}
+                  >
+                    {!canAcceptIncident
+                      ? "Không có quyền tiếp nhận"
+                      : selectedItem.data.status !== "open"
+                        ? "Sự cố đã được tiếp nhận"
+                        : "Tiếp nhận sự cố ngay"}
+                  </Button>
                 </>
               )}
             </div>
-          </motion.div>
+          </motion.aside>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function MetricBox({
+  icon: Icon,
+  label,
+  value,
+  danger,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  danger?: boolean;
+}) {
+  return (
+    <div className="sf-inset p-3">
+      <span className="flex items-center gap-1.5 text-[12px] font-semibold text-sf-text-muted">
+        <Icon className="h-3 w-3" />
+        {label}
+      </span>
+      <span
+        className="sf-metric mt-1.5 block text-[15px]"
+        style={danger ? { color: "var(--sf-danger)" } : undefined}
+      >
+        {value}
+      </span>
     </div>
   );
 }

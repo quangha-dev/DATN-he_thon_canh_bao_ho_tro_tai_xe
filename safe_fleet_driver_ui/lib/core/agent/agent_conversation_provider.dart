@@ -22,7 +22,7 @@ class AgentConversationState {
       AgentMessage(
         role: 'assistant',
         content:
-            'Xin chào! Tôi có thể hỗ trợ dẫn đường, đọc cảnh báo, báo ngập và xử lý tình huống khẩn cấp.',
+            'Xin chào! Tôi có thể tra cứu chuyến đã đi, chuyến chưa đi, chi tiết chuyến và báo cáo tháng từ server SafeFleet.',
       ),
     ],
     this.busy = false,
@@ -30,6 +30,8 @@ class AgentConversationState {
     this.wakeEnabled = false,
     this.engaged = false,
     this.transcript = '',
+    this.clientActions = const [],
+    this.confirmationRequest,
     this.error,
   });
 
@@ -39,6 +41,8 @@ class AgentConversationState {
   final bool wakeEnabled;
   final bool engaged;
   final String transcript;
+  final List<Map<String, dynamic>> clientActions;
+  final Map<String, dynamic>? confirmationRequest;
   final String? error;
 
   AgentConversationState copyWith({
@@ -48,6 +52,9 @@ class AgentConversationState {
     bool? wakeEnabled,
     bool? engaged,
     String? transcript,
+    List<Map<String, dynamic>>? clientActions,
+    Map<String, dynamic>? confirmationRequest,
+    bool clearConfirmation = false,
     String? error,
     bool clearError = false,
   }) => AgentConversationState(
@@ -57,6 +64,10 @@ class AgentConversationState {
     wakeEnabled: wakeEnabled ?? this.wakeEnabled,
     engaged: engaged ?? this.engaged,
     transcript: transcript ?? this.transcript,
+    clientActions: clientActions ?? this.clientActions,
+    confirmationRequest: clearConfirmation
+        ? null
+        : (confirmationRequest ?? this.confirmationRequest),
     error: clearError ? null : (error ?? this.error),
   );
 }
@@ -182,6 +193,14 @@ class AgentConversationController extends Notifier<AgentConversationState> {
           AgentMessage(role: 'assistant', content: answer),
         ],
         busy: false,
+        clientActions: (response['clientActions'] as List<dynamic>? ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList(),
+        confirmationRequest: response['confirmationRequest'] is Map
+            ? Map<String, dynamic>.from(response['confirmationRequest'] as Map)
+            : null,
+        clearConfirmation: response['confirmationRequest'] == null,
       );
       await _tts.setLanguage('vi-VN');
       await _tts.setSpeechRate(0.48);
@@ -191,6 +210,62 @@ class AgentConversationController extends Notifier<AgentConversationState> {
     } finally {
       if (state.wakeEnabled) _scheduleWakeRestart();
     }
+  }
+
+  void consumeClientActions() {
+    if (state.clientActions.isNotEmpty) {
+      state = state.copyWith(clientActions: const []);
+    }
+  }
+
+  Future<void> confirmPendingAction() async {
+    final pending = state.confirmationRequest;
+    if (pending == null || state.busy) return;
+    final tripId = (pending['tripId'] as num?)?.toInt();
+    final action = pending['action']?.toString();
+    if (tripId == null || action == null) {
+      state = state.copyWith(
+        error: 'Yêu cầu xác nhận không hợp lệ.',
+        clearConfirmation: true,
+      );
+      return;
+    }
+    state = state.copyWith(busy: true, clearError: true);
+    try {
+      final result = await ref
+          .read(driverRepositoryProvider)
+          .executeConfirmedTripAction(
+            tripId: tripId,
+            action: action,
+            note: pending['note']?.toString(),
+          );
+      final status = result['status']?.toString();
+      final answer = status == 'QUEUED_OFFLINE'
+          ? 'Đã lưu thao tác vào hàng đợi; ứng dụng sẽ đồng bộ khi có mạng.'
+          : 'Đã thực hiện thao tác ${action.toLowerCase()} cho chuyến #$tripId.';
+      state = state.copyWith(
+        messages: [
+          ...state.messages,
+          AgentMessage(role: 'assistant', content: answer),
+        ],
+        busy: false,
+        clearConfirmation: true,
+      );
+      await _tts.speak(answer);
+    } catch (error) {
+      state = state.copyWith(busy: false, error: error.toString());
+    }
+  }
+
+  void cancelPendingAction() {
+    if (state.confirmationRequest == null) return;
+    state = state.copyWith(
+      messages: [
+        ...state.messages,
+        const AgentMessage(role: 'assistant', content: 'Đã hủy thao tác.'),
+      ],
+      clearConfirmation: true,
+    );
   }
 
   Future<void> dismissOverlay() async {

@@ -132,9 +132,9 @@ class CabinCameraScreen extends ConsumerWidget {
 
     return SfAlertBanner(
       level: SfAlertLevel.calm,
-      title:
-          'Tỉnh táo · nguy cơ ${score.toStringAsFixed(1)}/10',
-      message: metrics?.statusText ?? 'Camera đang đo, chưa phát hiện dấu hiệu.',
+      title: 'Tỉnh táo · nguy cơ ${score.toStringAsFixed(1)}/10',
+      message:
+          metrics?.statusText ?? 'Camera đang đo, chưa phát hiện dấu hiệu.',
       source: source,
     );
   }
@@ -231,18 +231,19 @@ class _CameraPanel extends StatelessWidget {
               ),
             ),
           if (enabled) ...[
-            Center(
-              child: Container(
-                width: 184,
-                height: 238,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: locked
-                        ? SfColors.mint
-                        : SfColors.darkTextMuted,
-                    width: 2,
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  margin: const EdgeInsets.all(SfSpace.x12),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: locked
+                          ? SfColors.mint.withValues(alpha: 0.75)
+                          : SfColors.darkTextMuted.withValues(alpha: 0.45),
+                      width: 2,
+                    ),
+                    borderRadius: SfRadius.cardR,
                   ),
-                  borderRadius: const BorderRadius.all(Radius.circular(96)),
                 ),
               ),
             ),
@@ -273,12 +274,10 @@ class _CameraPanel extends StatelessWidget {
                 ),
                 child: Text(
                   locked
-                      ? 'Đã khoá khuôn mặt. Giữ mắt trong khung.'
-                      : 'Đưa khuôn mặt vào giữa khung hình.',
+                      ? 'Đã phát hiện khuôn mặt · không cần căn giữa.'
+                      : 'Đưa toàn bộ khuôn mặt vào vùng camera.',
                   textAlign: TextAlign.center,
-                  style: SfType.body.copyWith(
-                    color: SfColors.darkTextPrimary,
-                  ),
+                  style: SfType.body.copyWith(color: SfColors.darkTextPrimary),
                 ),
               ),
             ),
@@ -315,9 +314,7 @@ class _StatusPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            enabled
-                ? (metrics?.statusText ?? message)
-                : 'Giám sát đang tắt',
+            enabled ? (metrics?.statusText ?? message) : 'Giám sát đang tắt',
             style: SfType.titleCard.copyWith(color: SfColors.darkTextPrimary),
           ),
           if (enabled && !calibrated) ...[
@@ -384,9 +381,7 @@ class _ScorePanel extends StatelessWidget {
                 const SizedBox(height: SfSpace.x12),
                 Text(
                   'Dự báo sau 2 giây ${predicted.toStringAsFixed(1)}',
-                  style: SfType.mono.copyWith(
-                    color: SfColors.darkTextPrimary,
-                  ),
+                  style: SfType.mono.copyWith(color: SfColors.darkTextPrimary),
                 ),
                 const SizedBox(height: SfSpace.x4),
                 Text(

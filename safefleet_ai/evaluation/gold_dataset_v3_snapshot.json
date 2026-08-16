@@ -1,0 +1,201 @@
+{
+  "snapshot_id": "driver001-postgres-20260815T082859+0700",
+  "captured_at": "2026-08-15T08:28:59+07:00",
+  "database": "PostgreSQL 17/safefleet",
+  "actor": {
+    "username": "driver001",
+    "driver_id": 1,
+    "vehicle_plate": "001"
+  },
+  "trips": [
+    {
+      "id": 1,
+      "code": "DEMO-TRIP-001",
+      "status": "COMPLETED",
+      "progress": 100,
+      "risk": "HIGH",
+      "date": "2026-08-10",
+      "route": "Ha Dong -> Kieu Mai",
+      "checklist": false,
+      "next_action": "NONE"
+    },
+    {
+      "id": 2,
+      "code": "DEMO-TRIP-002",
+      "status": "COMPLETED",
+      "progress": 100,
+      "risk": "LOW",
+      "date": "2026-08-11",
+      "route": "Cau Giay -> Phu Dien",
+      "checklist": false,
+      "next_action": "NONE"
+    },
+    {
+      "id": 3,
+      "code": "DEMO-TRIP-003",
+      "status": "COMPLETED",
+      "progress": 100,
+      "risk": "LOW",
+      "date": "2026-08-12",
+      "route": "My Dinh -> Ho Tung Mau",
+      "checklist": false,
+      "next_action": "NONE"
+    },
+    {
+      "id": 4,
+      "code": "DEMO-TRIP-004",
+      "status": "COMPLETED",
+      "progress": 100,
+      "risk": "LOW",
+      "date": "2026-08-13",
+      "route": "Nguyen Trai -> Pham Van Dong",
+      "checklist": false,
+      "next_action": "NONE"
+    },
+    {
+      "id": 5,
+      "code": "DEMO-TRIP-005",
+      "status": "IN_PROGRESS",
+      "progress": 65,
+      "risk": "LOW",
+      "date": "2026-08-14",
+      "route": "Dai lo Thang Long -> Cau Giay",
+      "checklist": false,
+      "next_action": "PAUSE_OR_COMPLETE"
+    },
+    {
+      "id": 6,
+      "code": "DEMO-TRIP-006",
+      "status": "IN_PROGRESS",
+      "progress": 70,
+      "risk": "HIGH",
+      "date": "2026-08-15",
+      "route": "Ha Dong -> Kieu Mai",
+      "checklist": false,
+      "next_action": "PAUSE_OR_COMPLETE"
+    },
+    {
+      "id": 7,
+      "code": "DEMO-TRIP-007",
+      "status": "IN_PROGRESS",
+      "progress": 75,
+      "risk": "LOW",
+      "date": "2026-08-16",
+      "route": "Cau Giay -> Phu Dien",
+      "checklist": false,
+      "next_action": "PAUSE_OR_COMPLETE"
+    },
+    {
+      "id": 8,
+      "code": "DEMO-TRIP-008",
+      "status": "ASSIGNED",
+      "progress": 0,
+      "risk": "LOW",
+      "date": "2026-08-17",
+      "route": "My Dinh -> Ho Tung Mau",
+      "checklist": false,
+      "next_action": "ACCEPT"
+    },
+    {
+      "id": 9,
+      "code": "DEMO-TRIP-009",
+      "status": "IN_PROGRESS",
+      "progress": 5,
+      "risk": "LOW",
+      "date": "2026-08-18",
+      "route": "Nguyen Trai -> Pham Van Dong",
+      "checklist": true,
+      "next_action": "PAUSE_OR_COMPLETE",
+      "actual_start": "2026-08-15T04:18:31.856854"
+    },
+    {
+      "id": 10,
+      "code": "DEMO-TRIP-010",
+      "status": "ASSIGNED",
+      "progress": 0,
+      "risk": "LOW",
+      "date": "2026-08-19",
+      "route": "Dai lo Thang Long -> Cau Giay",
+      "checklist": false,
+      "next_action": "ACCEPT"
+    },
+    {
+      "id": 11,
+      "code": "TRIP-20260815040920-1727",
+      "status": "COMPLETED",
+      "progress": 100,
+      "risk": "LOW",
+      "planned_start": "2026-08-16T04:06:00",
+      "actual_start": "2026-08-15T04:16:58.312150",
+      "estimated_end": "2026-08-17T04:06:00",
+      "actual_end": "2026-08-15T04:18:00.774751",
+      "route": "Quận Cầu Giấy -> Hồ Tùng Mậu",
+      "checklist": true,
+      "next_action": "NONE"
+    }
+  ],
+  "status_distribution": {
+    "COMPLETED": 5,
+    "IN_PROGRESS": 4,
+    "ASSIGNED": 2
+  },
+  "derived_trip_metrics": {
+    "total": 11,
+    "active_average_progress_percent": 53.75,
+    "active_high_risk_share_percent": 25.0,
+    "completed_share_exact_percent": 45.45,
+    "active_share_exact_percent": 36.36,
+    "assigned_share_exact_percent": 18.18,
+    "upcoming_gap_days": 2
+  },
+  "current_assignment": {
+    "trip_id": 5,
+    "code": "DEMO-TRIP-005",
+    "checklist": false
+  },
+  "current_session": {
+    "id": 2,
+    "trip_id": 9,
+    "status": "ACTIVE",
+    "continuous_minutes": 0,
+    "total_minutes": 0
+  },
+  "safety": {
+    "status": "HIGH_RISK",
+    "score": 24,
+    "today_minutes": 1,
+    "continuous_minutes": 0,
+    "remaining_minutes": 240,
+    "total_alerts": 21
+  },
+  "monthly_2026_08": {
+    "total_trips": 11,
+    "completed_trips": 5,
+    "completion_rate": 45,
+    "on_time_trips": 1,
+    "on_time_rate": 20,
+    "distance_km": 2.4,
+    "alerts": 21,
+    "critical_alerts": 3,
+    "active_days": 9,
+    "alert_free_days": 7,
+    "achievement": "BRONZE",
+    "day_2026_08_14_alerts": 15,
+    "day_2026_08_15_alerts": 6
+  },
+  "notifications": {
+    "total": 6,
+    "unread": 6,
+    "type": "AI_ALERT",
+    "content": "DROWSINESS - HIGH",
+    "created_date": "2026-08-15"
+  },
+  "warehouse_trip_11": {
+    "issue_number": "PXK-20260814-717",
+    "status": "ISSUED",
+    "requested": 10,
+    "issued": 10,
+    "delivered": 10,
+    "fulfillment_percent": 100
+  }
+}

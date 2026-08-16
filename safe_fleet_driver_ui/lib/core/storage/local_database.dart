@@ -13,9 +13,22 @@ class LocalDatabase {
     if (_database != null) return _database!;
     _database = await openDatabase(
       join(await getDatabasesPath(), databaseName),
-      version: 1,
+      version: 3,
       onCreate: (db, _) async {
-        await db.execute('''
+        await _createBaseTables(db);
+        await _createDrivingLogTables(db);
+        await _createDocumentOcrQueueTables(db);
+      },
+      onUpgrade: (db, oldVersion, _) async {
+        if (oldVersion < 2) await _createDrivingLogTables(db);
+        if (oldVersion < 3) await _createDocumentOcrQueueTables(db);
+      },
+    );
+    return _database!;
+  }
+
+  Future<void> _createBaseTables(Database db) async {
+    await db.execute('''
           CREATE TABLE offline_queue (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             event_id TEXT NOT NULL UNIQUE,
@@ -27,16 +40,70 @@ class LocalDatabase {
             created_at TEXT NOT NULL
           )
         ''');
-        await db.execute('''
+    await db.execute('''
           CREATE TABLE cached_documents (
             cache_key TEXT PRIMARY KEY,
             payload TEXT NOT NULL,
             updated_at TEXT NOT NULL
           )
         ''');
-      },
-    );
-    return _database!;
+  }
+
+  Future<void> _createDrivingLogTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS driving_log_entries (
+        id TEXT PRIMARY KEY,
+        image_path TEXT NOT NULL,
+        original_image_path TEXT NOT NULL,
+        quality_level TEXT NOT NULL,
+        quality_score INTEGER NOT NULL,
+        quality_issues TEXT NOT NULL,
+        ocr_text TEXT NOT NULL,
+        field_confidences TEXT NOT NULL,
+        voucher_date TEXT,
+        driver_name TEXT NOT NULL DEFAULT '',
+        assistant_name TEXT NOT NULL DEFAULT '',
+        vehicle_plate TEXT NOT NULL DEFAULT '',
+        project_address TEXT NOT NULL DEFAULT '',
+        trip_count INTEGER,
+        meal_cost INTEGER,
+        rule_cost INTEGER,
+        tyre_cost INTEGER,
+        other_cost INTEGER,
+        manager_confirmation TEXT NOT NULL DEFAULT '',
+        voucher_number TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'DRAFT',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_driving_log_voucher_date
+      ON driving_log_entries(voucher_date DESC)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_driving_log_status
+      ON driving_log_entries(status)
+    ''');
+  }
+
+  Future<void> _createDocumentOcrQueueTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS document_ocr_queue (
+        entry_id TEXT PRIMARY KEY,
+        image_path TEXT NOT NULL,
+        server_job_id INTEGER,
+        status TEXT NOT NULL DEFAULT 'PENDING_UPLOAD',
+        attempts INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_document_ocr_queue_status
+      ON document_ocr_queue(status, created_at)
+    ''');
   }
 
   Future<void> enqueue({

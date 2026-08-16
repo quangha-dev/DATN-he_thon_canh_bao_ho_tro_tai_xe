@@ -24,6 +24,14 @@ interface CommandSearchProps {
   onClose: () => void;
 }
 
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded border border-[var(--sf-border)] bg-[var(--sf-bg-card)] px-1.5 py-0.5 font-mono text-[12px] font-bold text-sf-text-secondary">
+      {children}
+    </kbd>
+  );
+}
+
 type SearchResultItem =
   | { type: "vehicle"; id: string; title: string; subtitle: string; path: string }
   | { type: "driver"; id: string; title: string; subtitle: string; path: string }
@@ -224,46 +232,48 @@ export default function CommandSearch({ isOpen, onClose }: CommandSearchProps) {
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-[120] flex items-start justify-center px-4 pt-[12vh]">
+          {/* Lớp phủ */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-[var(--sf-bg-overlay)] backdrop-blur-[3px]"
             onClick={onClose}
           />
 
-          {/* Modal Container */}
+          {/* Hộp thoại */}
           <motion.div
             ref={containerRef}
-            initial={{ opacity: 0, scale: 0.97, y: -8 }}
+            initial={{ opacity: 0, scale: 0.97, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden z-10"
+            exit={{ opacity: 0, scale: 0.97, y: -10 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="sf-glass-panel relative z-10 w-full max-w-xl overflow-hidden"
           >
-            {/* Search Input Header */}
-            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-100 dark:border-slate-800">
-              <Search className="w-5 h-5 text-slate-400" />
+            {/* Ô nhập */}
+            <div className="flex items-center gap-3 border-b border-[var(--sf-border)] px-4 py-3.5">
+              <Search className="h-[18px] w-[18px] flex-shrink-0 text-[var(--sf-primary)]" />
               <input
                 ref={inputRef}
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Tìm xe, tài xế, chuyến đi, cảnh báo..."
-                className="flex-1 bg-transparent border-none text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none text-sm"
+                placeholder="Tìm xe, tài xế, chuyến đi, cảnh báo…"
+                className="flex-1 border-none bg-transparent text-[14px] font-medium text-sf-text placeholder:text-sf-text-muted focus:outline-none"
               />
               <button
+                type="button"
                 onClick={onClose}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                aria-label="Đóng"
+                className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)] text-sf-text-muted transition-colors hover:bg-[var(--sf-bg-inset)] hover:text-sf-text cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Results body */}
-            <div className="max-h-[360px] overflow-y-auto p-2">
+            {/* Kết quả */}
+            <div className="max-h-[24rem] overflow-y-auto p-2">
               {results.length > 0 ? (
                 <div className="space-y-0.5">
                   {results.map((item, idx) => {
@@ -272,89 +282,89 @@ export default function CommandSearch({ isOpen, onClose }: CommandSearchProps) {
                       <button
                         key={`${item.type}-${item.id}`}
                         onClick={() => handleSelect(item)}
+                        onMouseEnter={() => setSelectedIndex(idx)}
                         className={cn(
-                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150 group",
-                          active
-                            ? "bg-blue-600 text-white"
-                            : "hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                          "group flex w-full items-center gap-3 rounded-[var(--sf-r-sm)] px-3 py-2.5 text-left transition-colors duration-[var(--sf-dur-fast)] cursor-pointer",
+                          active ? "bg-[var(--sf-primary-soft)]" : "hover:bg-[var(--sf-bg-inset)]"
                         )}
                       >
-                        {/* Icon based on type */}
-                        <div
-                          className={cn(
-                            "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-                            active
-                              ? "bg-blue-500 text-white"
-                              : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200"
-                          )}
+                        <span
+                          className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)] transition-colors"
+                          style={{
+                            background: active ? "var(--sf-primary)" : "var(--sf-bg-inset)",
+                            color: active ? "var(--sf-primary-contrast)" : "var(--sf-text-muted)",
+                          }}
                         >
-                          {item.type === "vehicle" && <Truck className="w-4.5 h-4.5" />}
-                          {item.type === "driver" && <User className="w-4.5 h-4.5" />}
-                          {item.type === "trip" && <Navigation className="w-4.5 h-4.5" />}
-                          {item.type === "alert" && <AlertTriangle className="w-4.5 h-4.5" />}
-                          {item.type === "incident" && <Siren className="w-4.5 h-4.5" />}
-                        </div>
+                          {item.type === "vehicle" && <Truck className="h-4 w-4" />}
+                          {item.type === "driver" && <User className="h-4 w-4" />}
+                          {item.type === "trip" && <Navigation className="h-4 w-4" />}
+                          {item.type === "alert" && <AlertTriangle className="h-4 w-4" />}
+                          {item.type === "incident" && <Siren className="h-4 w-4" />}
+                        </span>
 
-                        {/* Text */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate leading-none mb-0.5">
-                            {item.title}
-                          </p>
-                          <p
+                        <span className="min-w-0 flex-1">
+                          <span
                             className={cn(
-                              "text-xs truncate leading-none",
-                              active ? "text-blue-100" : "text-slate-400 dark:text-slate-500"
+                              "block truncate text-[13px] font-bold leading-tight",
+                              active ? "text-[var(--sf-primary)]" : "text-sf-text"
                             )}
                           >
+                            {item.title}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[12.5px] leading-tight text-sf-text-muted">
                             {item.subtitle}
-                          </p>
-                        </div>
+                          </span>
+                        </span>
 
-                        {/* Keyboard action hint */}
                         {active && (
-                          <CornerDownLeft className="w-4 h-4 text-blue-200 flex-shrink-0 animate-pulse" />
+                          <CornerDownLeft className="h-4 w-4 flex-shrink-0 text-[var(--sf-primary)]" />
                         )}
                       </button>
                     );
                   })}
                 </div>
               ) : query.trim() ? (
-                <div className="text-center py-8 text-slate-400 dark:text-slate-500">
-                  Không tìm thấy kết quả nào cho &quot;<span className="font-semibold">{query}</span>&quot;
-                </div>
+                <p className="py-10 text-center text-[13px] text-sf-text-muted">
+                  Không tìm thấy kết quả cho &quot;
+                  <span className="font-bold text-sf-text-secondary">{query}</span>&quot;
+                </p>
               ) : (
-                <div className="py-6 px-4 text-center">
-                  <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
-                    Lối tắt tìm kiếm nhanh
-                  </p>
-                  <div className="flex justify-center gap-6 text-[11px] text-slate-400 dark:text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <Truck className="w-3.5 h-3.5" /> Xe
+                <div className="px-4 py-7 text-center">
+                  <p className="sf-eyebrow mb-3">Phạm vi tìm kiếm</p>
+                  <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-[12.5px] font-semibold text-sf-text-muted">
+                    <span className="flex items-center gap-1.5">
+                      <Truck className="h-3.5 w-3.5" /> Phương tiện
                     </span>
-                    <span className="flex items-center gap-1">
-                      <User className="w-3.5 h-3.5" /> Tài xế
+                    <span className="flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5" /> Tài xế
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Navigation className="w-3.5 h-3.5" /> Chuyến đi
+                    <span className="flex items-center gap-1.5">
+                      <Navigation className="h-3.5 w-3.5" /> Chuyến đi
                     </span>
-                    <span className="flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5" /> Cảnh báo
+                    <span className="flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5" /> Cảnh báo
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Siren className="w-3.5 h-3.5" /> Sự cố
+                    <span className="flex items-center gap-1.5">
+                      <Siren className="h-3.5 w-3.5" /> Sự cố
                     </span>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Footer / Instructions */}
-            <div className="px-4 py-2 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span>Di chuyển: <kbd className="bg-white dark:bg-slate-800 px-1 py-0.5 rounded border dark:border-slate-700">↑↓</kbd></span>
-                <span>Chọn: <kbd className="bg-white dark:bg-slate-800 px-1 py-0.5 rounded border dark:border-slate-700">Enter</kbd></span>
-              </div>
-              <span>Đóng: <kbd className="bg-white dark:bg-slate-800 px-1 py-0.5 rounded border dark:border-slate-700">Esc</kbd></span>
+            {/* Chân hộp thoại */}
+            <div className="flex items-center justify-between border-t border-[var(--sf-border)] bg-[var(--sf-bg-inset)] px-4 py-2.5 text-[12.5px] font-semibold text-sf-text-muted">
+              <span className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5">
+                  <Kbd>↑↓</Kbd> Di chuyển
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Kbd>Enter</Kbd> Chọn
+                </span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Kbd>Esc</Kbd> Đóng
+              </span>
             </div>
           </motion.div>
         </div>

@@ -1,17 +1,75 @@
+import json
+import os
+
 from fastapi.testclient import TestClient
 
-import json
+os.environ.setdefault(
+    "AGENT_ENCRYPTION_SECRET",
+    "test-suite-encryption-secret-with-at-least-32-characters",
+)
+os.environ.setdefault("AI_INTERNAL_TOKEN", "test-internal-token")
 
-from service.main import Intent, app
+from service.intent.models import Intent
+from service.main import app
 
 
-client = TestClient(app)
+client = TestClient(
+    app,
+    headers={"X-SafeFleet-Service-Token": "test-internal-token"},
+)
 
 
 def test_health() -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "UP"}
+
+
+def test_ocr_rejects_non_image_upload() -> None:
+    response = client.post(
+        "/ocr/driving-log",
+        files={"file": ("payload.txt", b"not an image", "text/plain")},
+    )
+    assert response.status_code == 415
+
+
+def test_ocr_returns_structured_server_result(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "service.ocr.service.recognize_document",
+        lambda _content, _suffix: {
+            "engine": "test-engine",
+            "elapsed_ms": 123,
+            "fields": {
+                "project_address": "Kết quả OCR thử nghiệm",
+                "voucher_date": "2026-07-05",
+                "voucher_number": "77029",
+                "vehicle_plate": "29C64684",
+                "driver_name": "Nguyễn Văn An",
+                "trip_count": 1,
+                "raw_text": "PHIẾU XUẤT KHO",
+                "confidences": {"voucher_date": 0.93},
+            },
+        },
+    )
+    response = client.post(
+        "/ocr/driving-log",
+        files={"file": ("voucher.jpg", b"fake-jpeg", "image/jpeg")},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "engine": "test-engine",
+        "elapsed_ms": 123,
+        "fields": {
+            "project_address": "Kết quả OCR thử nghiệm",
+            "voucher_date": "2026-07-05",
+            "voucher_number": "77029",
+            "vehicle_plate": "29C64684",
+            "driver_name": "Nguyễn Văn An",
+            "trip_count": 1,
+            "raw_text": "PHIẾU XUẤT KHO",
+            "confidences": {"voucher_date": 0.93},
+        },
+    }
 
 
 def test_sos_requires_confirmation() -> None:
@@ -94,9 +152,7 @@ def test_unknown_uses_structured_openai_fallback_without_executing_action(
 
     monkeypatch.setenv("OPENAI_ENABLED", "true")
     monkeypatch.setenv("OPENAI_API_KEY", "test-api-key-not-real")
-    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.test/v1")
-    monkeypatch.setenv("OPENAI_MODEL", "gpt-5.6-luna")
-    monkeypatch.setattr("service.main.urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr("service.providers.openai.urllib.request.urlopen", fake_urlopen)
 
     response = client.post(
         "/intent/classify",
@@ -110,9 +166,10 @@ def test_unknown_uses_structured_openai_fallback_without_executing_action(
         "requires_confirmation": True,
         "source": "OPENAI",
     }
-    assert captured["url"] == "https://api.openai.test/v1/responses"
+    assert captured["url"] == "https://api.openai.com/v1/responses"
     assert captured["authorization"] == "Bearer test-api-key-not-real"
     assert captured["payload"]["store"] is False
+    assert captured["payload"]["model"] == "gpt-4o-mini"
     assert captured["payload"]["text"]["format"]["strict"] is True
 
 
@@ -123,7 +180,7 @@ def test_openai_failure_falls_back_to_safe_unknown(monkeypatch) -> None:
     def fail(*_args, **_kwargs):
         raise TimeoutError
 
-    monkeypatch.setattr("service.main.urllib.request.urlopen", fail)
+    monkeypatch.setattr("service.providers.openai.urllib.request.urlopen", fail)
     response = client.post("/intent/classify", json={"transcript": "Mở nhạc"})
 
     assert response.status_code == 200

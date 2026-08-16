@@ -11,6 +11,7 @@ const ROUTE_ACCESS: Record<string, UserRole[]> = {
   "/realtime-map": SAFETY_ROLES,
   "/dispatch": OPERATIONS_ROLES,
   "/trips": DRIVER_VISIBLE_ROLES,
+  "/document-reviews": MANAGER_ROLES,
   "/vehicles": SAFETY_ROLES,
   "/drivers": SAFETY_ROLES,
   "/devices": OPERATIONS_ROLES,
@@ -18,7 +19,7 @@ const ROUTE_ACCESS: Record<string, UserRole[]> = {
   "/alerts": DRIVER_VISIBLE_ROLES,
   "/incidents": INCIDENT_ROLES,
   "/flood-map": SAFETY_ROLES,
-  "/reports": INCIDENT_ROLES,
+  "/reports": OPERATIONS_ROLES,
   "/accounts": MANAGER_ROLES,
   "/settings": MANAGER_ROLES,
 };

@@ -23,6 +23,8 @@ import com.safefleet.mobile.dto.response.MobileBootstrapResponse;
 import com.safefleet.mobile.dto.response.MobileConfigResponse;
 import com.safefleet.mobile.dto.response.MobileMonthlyActivityResponse;
 import com.safefleet.mobile.dto.response.MobileCurrentAssignmentResponse;
+import com.safefleet.mobile.dto.response.MobileDocumentOcrResponse;
+import com.safefleet.mobile.dto.response.MobileDocumentOcrJobResponse;
 import com.safefleet.mobile.dto.response.MobilePreTripChecklistResponse;
 import com.safefleet.mobile.dto.response.MobileProfileResponse;
 import com.safefleet.mobile.dto.response.MobilePushTokenResponse;
@@ -32,7 +34,9 @@ import com.safefleet.mobile.dto.response.MobileTelemetryBatchResponse;
 import com.safefleet.mobile.dto.response.MobileWorkflowResponse;
 import com.safefleet.safety.dto.response.DrivingSessionResponse;
 import com.safefleet.mobile.service.MobileAppService;
-import com.safefleet.mobile.service.AgentConversationService;
+import com.safefleet.infrastructure.ai.SafeFleetAiGateway;
+import com.safefleet.mobile.service.DocumentOcrService;
+import com.safefleet.mobile.service.DocumentOcrJobService;
 import com.safefleet.notification.dto.response.NotificationResponse;
 import com.safefleet.notification.service.PushNotificationService;
 import com.safefleet.safety.dto.request.CreateSafetyEventRequest;
@@ -53,6 +57,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -61,10 +67,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.time.LocalDate;
 import java.time.YearMonth;
+import com.safefleet.trip.enums.TripStatus;
 
 @Validated
 @Tag(name = "Mobile Driver App", description = "Facade APIs for the driver mobile application")
@@ -76,7 +86,9 @@ public class MobileController {
 
     private final MobileAppService mobileAppService;
     private final PushNotificationService pushNotificationService;
-    private final AgentConversationService agentConversationService;
+    private final SafeFleetAiGateway aiGateway;
+    private final DocumentOcrService documentOcrService;
+    private final DocumentOcrJobService documentOcrJobService;
     private final WarehouseIssueService warehouseIssueService;
 
     @Operation(summary = "Get current driver mobile profile")
@@ -107,14 +119,40 @@ public class MobileController {
     @Operation(summary = "Chat with the SafeFleet driver assistant")
     @PostMapping("/agent/chat")
     public ApiResponse<MobileAgentChatResponse> agentChat(
-            @Valid @RequestBody MobileAgentChatRequest request) {
-        return ApiResponse.ok(agentConversationService.respond(request));
+            @Valid @RequestBody MobileAgentChatRequest request,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
+        return ApiResponse.ok(aiGateway.respond(request, authorization));
     }
 
     @Operation(summary = "Get mobile runtime config")
     @GetMapping("/config")
     public ApiResponse<MobileConfigResponse> config() {
         return ApiResponse.ok(mobileAppService.config());
+    }
+
+    @Operation(summary = "OCR a warehouse issue/driving-log photo on the server")
+    @PostMapping(value = "/documents/ocr", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<MobileDocumentOcrResponse> documentOcr(@RequestParam MultipartFile file) {
+        return ApiResponse.ok("Đã nhận dạng phiếu", documentOcrService.recognize(file));
+    }
+
+    @Operation(summary = "Submit a warehouse issue/driving-log photo for asynchronous OCR")
+    @PostMapping(value = "/documents/ocr/jobs", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<MobileDocumentOcrJobResponse> submitDocumentOcr(@RequestParam MultipartFile file) {
+        return ApiResponse.ok("Ảnh đã được gửi lên máy chủ", documentOcrJobService.submit(file));
+    }
+
+    @Operation(summary = "Get the authenticated driver's OCR job status and result")
+    @GetMapping("/documents/ocr/jobs/{id}")
+    public ApiResponse<MobileDocumentOcrJobResponse> documentOcrJob(@PathVariable Long id) {
+        return ApiResponse.ok(documentOcrJobService.get(id));
+    }
+
+    @Operation(summary = "Cancel and delete the authenticated driver's OCR job")
+    @DeleteMapping("/documents/ocr/jobs/{id}")
+    public ApiResponse<Void> deleteDocumentOcrJob(@PathVariable Long id) {
+        documentOcrJobService.delete(id);
+        return ApiResponse.ok("Đã xoá tác vụ OCR");
     }
 
     @Operation(summary = "Get current active assignment for driver")
@@ -127,6 +165,16 @@ public class MobileController {
     @GetMapping("/trips/today")
     public ApiResponse<List<TripResponse>> todayTrips() {
         return ApiResponse.ok(mobileAppService.todayTrips());
+    }
+
+    @Operation(summary = "Query authenticated driver's trips")
+    @GetMapping("/trips")
+    public ApiResponse<List<TripResponse>> trips(
+            @RequestParam List<TripStatus> statuses,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(defaultValue = "20") int limit) {
+        return ApiResponse.ok(mobileAppService.trips(statuses, startDate, endDate, limit));
     }
 
     @Operation(summary = "Get mobile trip detail")

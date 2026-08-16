@@ -14,9 +14,9 @@ public record TelemetryRequest(
         Long tripId,
         @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") Double lat,
         @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") Double lng,
-        Double speed,
-        Double heading,
-        Integer batteryLevel,
+        @DecimalMin("0.0") Double speed,
+        @DecimalMin("0.0") @DecimalMax("360.0") Double heading,
+        @DecimalMin("0") @DecimalMax("100") Integer batteryLevel,
         GpsStatus gpsStatus,
         LocalDateTime createdAt,
         @Size(max = 100) String clientEventId

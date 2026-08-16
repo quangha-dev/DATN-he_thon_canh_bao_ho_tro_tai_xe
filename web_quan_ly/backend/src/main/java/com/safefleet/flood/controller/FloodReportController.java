@@ -7,6 +7,7 @@ import com.safefleet.flood.dto.request.FloodActionRequest;
 import com.safefleet.flood.dto.request.RouteCheckRequest;
 import com.safefleet.flood.dto.response.FloodReportResponse;
 import com.safefleet.flood.dto.response.RouteRiskSummaryResponse;
+import com.safefleet.flood.dto.response.FloodWarningResponse;
 import com.safefleet.flood.enums.FloodSeverity;
 import com.safefleet.flood.enums.FloodSource;
 import com.safefleet.flood.enums.FloodStatus;
@@ -75,6 +76,13 @@ public class FloodReportController {
                                                     @RequestBody(required = false) FloodActionRequest request) {
         return ApiResponse.ok("Flood report resolved",
                 floodReportService.resolve(id, request == null ? new FloodActionRequest(null) : request));
+    }
+
+    @Operation(summary = "Send a flood warning to drivers near the report")
+    @PostMapping("/{id}/warn-nearby")
+    @PreAuthorize("hasAnyRole('ADMIN','FLEET_MANAGER','DISPATCHER')")
+    public ApiResponse<FloodWarningResponse> warnNearby(@PathVariable Long id) {
+        return ApiResponse.ok("Flood warning sent", floodReportService.warnNearby(id));
     }
 
     @Operation(summary = "Check whether route intersects risky flood points")

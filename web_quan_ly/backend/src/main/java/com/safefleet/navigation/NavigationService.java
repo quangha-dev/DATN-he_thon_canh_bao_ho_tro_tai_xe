@@ -28,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -145,7 +144,7 @@ public class NavigationService {
                         distance_to_route_meters, gps_accuracy_meters,
                         payload_json, occurred_at, created_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP(6))
-                    """, Statement.RETURN_GENERATED_KEYS);
+                    """, new String[]{"id"});
             statement.setLong(1, session.id());
             statement.setString(2, eventType);
             statement.setObject(3, request.lat());
@@ -300,7 +299,7 @@ public class NavigationService {
                             flood_intersection_count, safe, blocked, is_recommended,
                             geometry_json, steps_json, warnings_json, provider, created_at
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP(6))
-                        """, Statement.RETURN_GENERATED_KEYS);
+                        """, new String[]{"id"});
                 statement.setLong(1, sessionId);
                 statement.setInt(2, routeIndex);
                 statement.setString(3, label);
@@ -346,7 +345,7 @@ public class NavigationService {
                         destination_name, status, started_at, created_at, updated_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE',
                               CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))
-                    """, Statement.RETURN_GENERATED_KEYS);
+                    """, new String[]{"id"});
             statement.setString(1, sessionUuid);
             statement.setLong(2, driverId);
             statement.setObject(3, vehicleId);

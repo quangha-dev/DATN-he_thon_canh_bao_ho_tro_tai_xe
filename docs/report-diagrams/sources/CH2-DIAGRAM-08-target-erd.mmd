@@ -1,0 +1,75 @@
+erDiagram
+    USERS ||--o| DRIVERS : "sở hữu hồ sơ"
+    USERS }o--|| ROLES : "được gán"
+    DRIVERS ||--o{ TRIPS : "thực hiện"
+    VEHICLES ||--o{ TRIPS : "phục vụ"
+    TRIPS ||--o{ DRIVING_SESSIONS : "có"
+    TRIPS ||--o{ TELEMETRY_LOGS : "ghi vị trí"
+    DRIVING_SESSIONS ||--o{ SAFETY_EVENTS : "phát sinh"
+    SAFETY_EVENTS ||--o{ SAFETY_EVENT_ACTIONS : "có vòng đời"
+    SAFETY_EVENTS o|--o| INCIDENTS : "chuyển thành"
+    INCIDENTS ||--o{ INCIDENT_TIMELINES : "ghi nhận"
+    USERS ||--o{ AGENT_COMMANDS : "gửi"
+    AGENT_COMMANDS ||--o{ AGENT_ACTION_LOGS : "thực thi"
+    SAFETY_EVENTS o|--o{ AGENT_ACTION_LOGS : "cung cấp ngữ cảnh"
+    USERS ||--o{ DOCUMENT_OCR_JOBS : "nộp"
+    TRIPS o|--o{ DOCUMENT_OCR_JOBS : "đối chiếu"
+    USERS ||--o{ NOTIFICATIONS : "nhận"
+    SAFETY_EVENTS ||--o{ SAFETY_EVENT_EVIDENCE : "có bằng chứng"
+
+    DRIVING_SESSIONS {
+      bigint id PK
+      bigint trip_id FK
+      bigint driver_id FK
+      varchar status
+      datetime started_at
+      datetime ended_at
+    }
+    SAFETY_EVENTS {
+      bigint id PK
+      bigint driving_session_id FK
+      varchar event_type
+      decimal average_confidence
+      bigint duration_ms
+      decimal risk_score
+      varchar severity
+      varchar driver_response
+      varchar client_event_id UK
+      datetime received_at
+    }
+    SAFETY_EVENT_ACTIONS {
+      bigint id PK
+      bigint safety_event_id FK
+      varchar action_type
+      varchar policy_result
+      varchar reason
+      datetime occurred_at
+    }
+    INCIDENTS {
+      bigint id PK
+      varchar incident_code UK
+      varchar type
+      varchar severity
+      varchar status
+      double lat
+      double lng
+    }
+    AGENT_ACTION_LOGS {
+      bigint id PK
+      bigint agent_command_id FK
+      bigint safety_event_id FK
+      varchar tool_name
+      varchar decision
+      varchar result_status
+      datetime created_at
+    }
+    DOCUMENT_OCR_JOBS {
+      bigint id PK
+      bigint owner_user_id FK
+      bigint driver_id FK
+      bigint trip_id FK
+      varchar status
+      varchar vehicle_plate
+      varchar plate_review_status
+      varchar engine
+    }

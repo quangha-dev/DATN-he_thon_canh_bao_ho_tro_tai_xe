@@ -47,7 +47,7 @@ public class DrivingTimeService {
 
     @Transactional
     public DrivingSessionResponse start(StartDrivingSessionRequest request) {
-        Driver driver = findDriver(request.driverId());
+        Driver driver = findDriverForUpdate(request.driverId());
         assertDriverOwner(driver);
         sessionRepository.findFirstByDriverIdAndStatusInOrderByStartedAtDesc(
                 driver.getId(), List.of(DrivingSessionStatus.ACTIVE, DrivingSessionStatus.PAUSED)
@@ -57,6 +57,7 @@ public class DrivingTimeService {
 
         Vehicle vehicle = request.vehicleId() == null ? null : findVehicle(request.vehicleId());
         Trip trip = request.tripId() == null ? null : findTrip(request.tripId());
+        assertSessionAssignment(driver, vehicle, trip);
         LocalDateTime now = LocalDateTime.now();
 
         DrivingSession session = new DrivingSession();
@@ -72,6 +73,23 @@ public class DrivingTimeService {
             vehicle.setStatus(VehicleStatus.RUNNING);
         }
         return DrivingSessionMapper.toResponse(sessionRepository.save(session));
+    }
+
+    private void assertSessionAssignment(Driver driver, Vehicle vehicle, Trip trip) {
+        if (!SecurityUtils.hasRole("DRIVER")) {
+            return;
+        }
+        if (vehicle != null && (driver.getCurrentVehicle() == null
+                || !driver.getCurrentVehicle().getId().equals(vehicle.getId()))) {
+            throw new ForbiddenActionException("Xe không thuộc phân công hiện tại của tài xế");
+        }
+        if (trip != null && (trip.getDriver() == null
+                || !trip.getDriver().getId().equals(driver.getId())
+                || trip.getVehicle() == null
+                || vehicle == null
+                || !trip.getVehicle().getId().equals(vehicle.getId()))) {
+            throw new ForbiddenActionException("Chuyến hoặc xe không thuộc phân công hiện tại của tài xế");
+        }
     }
 
     @Transactional
@@ -282,6 +300,12 @@ public class DrivingTimeService {
 
     private Driver findDriver(Long id) {
         return driverRepository.findById(id)
+                .filter(driver -> !driver.isDeleted())
+                .orElseThrow(() -> new NotFoundException("Driver", id));
+    }
+
+    private Driver findDriverForUpdate(Long id) {
+        return driverRepository.findByIdForUpdate(id)
                 .filter(driver -> !driver.isDeleted())
                 .orElseThrow(() -> new NotFoundException("Driver", id));
     }

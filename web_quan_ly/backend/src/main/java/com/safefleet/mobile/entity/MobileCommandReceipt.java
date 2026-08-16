@@ -6,7 +6,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -31,7 +30,6 @@ public class MobileCommandReceipt extends BaseEntity {
     @Column(name = "trip_id")
     private Long tripId;
 
-    @Lob
-    @Column(name = "response_json", nullable = false, columnDefinition = "LONGTEXT")
+    @Column(name = "response_json", nullable = false, columnDefinition = "text")
     private String responseJson;
 }
