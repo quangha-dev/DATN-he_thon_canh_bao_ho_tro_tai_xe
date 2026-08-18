@@ -1510,6 +1510,115 @@ class RealPostgreSqlApiIntegrationTest {
         }
     }
 
+    @Test
+    @Order(11)
+    void concurrentTripStartsAllowOnlyOneOperationalTripPerDriverAndVehicle() throws Exception {
+        String adminToken = login("admin", "123456");
+        DriverLogin driver = createDriverAccount(adminToken);
+        FleetFixture fixture = createAvailableFleetForDriver(adminToken, driver.driverId());
+        long firstTripId = createAssignedTrip(adminToken, fixture, "Concurrent trip A");
+        long secondTripId = createAssignedTrip(adminToken, fixture, "Concurrent trip B");
+        assertSuccess(post("/api/v1/trips/" + firstTripId + "/accept", adminToken, null), HttpStatus.OK);
+        assertSuccess(post("/api/v1/trips/" + secondTripId + "/accept", adminToken, null), HttpStatus.OK);
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            List<Callable<ResponseEntity<JsonNode>>> startCalls = List.of(
+                    () -> post("/api/v1/trips/" + firstTripId + "/start", adminToken, null),
+                    () -> post("/api/v1/trips/" + secondTripId + "/start", adminToken, null)
+            );
+            List<ResponseEntity<JsonNode>> responses = executor.invokeAll(startCalls).stream()
+                    .map(future -> {
+                        try {
+                            return future.get();
+                        } catch (Exception exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    })
+                    .toList();
+
+            assertThat(responses).extracting(ResponseEntity::getStatusCode)
+                    .containsExactlyInAnyOrder(HttpStatus.OK, HttpStatus.CONFLICT);
+            ResponseEntity<JsonNode> conflict = responses.stream()
+                    .filter(response -> response.getStatusCode() == HttpStatus.CONFLICT)
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(conflict.getBody()).isNotNull();
+            assertThat(conflict.getBody().path("message").asText())
+                    .startsWith("Tài xế đang thực hiện chuyến ");
+
+            assertThat(jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM trips WHERE driver_id = ? AND status IN ('IN_PROGRESS', 'RESTING')",
+                    Integer.class,
+                    fixture.driverId()
+            )).isEqualTo(1);
+            assertThat(jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM trips WHERE vehicle_id = ? AND status IN ('IN_PROGRESS', 'RESTING')",
+                    Integer.class,
+                    fixture.vehicleId()
+            )).isEqualTo(1);
+
+            Long activeTripId = jdbcTemplate.queryForObject(
+                    "SELECT id FROM trips WHERE driver_id = ? AND status = 'IN_PROGRESS'",
+                    Long.class,
+                    fixture.driverId()
+            );
+            long waitingTripId = activeTripId == firstTripId ? secondTripId : firstTripId;
+            ResponseEntity<JsonNode> currentAssignment = get(
+                    "/api/v1/mobile/current-assignment",
+                    driver.token()
+            );
+            assertSuccess(currentAssignment, HttpStatus.OK);
+            assertThat(data(currentAssignment).path("trip").path("id").asLong()).isEqualTo(activeTripId);
+
+            assertSuccess(post("/api/v1/trips/" + activeTripId + "/pause", adminToken, null), HttpStatus.OK);
+
+            ResponseEntity<JsonNode> blockedWhileResting = post(
+                    "/api/v1/trips/" + waitingTripId + "/start",
+                    adminToken,
+                    null
+            );
+            assertThat(blockedWhileResting.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+            ResponseEntity<JsonNode> restingAssignment = get(
+                    "/api/v1/mobile/current-assignment",
+                    driver.token()
+            );
+            assertSuccess(restingAssignment, HttpStatus.OK);
+            assertThat(data(restingAssignment).path("trip").path("id").asLong()).isEqualTo(activeTripId);
+
+            assertSuccess(post("/api/v1/trips/" + activeTripId + "/complete", adminToken, null), HttpStatus.OK);
+            assertSuccess(post("/api/v1/trips/" + waitingTripId + "/start", adminToken, null), HttpStatus.OK);
+            assertSuccess(post("/api/v1/trips/" + waitingTripId + "/complete", adminToken, null), HttpStatus.OK);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private long createAssignedTrip(String token, FleetFixture fixture, String label) {
+        String plannedStartTime = LocalDateTime.now().plusHours(1).withNano(0).toString();
+        String estimatedEndTime = LocalDateTime.now().plusHours(2).withNano(0).toString();
+        ResponseEntity<JsonNode> response = post("/api/v1/trips", token, """
+                {
+                  "vehicleId": %d,
+                  "driverId": %d,
+                  "startLocation": "%s start",
+                  "endLocation": "%s end",
+                  "plannedStartTime": "%s",
+                  "estimatedEndTime": "%s",
+                  "riskLevel": "LOW"
+                }
+                """.formatted(
+                fixture.vehicleId(),
+                fixture.driverId(),
+                label,
+                label,
+                plannedStartTime,
+                estimatedEndTime
+        ));
+        assertSuccess(response, HttpStatus.OK);
+        return data(response).path("id").asLong();
+    }
+
     private FleetFixture createAvailableFleet(String token) {
         int suffix = SEQUENCE.incrementAndGet();
 

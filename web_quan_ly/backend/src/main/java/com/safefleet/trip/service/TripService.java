@@ -4,6 +4,7 @@ import com.safefleet.account.entity.UserAccount;
 import com.safefleet.account.repository.UserAccountRepository;
 import com.safefleet.common.dto.PageResponse;
 import com.safefleet.common.exception.BadRequestException;
+import com.safefleet.common.exception.ConflictException;
 import com.safefleet.common.exception.ForbiddenActionException;
 import com.safefleet.common.exception.NotFoundException;
 import com.safefleet.common.util.CodeGenerator;
@@ -30,6 +31,8 @@ import com.safefleet.trip.repository.TripTimelineRepository;
 import com.safefleet.vehicle.entity.Vehicle;
 import com.safefleet.vehicle.enums.VehicleStatus;
 import com.safefleet.vehicle.repository.VehicleRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -46,12 +49,20 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TripService {
 
+    private static final List<TripStatus> OPERATIONAL_TRIP_STATUSES = List.of(
+            TripStatus.IN_PROGRESS,
+            TripStatus.RESTING
+    );
+
     private final TripRepository tripRepository;
     private final TripTimelineRepository timelineRepository;
     private final VehicleRepository vehicleRepository;
     private final DriverRepository driverRepository;
     private final UserAccountRepository userAccountRepository;
     private final NotificationService notificationService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Transactional(readOnly = true)
     public PageResponse<TripResponse> search(TripStatus status,
@@ -181,11 +192,11 @@ public class TripService {
 
     @Transactional
     public TripResponse start(Long id, TripActionRequest request) {
-        Trip trip = findTrip(id);
-        assertTripCanAccess(trip);
+        Trip trip = lockTripForOperationalTransition(id);
         if (trip.getStatus() != TripStatus.ACCEPTED && trip.getStatus() != TripStatus.ASSIGNED) {
             throw new BadRequestException("Chuyến đi chưa sẵn sàng để bắt đầu");
         }
+        assertNoOtherOperationalTrip(trip);
         trip.setStatus(TripStatus.IN_PROGRESS);
         trip.setActualStartTime(LocalDateTime.now());
         trip.setProgress(Math.max(trip.getProgress(), 5));
@@ -217,9 +228,9 @@ public class TripService {
 
     @Transactional
     public TripResponse resume(Long id, TripActionRequest request) {
-        Trip trip = findTrip(id);
-        assertTripCanAccess(trip);
+        Trip trip = lockTripForOperationalTransition(id);
         requireStatus(trip, TripStatus.RESTING);
+        assertNoOtherOperationalTrip(trip);
         trip.setStatus(TripStatus.IN_PROGRESS);
         if (trip.getVehicle() != null) {
             trip.getVehicle().setStatus(VehicleStatus.RUNNING);
@@ -361,6 +372,62 @@ public class TripService {
         return driverRepository.findById(id)
                 .filter(driver -> !driver.isDeleted())
                 .orElseThrow(() -> new NotFoundException("Driver", id));
+    }
+
+    private Trip lockTripForOperationalTransition(Long id) {
+        Trip trip = tripRepository.findByIdForUpdate(id)
+                .filter(candidate -> !candidate.isDeleted())
+                .orElseThrow(() -> new NotFoundException("Trip", id));
+
+        // The mobile workflow may have loaded this entity earlier in the same transaction.
+        // Refresh after acquiring the row lock so status checks never use stale state.
+        entityManager.refresh(trip);
+        assertTripCanAccess(trip);
+
+        if (trip.getDriver() == null) {
+            throw new BadRequestException("Chuyến chưa được gán tài xế");
+        }
+        if (trip.getVehicle() == null) {
+            throw new BadRequestException("Chuyến chưa được gán xe");
+        }
+
+        Driver driver = driverRepository.findByIdForUpdate(trip.getDriver().getId())
+                .filter(candidate -> !candidate.isDeleted())
+                .orElseThrow(() -> new NotFoundException("Driver", trip.getDriver().getId()));
+        Vehicle vehicle = vehicleRepository.findByIdForUpdate(trip.getVehicle().getId())
+                .filter(candidate -> !candidate.isDeleted())
+                .orElseThrow(() -> new NotFoundException("Vehicle", trip.getVehicle().getId()));
+        trip.setDriver(driver);
+        trip.setVehicle(vehicle);
+        return trip;
+    }
+
+    private void assertNoOtherOperationalTrip(Trip trip) {
+        tripRepository
+                .findFirstByDeletedFalseAndDriverIdAndIdNotAndStatusInOrderByActualStartTimeAsc(
+                        trip.getDriver().getId(),
+                        trip.getId(),
+                        OPERATIONAL_TRIP_STATUSES
+                )
+                .ifPresent(activeTrip -> {
+                    throw new ConflictException(
+                            "Tài xế đang thực hiện chuyến %s; hãy hoàn thành hoặc hủy chuyến đó trước"
+                                    .formatted(activeTrip.getTripCode())
+                    );
+                });
+
+        tripRepository
+                .findFirstByDeletedFalseAndVehicleIdAndIdNotAndStatusInOrderByActualStartTimeAsc(
+                        trip.getVehicle().getId(),
+                        trip.getId(),
+                        OPERATIONAL_TRIP_STATUSES
+                )
+                .ifPresent(activeTrip -> {
+                    throw new ConflictException(
+                            "Xe %s đang được sử dụng cho chuyến %s; hãy kết thúc chuyến đó trước"
+                                    .formatted(trip.getVehicle().getPlateNumber(), activeTrip.getTripCode())
+                    );
+                });
     }
 
     private void addTimeline(Trip trip, String action, String note) {

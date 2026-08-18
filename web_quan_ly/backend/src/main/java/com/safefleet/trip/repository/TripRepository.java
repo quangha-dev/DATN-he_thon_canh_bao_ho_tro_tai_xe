@@ -6,8 +6,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import jakarta.persistence.LockModeType;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,6 +19,20 @@ import java.util.Optional;
 public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificationExecutor<Trip> {
 
     Optional<Trip> findByTripCode(String tripCode);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select trip from Trip trip where trip.id = :id")
+    Optional<Trip> findByIdForUpdate(@Param("id") Long id);
+
+    Optional<Trip> findFirstByDeletedFalseAndDriverIdAndIdNotAndStatusInOrderByActualStartTimeAsc(
+            Long driverId,
+            Long excludedTripId,
+            List<TripStatus> statuses);
+
+    Optional<Trip> findFirstByDeletedFalseAndVehicleIdAndIdNotAndStatusInOrderByActualStartTimeAsc(
+            Long vehicleId,
+            Long excludedTripId,
+            List<TripStatus> statuses);
 
     long countByDeletedFalse();
 

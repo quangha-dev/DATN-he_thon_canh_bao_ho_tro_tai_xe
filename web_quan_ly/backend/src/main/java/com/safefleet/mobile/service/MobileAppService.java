@@ -87,6 +87,7 @@ import java.time.Duration;
 import java.time.YearMonth;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -345,17 +346,17 @@ public class MobileAppService {
     @Transactional(readOnly = true)
     public MobileCurrentAssignmentResponse currentAssignment() {
         Driver driver = currentDriver();
-        return tripRepository.findByDeletedFalseAndDriverIdAndStatusInOrderByPlannedStartTimeAsc(
+        Trip trip = selectCurrentTrip(tripRepository
+                .findByDeletedFalseAndDriverIdAndStatusInOrderByPlannedStartTimeAsc(
                         driver.getId(),
                         ACTIVE_TRIP_STATUSES
-                )
-                .stream()
-                .findFirst()
-                .map(trip -> new MobileCurrentAssignmentResponse(
+                ));
+        return trip == null
+                ? new MobileCurrentAssignmentResponse(null, false)
+                : new MobileCurrentAssignmentResponse(
                         TripMapper.toResponse(trip),
                         checklistSubmitted(trip.getId(), driver.getId())
-                ))
-                .orElseGet(() -> new MobileCurrentAssignmentResponse(null, false));
+                );
     }
 
     @Transactional(readOnly = true)
@@ -973,13 +974,31 @@ public class MobileAppService {
     }
 
     private Trip activeTripFor(Driver driver) {
-        return tripRepository.findByDeletedFalseAndDriverIdAndStatusInOrderByPlannedStartTimeAsc(
+        return selectCurrentTrip(tripRepository.findByDeletedFalseAndDriverIdAndStatusInOrderByPlannedStartTimeAsc(
                         driver.getId(),
                         ACTIVE_TRIP_STATUSES
-                )
-                .stream()
-                .findFirst()
+                ));
+    }
+
+    private Trip selectCurrentTrip(List<Trip> trips) {
+        return trips.stream()
+                .min(Comparator
+                        .comparingInt((Trip trip) -> currentTripPriority(trip.getStatus()))
+                        .thenComparing(
+                                trip -> trip.getPlannedStartTime() == null
+                                        ? LocalDateTime.MAX
+                                        : trip.getPlannedStartTime()
+                        ))
                 .orElse(null);
+    }
+
+    private int currentTripPriority(TripStatus status) {
+        return switch (status) {
+            case IN_PROGRESS, RESTING -> 0;
+            case ACCEPTED -> 1;
+            case ASSIGNED -> 2;
+            default -> 3;
+        };
     }
 
     @Transactional(readOnly = true)
