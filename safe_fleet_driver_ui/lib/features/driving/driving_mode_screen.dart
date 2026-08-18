@@ -583,12 +583,6 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
           ),
           const SizedBox(height: SfSpace.x20),
           _cabinRow(cabin),
-          const SizedBox(height: SfSpace.x12),
-          Text(
-            'Nói “Hey SafeFleet” để gọi trợ lý. Agent chỉ mở sau khi nghe đúng tên gọi.',
-            textAlign: TextAlign.center,
-            style: SfType.caption.copyWith(color: SfColors.darkTextFaint),
-          ),
           const SizedBox(height: SfSpace.x20),
           _actions(),
           if (steps.isNotEmpty) ...[
