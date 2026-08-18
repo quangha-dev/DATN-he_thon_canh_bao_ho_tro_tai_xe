@@ -3,6 +3,8 @@ import 'dart:io';
 abstract final class AppConfig {
   static const _definedApiUrl = String.fromEnvironment('API_BASE_URL');
 
+  static bool get hasDefinedApiUrl => _definedApiUrl.isNotEmpty;
+
   static String get defaultApiUrl {
     if (_definedApiUrl.isNotEmpty) return _normalize(_definedApiUrl);
     if (Platform.isAndroid) return 'http://10.0.2.2:8080/api/v1';

@@ -70,6 +70,13 @@ class ApiClient {
   Future<void>? _refreshing;
 
   Future<void> initialize() async {
+    // Cấu hình lúc build phải có quyền ưu tiên cao nhất. Điều này cho phép
+    // bản cài trên điện thoại thật dùng ADB reverse hoặc IP máy chủ mới, kể cả
+    // khi thiết bị còn lưu địa chỉ API cũ từ một lần thử trước.
+    if (AppConfig.hasDefinedApiUrl) {
+      dio.options.baseUrl = AppConfig.defaultApiUrl;
+      return;
+    }
     final override = await _storage.read(key: _apiUrlKey);
     if (override != null && override.trim().isNotEmpty) {
       dio.options.baseUrl = _normalize(override);
