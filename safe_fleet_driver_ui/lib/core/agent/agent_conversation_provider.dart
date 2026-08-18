@@ -7,6 +7,29 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 
 import '../../app.dart';
 
+const agentWakePhrases = <String>[
+  'hey safe fleet',
+  'hi safe fleet',
+  'trợ lý safe fleet',
+  'safe fleet ơi',
+  'hey safefleet',
+  'hi safefleet',
+  'trợ lý safefleet',
+  'safefleet ơi',
+  'safe fleet',
+  'safefleet',
+];
+
+String? agentWakeRemainder(String words) {
+  final normalized = words.toLowerCase().trim();
+  for (final phrase in agentWakePhrases) {
+    if (normalized.contains(phrase)) {
+      return normalized.replaceFirst(phrase, '').trim();
+    }
+  }
+  return null;
+}
+
 class AgentMessage {
   const AgentMessage({required this.role, required this.content});
 
@@ -147,13 +170,8 @@ class AgentConversationController extends Notifier<AgentConversationState> {
     final words = result.recognizedWords.trim();
     state = state.copyWith(transcript: words);
     if (!state.engaged) {
-      final normalized = words.toLowerCase();
-      final wake = _wakePhrases.firstWhere(
-        normalized.contains,
-        orElse: () => '',
-      );
-      if (wake.isEmpty) return;
-      final remainder = normalized.replaceFirst(wake, '').trim();
+      final remainder = agentWakeRemainder(words);
+      if (remainder == null) return;
       state = state.copyWith(engaged: true, transcript: remainder);
       if (result.finalResult && remainder.isNotEmpty) {
         unawaited(send(remainder));
@@ -284,11 +302,4 @@ class AgentConversationController extends Notifier<AgentConversationState> {
       }
     });
   }
-
-  static const _wakePhrases = [
-    'hi siri',
-    'hey siri',
-    'hi safefleet',
-    'hey safefleet',
-  ];
 }

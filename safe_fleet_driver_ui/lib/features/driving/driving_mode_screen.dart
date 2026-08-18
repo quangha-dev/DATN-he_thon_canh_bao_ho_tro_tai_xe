@@ -7,12 +7,14 @@ import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../../app.dart';
+import '../../core/agent/agent_conversation_provider.dart';
 import '../../core/config/app_config.dart';
 import '../../core/ai/cabin_safety_provider.dart';
 import '../../core/ai/stgt_drowsiness_engine.dart';
 import '../../core/ai/temporal_safety_engine.dart';
 import '../../core/widgets/ui.dart';
 import '../../models/driver_models.dart';
+import '../agent/agent_chat_screen.dart';
 import '../flood/flood_report_screen.dart';
 import '../incidents/sos_screen.dart';
 
@@ -42,6 +44,9 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
   bool _busy = true;
   bool _styleLoaded = false;
   DateTime? _lastTelemetry;
+  bool _enabledWakeForDrive = false;
+  bool _leavingDriveMode = false;
+  bool _wakeReady = false;
 
   final _sheetController = DraggableScrollableController();
   final _sheetSize = ValueNotifier<double>(_snaps.first);
@@ -56,18 +61,43 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
   void initState() {
     super.initState();
     unawaited(ref.read(cabinSafetyProvider.notifier).start());
+    unawaited(_startWakeListener());
     _sheetController.addListener(_onSheetMoved);
     _initialize();
   }
 
   @override
   void dispose() {
+    _leavingDriveMode = true;
+    unawaited(_stopWakeListener());
     unawaited(ref.read(cabinSafetyProvider.notifier).stop());
     _sheetController.removeListener(_onSheetMoved);
     _sheetController.dispose();
     _sheetSize.dispose();
     _positionSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _startWakeListener() async {
+    final controller = ref.read(agentConversationProvider.notifier);
+    await controller.dismissOverlay();
+    if (_leavingDriveMode || !mounted) return;
+    final alreadyEnabled = ref.read(agentConversationProvider).wakeEnabled;
+    if (!alreadyEnabled) {
+      _enabledWakeForDrive = true;
+      await controller.setWakeEnabled(true);
+    }
+    if (!_leavingDriveMode && mounted) setState(() => _wakeReady = true);
+  }
+
+  Future<void> _stopWakeListener() async {
+    final controller = ref.read(agentConversationProvider.notifier);
+    await controller.dismissOverlay();
+    if (_enabledWakeForDrive) await controller.setWakeEnabled(false);
+  }
+
+  void _closeAgent() {
+    unawaited(ref.read(agentConversationProvider.notifier).dismissOverlay());
   }
 
   void _onSheetMoved() {
@@ -266,6 +296,7 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final agent = ref.watch(agentConversationProvider);
     final initialLat =
         _position?.latitude ??
         (widget.trip['startLat'] as num?)?.toDouble() ??
@@ -350,6 +381,9 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
                   child: const Center(child: CircularProgressIndicator()),
                 ),
               ),
+
+            if (_wakeReady && agent.engaged)
+              Positioned.fill(child: AgentChatScreen(onClose: _closeAgent)),
           ],
         ),
       ),
@@ -549,6 +583,12 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
           ),
           const SizedBox(height: SfSpace.x20),
           _cabinRow(cabin),
+          const SizedBox(height: SfSpace.x12),
+          Text(
+            'Nói “Hey SafeFleet” để gọi trợ lý. Agent chỉ mở sau khi nghe đúng tên gọi.',
+            textAlign: TextAlign.center,
+            style: SfType.caption.copyWith(color: SfColors.darkTextFaint),
+          ),
           const SizedBox(height: SfSpace.x20),
           _actions(),
           if (steps.isNotEmpty) ...[
