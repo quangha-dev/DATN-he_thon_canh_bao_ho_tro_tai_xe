@@ -435,6 +435,11 @@ public class MobileAppService {
     }
 
     @Transactional
+    public TripResponse rejectTrip(Long id, TripActionRequest request) {
+        return tripService.reject(id, defaultAction(request));
+    }
+
+    @Transactional
     public TripResponse startTrip(Long id, TripActionRequest request) {
         return tripService.start(id, defaultAction(request));
     }

@@ -9,5 +9,6 @@ public enum TripStatus {
     COMPLETED,
     DELAYED,
     INCIDENT,
+    REJECTED,
     CANCELLED
 }

@@ -1,6 +1,7 @@
 package com.safefleet.trip.service;
 
 import com.safefleet.account.repository.UserAccountRepository;
+import com.safefleet.common.exception.BadRequestException;
 import com.safefleet.common.exception.ConflictException;
 import com.safefleet.driver.entity.Driver;
 import com.safefleet.driver.repository.DriverRepository;
@@ -87,7 +88,7 @@ class TripOperationalConflictTest {
 
     @Test
     void startRejectsVehicleAlreadyUsedByAnotherDriver() {
-        Trip target = trip(20L, "TRIP-NEW", TripStatus.ASSIGNED, 4L, 5L);
+        Trip target = trip(20L, "TRIP-NEW", TripStatus.ACCEPTED, 4L, 5L);
         Trip current = trip(21L, "TRIP-VEHICLE-ACTIVE", TripStatus.IN_PROGRESS, 6L, 5L);
         prepareLocks(target);
         when(tripRepository
@@ -110,7 +111,7 @@ class TripOperationalConflictTest {
                 .hasMessage("Xe 30A-000.05 đang được sử dụng cho chuyến TRIP-VEHICLE-ACTIVE; "
                         + "hãy kết thúc chuyến đó trước");
 
-        assertThat(target.getStatus()).isEqualTo(TripStatus.ASSIGNED);
+        assertThat(target.getStatus()).isEqualTo(TripStatus.ACCEPTED);
         verify(timelineRepository, never()).save(org.mockito.ArgumentMatchers.any());
     }
 
@@ -140,6 +141,36 @@ class TripOperationalConflictTest {
                         30L,
                         List.of(TripStatus.IN_PROGRESS, TripStatus.RESTING)
                 );
+    }
+
+    @Test
+    void assignedTripMustBeAcceptedBeforeItCanStart() {
+        Trip target = trip(40L, "TRIP-WAITING", TripStatus.ASSIGNED, 10L, 11L);
+        when(tripRepository.findByIdForUpdate(40L)).thenReturn(Optional.of(target));
+        when(driverRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(target.getDriver()));
+        when(vehicleRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(target.getVehicle()));
+
+        assertThatThrownBy(() -> tripService.start(40L, new TripActionRequest(null, null)))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessage("Trạng thái chuyến không hợp lệ");
+
+        assertThat(target.getStatus()).isEqualTo(TripStatus.ASSIGNED);
+        verify(timelineRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void driverCanRejectAssignedTrip() {
+        Trip target = trip(50L, "TRIP-REJECT", TripStatus.ASSIGNED, 12L, 13L);
+        when(tripRepository.findById(50L)).thenReturn(Optional.of(target));
+
+        var response = tripService.reject(50L, new TripActionRequest("Không thể nhận chuyến", null));
+
+        assertThat(response.status()).isEqualTo(TripStatus.REJECTED);
+        assertThat(target.getStatus()).isEqualTo(TripStatus.REJECTED);
+        verify(timelineRepository).save(org.mockito.ArgumentMatchers.argThat(timeline ->
+                "REJECTED".equals(timeline.getAction())
+                        && "Không thể nhận chuyến".equals(timeline.getNote())
+        ));
     }
 
     private void prepareLocks(Trip target) {

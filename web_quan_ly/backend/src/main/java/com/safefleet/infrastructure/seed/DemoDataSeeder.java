@@ -226,7 +226,7 @@ public class DemoDataSeeder implements CommandLineRunner {
             trip.setActualRoute("[]");
             trip.setPlannedStartTime(LocalDateTime.now().minusDays(5L - i));
             trip.setEstimatedEndTime(LocalDateTime.now().minusDays(5L - i).plusHours(2));
-            trip.setStatus(i < 4 ? TripStatus.COMPLETED : (i < 7 ? TripStatus.IN_PROGRESS : TripStatus.ASSIGNED));
+            trip.setStatus(i < 4 ? TripStatus.COMPLETED : TripStatus.ASSIGNED);
             trip.setProgress(i < 4 ? 100 : (i < 7 ? 45 + i * 5 : 0));
             trip.setRiskLevel(i % 5 == 0 ? RiskLevel.HIGH : RiskLevel.LOW);
             tripRepository.save(trip);

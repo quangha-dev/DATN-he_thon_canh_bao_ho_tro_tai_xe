@@ -162,8 +162,10 @@ public class TripService {
     @Transactional
     public TripResponse assign(Long id, AssignTripRequest request) {
         Trip trip = findTrip(id);
-        if (trip.getStatus() != TripStatus.DRAFT && trip.getStatus() != TripStatus.CANCELLED) {
-            throw new BadRequestException("Chỉ có thể giao chuyến nháp hoặc đã hủy");
+        if (trip.getStatus() != TripStatus.DRAFT
+                && trip.getStatus() != TripStatus.CANCELLED
+                && trip.getStatus() != TripStatus.REJECTED) {
+            throw new BadRequestException("Chỉ có thể giao chuyến nháp, đã hủy hoặc đã bị từ chối");
         }
         Vehicle vehicle = findVehicle(request.vehicleId());
         Driver driver = findDriver(request.driverId());
@@ -191,11 +193,19 @@ public class TripService {
     }
 
     @Transactional
+    public TripResponse reject(Long id, TripActionRequest request) {
+        Trip trip = findTrip(id);
+        assertTripCanAccess(trip);
+        requireStatus(trip, TripStatus.ASSIGNED);
+        trip.setStatus(TripStatus.REJECTED);
+        addTimeline(trip, "REJECTED", request.note());
+        return TripMapper.toResponse(trip);
+    }
+
+    @Transactional
     public TripResponse start(Long id, TripActionRequest request) {
         Trip trip = lockTripForOperationalTransition(id);
-        if (trip.getStatus() != TripStatus.ACCEPTED && trip.getStatus() != TripStatus.ASSIGNED) {
-            throw new BadRequestException("Chuyến đi chưa sẵn sàng để bắt đầu");
-        }
+        requireStatus(trip, TripStatus.ACCEPTED);
         assertNoOtherOperationalTrip(trip);
         trip.setStatus(TripStatus.IN_PROGRESS);
         trip.setActualStartTime(LocalDateTime.now());
@@ -444,7 +454,7 @@ public class TripService {
         if (driver == null || driver.getUser() == null) {
             return;
         }
-        String content = "%s: %s → %s. Khởi hành dự kiến %s".formatted(
+        String content = "%s: %s → %s. Khởi hành dự kiến %s. Hãy nhận hoặc từ chối chuyến.".formatted(
                 trip.getTripCode(),
                 trip.getStartLocation(),
                 trip.getEndLocation(),

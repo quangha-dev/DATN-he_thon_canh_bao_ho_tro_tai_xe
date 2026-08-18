@@ -98,9 +98,9 @@ class DriverRepository {
     String? note,
   }) {
     final normalized = action.toLowerCase();
-    if (normalized == 'accept') {
+    if (normalized == 'accept' || normalized == 'reject') {
       return api.post<Map<String, dynamic>>(
-        '/mobile/trips/$tripId/accept',
+        '/mobile/trips/$tripId/$normalized',
         data: {'note': note, 'clientEventId': _uuid.v4()},
       );
     }

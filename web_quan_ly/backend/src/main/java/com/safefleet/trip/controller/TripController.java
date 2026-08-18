@@ -85,6 +85,13 @@ public class TripController {
         return ApiResponse.ok("Trip accepted", tripService.accept(id, request == null ? new TripActionRequest(null, null) : request));
     }
 
+    @Operation(summary = "Driver rejects assigned trip")
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasRole('DRIVER')")
+    public ApiResponse<TripResponse> reject(@PathVariable Long id, @RequestBody(required = false) TripActionRequest request) {
+        return ApiResponse.ok("Trip rejected", tripService.reject(id, request == null ? new TripActionRequest(null, null) : request));
+    }
+
     @Operation(summary = "Start trip")
     @PostMapping("/{id}/start")
     @PreAuthorize("hasAnyRole('ADMIN','FLEET_MANAGER','DISPATCHER') or hasRole('DRIVER')")

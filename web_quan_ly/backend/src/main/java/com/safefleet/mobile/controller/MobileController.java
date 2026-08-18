@@ -209,6 +209,13 @@ public class MobileController {
         return ApiResponse.ok("Đã nhận chuyến", mobileAppService.acceptTrip(id, request));
     }
 
+    @Operation(summary = "Reject assigned trip")
+    @PostMapping("/trips/{id}/reject")
+    public ApiResponse<TripResponse> rejectTrip(@PathVariable Long id,
+                                                @RequestBody(required = false) TripActionRequest request) {
+        return ApiResponse.ok("Đã từ chối chuyến", mobileAppService.rejectTrip(id, request));
+    }
+
     @Operation(summary = "Start trip")
     @PostMapping("/trips/{id}/start")
     public ApiResponse<TripResponse> startTrip(@PathVariable Long id,

@@ -13,7 +13,7 @@ TripDayBucket tripDayBucket(Object? rawStatus) {
   return switch (rawStatus?.toString().toUpperCase()) {
     'IN_PROGRESS' || 'RESTING' => TripDayBucket.active,
     'COMPLETED' => TripDayBucket.completed,
-    'CANCELLED' => TripDayBucket.cancelled,
+    'CANCELLED' || 'REJECTED' => TripDayBucket.cancelled,
     _ => TripDayBucket.upcoming,
   };
 }
@@ -531,6 +531,7 @@ String _statusLabel(String status) => switch (status) {
   'COMPLETED' => 'Hoàn thành',
   'DELAYED' => 'Trễ giờ',
   'INCIDENT' => 'Có sự cố',
+  'REJECTED' => 'Đã từ chối',
   'CANCELLED' => 'Đã hủy',
   _ => status,
 };

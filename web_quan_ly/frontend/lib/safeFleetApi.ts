@@ -552,6 +552,7 @@ function mapTripStatus(value: string): TripStatus {
     COMPLETED: "completed",
     DELAYED: "pending",
     INCIDENT: "incident",
+    REJECTED: "cancelled",
     CANCELLED: "cancelled",
   };
   return map[value] ?? "pending";

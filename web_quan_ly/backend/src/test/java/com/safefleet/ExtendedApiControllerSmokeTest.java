@@ -170,6 +170,7 @@ class ExtendedApiControllerSmokeTest {
                 }
                 """));
         expectOk(json(post("/api/v1/mobile/trips/{id}/accept", 1), actionJson("accept-1")));
+        expectOk(json(post("/api/v1/mobile/trips/{id}/reject", 1), actionJson("reject-1")));
         expectOk(json(post("/api/v1/mobile/trips/{id}/start", 1), actionJson("start-1")));
         expectOk(json(post("/api/v1/mobile/trips/{id}/pause", 1), actionJson("pause-1")));
         expectOk(json(post("/api/v1/mobile/trips/{id}/resume", 1), actionJson("resume-1")));

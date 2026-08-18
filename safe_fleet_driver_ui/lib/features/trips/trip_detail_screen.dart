@@ -160,6 +160,57 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     });
   }
 
+  Future<void> _respondToAssignment({required bool accept}) async {
+    if (!accept) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Từ chối chuyến này?'),
+          content: const Text(
+            'Điều phối sẽ thấy trạng thái từ chối và có thể giao chuyến cho tài xế khác.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Quay lại'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Xác nhận từ chối'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(driverRepositoryProvider)
+          .executeConfirmedTripAction(
+            tripId: widget.tripId,
+            action: accept ? 'accept' : 'reject',
+            note: accept
+                ? 'Tài xế nhận chuyến trên ứng dụng'
+                : 'Tài xế từ chối chuyến trên ứng dụng',
+          );
+      if (!mounted) return;
+      setState(() {
+        _future = ref.read(driverRepositoryProvider).trip(widget.tripId);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(accept ? 'Đã nhận chuyến' : 'Đã từ chối chuyến'),
+        ),
+      );
+    } catch (error) {
+      if (mounted) showError(context, error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: context.sf.bg,
@@ -298,7 +349,9 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
           const SizedBox(height: SfSpace.x8),
           _dispatchCard(dispatchInfo),
         ],
-        if (status == 'COMPLETED' || status == 'CANCELLED') ...[
+        if (status == 'COMPLETED' ||
+            status == 'CANCELLED' ||
+            status == 'REJECTED') ...[
           const SizedBox(height: SfSpace.x20),
           _TerminalTripNotice(
             icon: status == 'COMPLETED'
@@ -306,9 +359,13 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                 : Icons.event_busy_rounded,
             title: status == 'COMPLETED'
                 ? 'Chuyến đã hoàn thành'
+                : status == 'REJECTED'
+                ? 'Bạn đã từ chối chuyến'
                 : 'Chuyến đã huỷ',
             message: status == 'COMPLETED'
                 ? 'Hành trình đã lưu vào lịch sử hôm nay.'
+                : status == 'REJECTED'
+                ? 'Điều phối đã nhận được phản hồi và có thể giao chuyến khác.'
                 : 'Chuyến bị huỷ không thể bắt đầu lại. Liên hệ điều phối nếu cần chuyến thay thế.',
             status: status == 'COMPLETED' ? SfStatus.good : SfStatus.warning,
           ),
@@ -321,8 +378,48 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
 
   Widget _actionBar(Map<String, dynamic> trip) {
     final status = trip['status']?.toString().toUpperCase() ?? 'ASSIGNED';
-    if (status == 'COMPLETED' || status == 'CANCELLED') {
+    if (status == 'COMPLETED' ||
+        status == 'CANCELLED' ||
+        status == 'REJECTED') {
       return const SizedBox.shrink();
+    }
+    if (status == 'ASSIGNED') {
+      return Container(
+        decoration: BoxDecoration(
+          color: context.sf.surface,
+          border: Border(top: BorderSide(color: context.sf.border)),
+        ),
+        child: SafeArea(
+          minimum: const EdgeInsets.fromLTRB(
+            SfSpace.x16,
+            SfSpace.x12,
+            SfSpace.x16,
+            SfSpace.x12,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _busy
+                      ? null
+                      : () => _respondToAssignment(accept: false),
+                  icon: const Icon(Icons.close_rounded),
+                  label: const Text('Từ chối'),
+                ),
+              ),
+              const SizedBox(width: SfSpace.x12),
+              Expanded(
+                child: SfPrimaryAction(
+                  label: _busy ? 'Đang xử lý' : 'Nhận chuyến',
+                  icon: Icons.check_rounded,
+                  busy: _busy,
+                  onPressed: () => _respondToAssignment(accept: true),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     final running = status == 'IN_PROGRESS' || status == 'RESTING';
     return Container(
@@ -584,6 +681,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     'COMPLETED' => 'Hoàn thành',
     'DELAYED' => 'Trễ giờ',
     'INCIDENT' => 'Có sự cố',
+    'REJECTED' => 'Đã từ chối',
     'CANCELLED' => 'Đã huỷ',
     _ => status,
   };

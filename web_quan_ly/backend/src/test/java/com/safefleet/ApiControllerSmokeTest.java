@@ -284,6 +284,7 @@ class ApiControllerSmokeTest {
                 }
                 """));
         expectOk(post("/api/v1/trips/{id}/accept", 1));
+        expectOk(post("/api/v1/trips/{id}/reject", 1));
         expectOk(post("/api/v1/trips/{id}/start", 1));
         expectOk(post("/api/v1/trips/{id}/pause", 1));
         expectOk(post("/api/v1/trips/{id}/resume", 1));
