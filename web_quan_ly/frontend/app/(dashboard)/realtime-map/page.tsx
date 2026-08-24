@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import MapView from "@/components/map/MapView";
 import { Vehicle, FloodPoint, Incident } from "@/types";
-import { safeFleetApi } from "@/lib/safeFleetApi";
+import { ActiveNavigation, safeFleetApi } from "@/lib/safeFleetApi";
 import { useToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -68,6 +68,7 @@ export default function RealtimeMapPage() {
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState<DetailItem | null>(null);
   const [acceptingIncidentId, setAcceptingIncidentId] = useState<string | null>(null);
+  const [activeNavigation, setActiveNavigation] = useState<ActiveNavigation | null>(null);
 
   const handleAcceptIncident = async (incident: Incident) => {
     setAcceptingIncidentId(incident.id);
@@ -114,6 +115,38 @@ export default function RealtimeMapPage() {
       window.removeEventListener("safefleet:realtime", onRealtime);
     };
   }, [showToast]);
+
+  useEffect(() => {
+    if (selectedItem?.type !== "vehicle") {
+      setActiveNavigation(null);
+      return;
+    }
+    let cancelled = false;
+    const vehicleId = selectedItem.data.id;
+    const loadRoute = async () => {
+      try {
+        const route = await safeFleetApi.activeNavigation(vehicleId);
+        if (!cancelled) setActiveNavigation(route);
+      } catch {
+        if (!cancelled) setActiveNavigation(null);
+      }
+    };
+    void loadRoute();
+    window.addEventListener("safefleet:realtime", loadRoute);
+    const polling = window.setInterval(loadRoute, 15_000);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("safefleet:realtime", loadRoute);
+      window.clearInterval(polling);
+    };
+  }, [selectedItem]);
+
+  const monitoredRoute = useMemo(() => {
+    if (!activeNavigation) return null;
+    return activeNavigation.routes.find((route) => route.recommended)
+      ?? activeNavigation.routes[activeNavigation.selectedRouteIndex]
+      ?? null;
+  }, [activeNavigation]);
 
   const filteredVehicles = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -168,6 +201,7 @@ export default function RealtimeMapPage() {
           onFloodPointClick={(p) => setSelectedItem({ type: "flood", data: p })}
           onIncidentClick={(i) => setSelectedItem({ type: "incident", data: i })}
           selectedVehicleId={selectedItem?.type === "vehicle" ? selectedItem.data.id : null}
+          routeCoordinates={monitoredRoute?.geometry ?? []}
         />
       </div>
 

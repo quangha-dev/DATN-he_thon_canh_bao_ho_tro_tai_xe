@@ -285,6 +285,26 @@ export type RouteSummary = {
   message: string;
 };
 
+export type ActiveNavigation = {
+  sessionId: string;
+  vehicleId: number;
+  destinationName: string;
+  safe: boolean;
+  selectedRouteIndex: number;
+  routes: Array<{
+    routeIndex: number;
+    distanceMeters: number;
+    durationSeconds: number;
+    floodIntersectionCount: number;
+    safe: boolean;
+    blocked: boolean;
+    recommended: boolean;
+    provider: string;
+    geometry: [number, number][];
+    warnings: string[];
+  }>;
+};
+
 export type SystemSetting = {
   id: number;
   key: string;
@@ -1182,6 +1202,10 @@ export const safeFleetApi = {
     endLng: number;
   }): Promise<RouteSummary> {
     return postData<RouteSummary>("/locations/route", input);
+  },
+
+  async activeNavigation(vehicleId: string | number): Promise<ActiveNavigation> {
+    return getData<ActiveNavigation>("/navigation/monitoring/active", { vehicleId });
   },
 
   async createTrip(input: {
