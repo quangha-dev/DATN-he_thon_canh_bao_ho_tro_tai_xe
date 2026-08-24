@@ -127,6 +127,9 @@ export const STATUS_TONE: Record<string, Tone> = {
   acknowledged: "warning",
   resolved: "success",
   dismissed: "neutral",
+  // Alert status còn thiếu "escalated" trong bản thiết kế gốc — bổ sung để
+  // toneOf() phủ hết bốn trạng thái thật của AlertStatus (types/index.ts)
+  escalated: "danger",
   // Incident
   open: "danger",
   overdue: "danger",
@@ -385,6 +388,7 @@ export function Badge({
   children,
   icon: Icon,
   solid,
+  dot,
   className,
   size = "md",
 }: {
@@ -392,6 +396,8 @@ export function Badge({
   children: React.ReactNode;
   icon?: LucideIcon;
   solid?: boolean;
+  /** Chấm màu đứng trước chữ — kiểu huy hiệu mặc định của bản thiết kế */
+  dot?: boolean;
   className?: string;
   size?: "sm" | "md";
 }) {
@@ -399,16 +405,22 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-[var(--sf-r-pill)] font-bold tracking-tight whitespace-nowrap",
-        size === "sm" ? "px-2.5 py-1 text-[12.5px]" : "px-3 py-1.5 text-[12.5px]",
+        "inline-flex items-center gap-[7px] rounded-[var(--sf-r-pill)] font-bold tracking-[0.02em] whitespace-nowrap",
+        size === "sm" ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-[11.5px]",
         className
       )}
       style={{
         color: solid ? t.solidFg : t.fg,
         background: solid ? t.solidBg : t.bg,
-        boxShadow: solid ? "none" : `inset 0 0 0 1px ${t.border}`,
       }}
     >
+      {dot && (
+        <span
+          aria-hidden
+          className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+          style={{ background: solid ? t.solidFg : t.fg }}
+        />
+      )}
       {Icon && <Icon className="h-3 w-3" />}
       {children}
     </span>
@@ -538,37 +550,53 @@ export function StatCard({
   decimals,
   delta,
   deltaDown,
+  deltaTone,
   trailing,
   filled,
   pulse,
   onClick,
   active,
+  delay = 0,
   className,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   icon?: LucideIcon;
   tone?: Tone;
   hint?: React.ReactNode;
   suffix?: string;
   decimals?: number;
-  /** Ví dụ "+0.00%" — hiển thị cạnh số liệu */
+  /** Chú thích cạnh số liệu, ví dụ "+2 tháng này" hoặc "73% đội" */
   delta?: string;
   deltaDown?: boolean;
+  /** Ép màu chú thích theo tone thay vì mặc định xanh/đỏ */
+  deltaTone?: Tone;
   /** Nội dung góc phải trên, thường là bộ chọn kỳ */
   trailing?: React.ReactNode;
   filled?: boolean;
   pulse?: boolean;
   onClick?: () => void;
   active?: boolean;
+  /** Độ trễ hoạt ảnh xuất hiện (ms) */
+  delay?: number;
   className?: string;
 }) {
   const t = TONE[tone];
   const Comp = onClick ? "button" : "div";
 
   const chipStyle: React.CSSProperties = filled
-    ? { background: "rgba(255,255,255,0.22)", color: "var(--sf-primary-contrast)" }
+    ? { background: "rgba(255,255,255,0.14)", color: "#a7ecdc" }
     : { background: t.bg, color: t.fg };
+
+  const deltaColor = filled
+    ? "#7fe3cd"
+    : deltaTone
+      ? TONE[deltaTone].fg
+      : delta && deltaDown
+        ? "var(--sf-danger)"
+        : delta
+          ? "var(--sf-text-muted)"
+          : undefined;
 
   return (
     <Comp
@@ -576,53 +604,50 @@ export function StatCard({
       type={onClick ? "button" : undefined}
       className={cn(
         filled ? "sf-surface-filled" : "sf-surface",
-        "group relative overflow-hidden p-5 text-left",
-        onClick && "sf-interactive cursor-pointer",
+        "group relative overflow-hidden px-5 py-5 text-left animate-sf-pop",
+        onClick && "cursor-pointer",
         className
       )}
-      style={
-        active && !filled
-          ? { borderColor: t.fg, boxShadow: `0 0 0 1.5px ${t.fg}` }
-          : undefined
-      }
+      style={{
+        animationDelay: `${delay}ms`,
+        ...(active && !filled
+          ? { boxShadow: `inset 0 0 0 1.5px ${t.fg}, var(--sf-shadow-md)` }
+          : {}),
+      }}
     >
-      {/* Hàng trên: ô icon + phần phụ bên phải */}
-      <div className="flex items-start justify-between gap-3">
-        {Icon ? (
-          <span
-            className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[var(--sf-r-sm)] transition-transform duration-[var(--sf-dur-base)] ease-[var(--sf-ease-spring)] group-hover:scale-105"
-            style={chipStyle}
-          >
-            <Icon className="h-[21px] w-[21px]" />
-          </span>
-        ) : (
-          <span />
-        )}
-        {trailing && <span className="flex-shrink-0">{trailing}</span>}
+      {/* Hàng trên: nhãn bên trái, ô icon bên phải */}
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className="truncate text-[12px] tracking-[0.02em]"
+          style={{ color: filled ? "rgba(190,238,229,.75)" : "var(--sf-text-muted)" }}
+        >
+          {label}
+        </span>
+        {trailing ??
+          (Icon && (
+            <span
+              className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-[12px] transition-transform duration-[var(--sf-dur-base)] ease-[var(--sf-ease-spring)] group-hover:scale-105"
+              style={chipStyle}
+            >
+              <Icon className="h-[18px] w-[18px]" />
+            </span>
+          ))}
       </div>
 
-      {/* Nhãn + số liệu */}
-      <p
-        className="mt-4 truncate text-[13px] font-semibold"
-        style={{
-          color: filled ? "rgba(255,255,255,0.86)" : "var(--sf-text-muted)",
-        }}
-      >
-        {label}
-      </p>
-
-      <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
+      {/* Số liệu + chú thích */}
+      <div className="mt-3.5 flex flex-wrap items-baseline gap-2">
         <span
-          className="sf-metric text-[28px]"
-          style={filled ? { color: "var(--sf-primary-contrast)" } : undefined}
+          className="sf-metric text-[29px]"
+          style={filled ? { color: "#ffffff" } : undefined}
         >
-          <CountUp value={value} suffix={suffix} decimals={decimals} />
+          {typeof value === "number" ? (
+            <CountUp value={value} suffix={suffix} decimals={decimals} />
+          ) : (
+            value
+          )}
         </span>
         {delta && (
-          <span
-            className={cn("sf-delta", deltaDown && "sf-delta-down")}
-            style={filled ? { color: "rgba(255,255,255,0.9)" } : undefined}
-          >
+          <span className="text-[12px]" style={{ color: deltaColor }}>
             {delta}
           </span>
         )}
@@ -631,13 +656,13 @@ export function StatCard({
       {hint && (
         <p
           className="mt-1.5 truncate text-[12px]"
-          style={{ color: filled ? "rgba(255,255,255,0.75)" : "var(--sf-text-muted)" }}
+          style={{ color: filled ? "rgba(206,232,229,.72)" : "var(--sf-text-muted)" }}
         >
           {hint}
         </p>
       )}
 
-      {pulse && value > 0 && !filled && (
+      {pulse && typeof value === "number" && value > 0 && !filled && (
         <span
           aria-hidden
           className="absolute bottom-0 left-0 h-[3px] w-full animate-sf-breathe"
@@ -765,7 +790,7 @@ export function Select({
       aria-label={ariaLabel}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={cn("sf-input sf-select h-10 w-auto min-w-[9rem] font-semibold cursor-pointer", className)}
+      className={cn("sf-input sf-select h-10 !w-auto min-w-[9rem] flex-none font-semibold cursor-pointer", className)}
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>

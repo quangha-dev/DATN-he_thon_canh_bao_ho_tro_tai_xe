@@ -10,26 +10,27 @@ import { canAccessPath } from "@/lib/accessControl";
 import { useAuth } from "@/context/AuthContext";
 import { ShieldAlert } from "lucide-react";
 
-const PAGE_META: Record<string, { title: string; description?: string }> = {
-  "/command-center": { title: "Trung tâm điều hành", description: "Tổng quan hoạt động đội xe theo thời gian thực" },
-  "/realtime-map": { title: "Bản đồ realtime", description: "Theo dõi vị trí và trạng thái xe trên bản đồ" },
-  "/dispatch": { title: "Điều phối chuyến", description: "Lập kế hoạch, gợi ý ghép xe và giao chuyến" },
-  "/trips": { title: "Chuyến đi & chứng từ", description: "Danh sách, tiến độ và phiếu xuất kho" },
-  "/document-reviews": { title: "Duyệt phiếu lệch biển", description: "Đối chiếu biển số OCR với xe cố định của tài xế" },
-  "/vehicles": { title: "Quản lý phương tiện", description: "Danh sách xe, thiết bị và hạn đăng kiểm" },
-  "/drivers": { title: "Quản lý tài xế", description: "Hồ sơ tài xế, điểm an toàn và giờ lái" },
-  "/alerts": { title: "Cảnh báo AI", description: "Trung tâm an toàn — sự kiện phát hiện bởi mô hình AI" },
-  "/incidents": { title: "SOS / Sự cố", description: "Phòng xử lý sự cố khẩn cấp" },
-  "/flood-map": { title: "Điểm ngập & rủi ro", description: "Bản đồ ngập lụt và tuyến đường rủi ro" },
-  "/devices": { title: "Quản lý thiết bị", description: "GPS, camera hành trình, cảm biến" },
-  "/maintenance": { title: "Bảo trì", description: "Lệnh bảo trì, sửa chữa và nhắc hạn" },
-  "/reports": { title: "Báo cáo", description: "Số liệu vận hành và an toàn từ backend" },
-  "/accounts": { title: "Tài khoản", description: "Quản lý người dùng và trạng thái truy cập" },
-  "/settings": { title: "Cấu hình hệ thống", description: "Tham số vận hành và ngưỡng cảnh báo" },
-  "/profile": { title: "Hồ sơ cá nhân", description: "Thông tin tài khoản và bảo mật" },
+/* Nhãn nhóm + tên trang hiển thị ở đầu trang — khớp đúng nhóm menu bên trái */
+const PAGE_META: Record<string, { group: string; title: string }> = {
+  "/command-center": { group: "Điều hành", title: "Trung tâm điều hành" },
+  "/realtime-map": { group: "Điều hành", title: "Bản đồ realtime" },
+  "/drivers": { group: "Quản lý", title: "Quản lý tài xế" },
+  "/accounts": { group: "Quản lý", title: "Quản lý tài khoản" },
+  "/vehicles": { group: "Quản lý", title: "Quản lý phương tiện" },
+  "/dispatch": { group: "Vận hành", title: "Điều phối chuyến" },
+  "/trips": { group: "Vận hành", title: "Chuyến đi & chứng từ" },
+  "/document-reviews": { group: "Vận hành", title: "Duyệt phiếu lệch biển số" },
+  "/alerts": { group: "An toàn", title: "Cảnh báo AI" },
+  "/incidents": { group: "An toàn", title: "SOS / Sự cố" },
+  "/flood-map": { group: "An toàn", title: "Điểm ngập & rủi ro" },
+  "/devices": { group: "Đội xe", title: "Thiết bị" },
+  "/maintenance": { group: "Đội xe", title: "Bảo trì" },
+  "/reports": { group: "Phân tích", title: "Báo cáo" },
+  "/settings": { group: "Hệ thống", title: "Cấu hình" },
+  "/profile": { group: "Hệ thống", title: "Hồ sơ cá nhân" },
 };
 
-const FULLSCREEN_PATHS = ["/realtime-map", "/flood-map"];
+const FULLSCREEN_PATHS = ["/realtime-map"];
 const SIDEBAR_KEY = "safefleet-sidebar-collapsed";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -60,10 +61,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const matchedPath = Object.keys(PAGE_META)
     .sort((a, b) => b.length - a.length)
-    .find((path) => pathname.startsWith(path));
-  const pageMeta = matchedPath ? PAGE_META[matchedPath] : { title: "SafeFleet Command Center" };
+    .find((path) => pathname === path || pathname.startsWith(`${path}/`));
+  const pageMeta = matchedPath
+    ? PAGE_META[matchedPath]
+    : { group: "", title: "SafeFleet Command Center" };
 
-  const isFullScreen = FULLSCREEN_PATHS.includes(pathname);
+  const isFullScreen = FULLSCREEN_PATHS.some((p) => pathname.startsWith(p));
   const canAccess = user ? canAccessPath(user.role, pathname) : true;
 
   return (
@@ -87,16 +90,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div
         className={cn(
           "flex min-w-0 flex-1 flex-col transition-[margin] duration-[var(--sf-dur-base)] ease-[var(--sf-ease-out)]",
-          sidebarCollapsed ? "lg:ml-[80px]" : "lg:ml-[268px]"
+          sidebarCollapsed ? "lg:ml-[84px]" : "lg:ml-[268px]"
         )}
       >
         <Header
+          group={pageMeta.group}
           title={pageMeta.title}
-          description={pageMeta.description}
           onMenuClick={() => setMobileMenuOpen(true)}
         />
 
-        <main className={cn("min-w-0 flex-1 overflow-x-hidden", isFullScreen ? "" : "p-4 sm:p-6")}>
+        <main
+          className={cn(
+            "min-w-0 flex-1 overflow-x-hidden",
+            isFullScreen ? "p-4 sm:px-[30px] sm:py-5" : "p-4 sm:px-[30px] sm:pb-10 sm:pt-[26px]"
+          )}
+        >
           {canAccess ? (
             <PageTransition className={isFullScreen ? "h-full" : undefined}>
               {children}

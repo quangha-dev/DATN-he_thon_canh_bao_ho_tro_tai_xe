@@ -1,55 +1,38 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Trip } from "@/types";
+import { Trip, TripStatus } from "@/types";
 import { safeFleetApi } from "@/lib/safeFleetApi";
 import { useToast } from "@/context/ToastContext";
 import { formatDateTime, TRIP_STATUS_LABELS } from "@/lib/utils";
 import {
   Badge,
   Button,
+  CellProgress,
+  CellText,
+  DataTable,
   Drawer,
-  EmptyState,
-  IconButton,
+  FilterChips,
   InfoRow,
   Modal,
   ProgressBar,
-  SearchInput,
-  Segmented,
-  Select,
-  SkeletonRows,
-  Stagger,
   StatCard,
-  StatSkeletonGrid,
-  StatusLabel,
-  Table,
-  TableShell,
-  Td,
-  Toolbar,
-  Tr,
+  TableCard,
+  TableToolbar,
   toneOf,
+  type FilterChip,
 } from "@/components/ui";
 import {
+  Ban,
+  Download,
   Navigation,
-  Eye,
-  Activity,
-  CircleCheck,
-  CircleDashed,
+  Route,
   Siren,
   TriangleAlert,
-  ArrowRight,
-  Ban,
 } from "lucide-react";
 
-const STATUS_FILTERS = [
-  "all",
-  "pending",
-  "in_progress",
-  "completed",
-  "cancelled",
-  "incident",
-] as const;
-type StatusFilter = (typeof STATUS_FILTERS)[number];
+/** "all" hoặc một trong năm trạng thái chuyến đi của backend */
+type StatusFilter = "all" | TripStatus;
 
 const RISK_LABELS: Record<string, string> = {
   low: "Thấp",
@@ -58,13 +41,57 @@ const RISK_LABELS: Record<string, string> = {
   critical: "Nguy hiểm",
 };
 
+/** Backend không đặt tên tiếng Việt cho loại chuyến nên gán nhãn ở tầng hiển thị */
+const TRIP_TYPE_LABELS: Record<string, string> = {
+  delivery: "Giao hàng",
+  passenger: "Hành khách",
+  transfer: "Trung chuyển",
+  return: "Chuyến về",
+};
+
+function formatTime(value?: string | null): string | null {
+  if (!value) return null;
+  return new Date(value).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Nhãn ô tiến độ: API không trả sẵn câu mô tả nên suy ra từ các mốc giờ theo đúng vòng đời chuyến */
+function progressLabel(trip: Trip): string {
+  const scheduled = formatTime(trip.scheduledStart) ?? "—";
+  if (trip.status === "completed") {
+    return `Kết thúc ${formatTime(trip.actualEnd) ?? formatTime(trip.scheduledEnd) ?? "—"}`;
+  }
+  if (trip.status === "cancelled") {
+    return trip.notes ? `Đã hủy · ${trip.notes}` : "Đã hủy chuyến";
+  }
+  if (trip.status === "pending") {
+    return `Khởi hành ${scheduled}`;
+  }
+  const eta = formatTime(trip.eta);
+  if (eta) return `KH ${scheduled} · ETA ${eta}`;
+  const actual = formatTime(trip.actualStart);
+  if (actual) return `KH ${scheduled} · thực tế ${actual}`;
+  return `KH ${scheduled}`;
+}
+
+/** Tô màu thanh tiến độ theo rủi ro tuyến & độ trễ so với kế hoạch (lệch quá 10 phút coi là trễ) */
+function progressTone(trip: Trip): "primary" | "warning" | "danger" {
+  if (trip.status === "incident" || trip.riskLevel === "critical") return "danger";
+  const compareTo = trip.actualStart || trip.eta;
+  const isLate =
+    Boolean(compareTo) &&
+    Boolean(trip.scheduledStart) &&
+    new Date(compareTo as string).getTime() - new Date(trip.scheduledStart).getTime() > 10 * 60 * 1000;
+  if (trip.riskLevel === "high" || isLate) return "warning";
+  return "primary";
+}
+
 export default function TripsPage() {
   const { showToast } = useToast();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [riskFilter, setRiskFilter] = useState("all");
+  const [highRiskOnly, setHighRiskOnly] = useState(false);
   const [selected, setSelected] = useState<Trip | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
@@ -114,9 +141,7 @@ export default function TripsPage() {
   const stats = useMemo(
     () => ({
       total: trips.length,
-      in_progress: trips.filter((t) => t.status === "in_progress").length,
-      pending: trips.filter((t) => t.status === "pending").length,
-      completed: trips.filter((t) => t.status === "completed").length,
+      inProgress: trips.filter((t) => t.status === "in_progress").length,
       incident: trips.filter((t) => t.status === "incident").length,
       highRisk: trips.filter((t) => t.riskLevel === "high" || t.riskLevel === "critical").length,
     }),
@@ -127,7 +152,7 @@ export default function TripsPage() {
     const q = searchQuery.trim().toLowerCase();
     return trips.filter((t) => {
       if (statusFilter !== "all" && t.status !== statusFilter) return false;
-      if (riskFilter !== "all" && t.riskLevel !== riskFilter) return false;
+      if (highRiskOnly && !(t.riskLevel === "high" || t.riskLevel === "critical")) return false;
       if (!q) return true;
       return (
         t.code.toLowerCase().includes(q) ||
@@ -137,189 +162,159 @@ export default function TripsPage() {
         t.destination.toLowerCase().includes(q)
       );
     });
-  }, [trips, searchQuery, statusFilter, riskFilter]);
+  }, [trips, searchQuery, statusFilter, highRiskOnly]);
+
+  /* Chip lọc dựng theo đúng năm trạng thái chuyến của backend, kể cả "cancelled"
+     mà bản thiết kế gốc bỏ sót — chỉ hiện chip có dữ liệu thật. */
+  const statusChips = useMemo(() => {
+    const chips: FilterChip[] = [{ key: "all", label: "Tất cả", count: trips.length }];
+    (Object.keys(TRIP_STATUS_LABELS) as TripStatus[]).forEach((key) => {
+      const count = trips.filter((t) => t.status === key).length;
+      if (count > 0) chips.push({ key, label: TRIP_STATUS_LABELS[key], count });
+    });
+    return chips;
+  }, [trips]);
+
+  /* Chưa có API xuất danh sách nên dựng CSV ngay trên trình duyệt từ dữ liệu
+     đã tải và đang lọc — không phát sinh lời gọi API mới. */
+  const exportTrips = () => {
+    if (filtered.length === 0) {
+      showToast("Không có chuyến nào để xuất theo bộ lọc hiện tại.", "error");
+      return;
+    }
+    const header = ["Mã chuyến", "Loại", "Điểm đi", "Điểm đến", "Tài xế", "Biển số", "Trạng thái", "Rủi ro", "Tiến độ (%)"];
+    const rows = filtered.map((t) => [
+      t.code,
+      TRIP_TYPE_LABELS[t.type] || t.type,
+      t.origin,
+      t.destination,
+      t.driverName,
+      t.vehiclePlate,
+      TRIP_STATUS_LABELS[t.status] || t.status,
+      RISK_LABELS[t.riskLevel] || t.riskLevel,
+      String(t.progress),
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `chuyen-di-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showToast(`Đã xuất ${filtered.length} chuyến ra tệp CSV.`, "success");
+  };
 
   return (
-    <div className="space-y-5">
-      {/* ===== Thống kê ===== */}
-      <Stagger className="grid grid-cols-2 gap-3.5 md:grid-cols-3 lg:grid-cols-6">
-        {isLoading && trips.length === 0 ? (
-          <StatSkeletonGrid count={6} />
-        ) : (
-          <>
-            <StatCard label="Tổng chuyến" value={stats.total} icon={Navigation} tone="primary" />
-            <StatCard
-              label="Đang thực hiện"
-              value={stats.in_progress}
-              icon={Activity}
-              tone="primary"
-              onClick={() =>
-                setStatusFilter(statusFilter === "in_progress" ? "all" : "in_progress")
-              }
-              active={statusFilter === "in_progress"}
-            />
-            <StatCard
-              label="Chưa bắt đầu"
-              value={stats.pending}
-              icon={CircleDashed}
-              tone="neutral"
-              onClick={() => setStatusFilter(statusFilter === "pending" ? "all" : "pending")}
-              active={statusFilter === "pending"}
-            />
-            <StatCard
-              label="Đã hoàn thành"
-              value={stats.completed}
-              icon={CircleCheck}
-              tone="success"
-              onClick={() => setStatusFilter(statusFilter === "completed" ? "all" : "completed")}
-              active={statusFilter === "completed"}
-            />
-            <StatCard
-              label="Gặp sự cố"
-              value={stats.incident}
-              icon={Siren}
-              tone="danger"
-              pulse
-              onClick={() => setStatusFilter(statusFilter === "incident" ? "all" : "incident")}
-              active={statusFilter === "incident"}
-            />
-            <StatCard
-              label="Tuyến rủi ro cao"
-              value={stats.highRisk}
-              icon={TriangleAlert}
-              tone="accent"
-              onClick={() => setRiskFilter(riskFilter === "high" ? "all" : "high")}
-              active={riskFilter === "high"}
-            />
-          </>
-        )}
-      </Stagger>
-
-      {/* ===== Thanh công cụ ===== */}
-      <Toolbar>
-        <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Tìm mã chuyến, biển số, tài xế, điểm đi/đến…"
-          className="sm:max-w-md"
+    <div className="grid gap-5">
+      {/* ===== Bốn thẻ số liệu, thẻ đầu tô đặc màu thương hiệu ===== */}
+      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <StatCard
+          filled
+          label="Tổng chuyến"
+          value={stats.total}
+          icon={Navigation}
+          delta={`${stats.inProgress} đang chạy`}
+          delay={0}
         />
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            ariaLabel="Lọc theo mức rủi ro"
-            value={riskFilter}
-            onChange={setRiskFilter}
-            options={[
-              { value: "all", label: "Tất cả mức rủi ro" },
-              ...Object.entries(RISK_LABELS).map(([value, label]) => ({
-                value,
-                label: `Rủi ro ${label.toLowerCase()}`,
-              })),
-            ]}
-            className="min-w-[11rem]"
-          />
-          <Segmented
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={STATUS_FILTERS.map((s) => ({
-              value: s,
-              label: s === "all" ? "Tất cả" : TRIP_STATUS_LABELS[s] || s,
-            }))}
-          />
-        </div>
-      </Toolbar>
+        <StatCard
+          label="Đang chạy"
+          value={stats.inProgress}
+          icon={Route}
+          tone="primary"
+          delta={stats.total ? `${Math.round((stats.inProgress / stats.total) * 100)}% tổng chuyến` : ""}
+          onClick={() => setStatusFilter(statusFilter === "in_progress" ? "all" : "in_progress")}
+          active={statusFilter === "in_progress"}
+          delay={70}
+        />
+        <StatCard
+          label="Gặp sự cố"
+          value={stats.incident}
+          icon={Siren}
+          tone="danger"
+          deltaTone="danger"
+          delta="cần xử lý"
+          onClick={() => setStatusFilter(statusFilter === "incident" ? "all" : "incident")}
+          active={statusFilter === "incident"}
+          delay={140}
+        />
+        <StatCard
+          label="Rủi ro tuyến cao"
+          value={stats.highRisk}
+          icon={TriangleAlert}
+          tone="warning"
+          deltaTone="warning"
+          delta="mức cao & nguy hiểm"
+          onClick={() => setHighRiskOnly((v) => !v)}
+          active={highRiskOnly}
+          delay={210}
+        />
+      </div>
 
-      {/* ===== Bảng ===== */}
-      <TableShell loading={isLoading}>
-        <Table
-          head={[
-            "Mã chuyến",
-            "Lộ trình",
-            "Phương tiện",
-            "Tài xế",
-            "Khởi hành dự kiến",
-            "Tiến độ",
-            "Rủi ro",
-            "Trạng thái",
-            "",
-          ]}
-        >
-          {isLoading && trips.length === 0 ? (
-            <SkeletonRows rows={6} cols={9} />
-          ) : filtered.length === 0 ? (
-            <tr>
-              <Td colSpan={9}>
-                <EmptyState
-                  icon={Navigation}
-                  title="Không tìm thấy chuyến đi"
-                  description="Thử đổi từ khóa hoặc bỏ bớt bộ lọc đang áp dụng."
-                />
-              </Td>
-            </tr>
-          ) : (
-            filtered.map((trip) => (
-              <Tr key={trip.id} onClick={() => setSelected(trip)}>
-                <Td>
-                  <span className="flex items-center gap-2.5">
-                    <span
-                      className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)]"
-                      style={{ background: "var(--sf-primary-soft)", color: "var(--sf-primary)" }}
-                    >
-                      <Navigation className="h-3.5 w-3.5" />
-                    </span>
-                    <span className="text-[13px] font-extrabold tracking-tight text-sf-text">
-                      {trip.code}
-                    </span>
-                  </span>
-                </Td>
-                <Td>
-                  <span className="flex items-center gap-1.5 font-semibold text-sf-text-secondary">
-                    <span className="truncate">{trip.origin}</span>
-                    <ArrowRight className="h-3 w-3 flex-shrink-0 text-sf-text-muted" />
-                    <span className="truncate">{trip.destination}</span>
-                  </span>
-                </Td>
-                <Td className="font-bold">{trip.vehiclePlate}</Td>
-                <Td>{trip.driverName}</Td>
-                <Td className="sf-tnum whitespace-nowrap">
-                  {trip.scheduledStart ? formatDateTime(trip.scheduledStart) : "—"}
-                </Td>
-                <Td align="center">
-                  <ProgressBar
-                    className="mx-auto w-24"
-                    value={trip.progress}
-                    tone={trip.status === "completed" ? "success" : "primary"}
-                    showLabel
-                  />
-                </Td>
-                <Td align="center">
-                  <Badge tone={toneOf(trip.riskLevel)} size="sm">
-                    {RISK_LABELS[trip.riskLevel] || trip.riskLevel}
-                  </Badge>
-                </Td>
-                <Td>
-                  <StatusLabel
-                    status={trip.status}
-                    label={TRIP_STATUS_LABELS[trip.status] || trip.status}
-                    pulse={trip.status === "in_progress" || trip.status === "incident"}
-                  />
-                </Td>
-                <Td align="center">
-                  <IconButton
-                    icon={Eye}
-                    label="Xem chi tiết"
-                    size="sm"
-                    tone="primary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelected(trip);
-                    }}
-                  />
-                </Td>
-              </Tr>
-            ))
-          )}
-        </Table>
-      </TableShell>
+      {/* ===== Thẻ bảng: thanh công cụ + bảng dạng thẻ ===== */}
+      <TableCard
+        toolbar={
+          <TableToolbar
+            search={{
+              value: searchQuery,
+              onChange: setSearchQuery,
+              placeholder: "Mã chuyến, biển số, tài xế, điểm đi/đến…",
+            }}
+            filters={
+              <FilterChips items={statusChips} value={statusFilter} onChange={(k) => setStatusFilter(k as StatusFilter)} />
+            }
+            action={
+              <button type="button" className="sf-pill-primary" onClick={exportTrips}>
+                <Download className="h-[17px] w-[17px]" />
+                Xuất danh sách
+              </button>
+            }
+          />
+        }
+      >
+        <DataTable
+          grid="1.2fr 1.3fr 1.2fr 1.3fr 1fr"
+          columns={["Mã chuyến", "Hành trình", "Tài xế & xe", "Tiến độ", "Trạng thái"]}
+          loading={isLoading}
+          empty={{
+            icon: Navigation,
+            title: "Không tìm thấy chuyến đi",
+            description: "Thử đổi từ khóa hoặc bỏ bớt bộ lọc đang áp dụng.",
+          }}
+          rows={filtered.map((trip) => ({
+            key: trip.id,
+            onClick: () => setSelected(trip),
+            cells: [
+              <CellText
+                key="code"
+                mono
+                strong
+                text={trip.code}
+                sub={TRIP_TYPE_LABELS[trip.type] || trip.type}
+              />,
+              <CellText
+                key="route"
+                text={`${trip.origin} → ${trip.destination}`}
+                sub={`${trip.totalKm} km${trip.waypoints.length ? ` · qua ${trip.waypoints.join(", ")}` : ""}`}
+              />,
+              <CellText key="driver" text={trip.driverName} sub={trip.vehiclePlate} subMono />,
+              <CellProgress
+                key="progress"
+                label={progressLabel(trip)}
+                percent={trip.progress}
+                tone={progressTone(trip)}
+              />,
+              <Badge key="status" tone={toneOf(trip.status)} dot size="sm">
+                {(TRIP_STATUS_LABELS[trip.status] || trip.status).toUpperCase()}
+              </Badge>,
+            ],
+          }))}
+        />
+      </TableCard>
 
       {/* ===== Panel chi tiết ===== */}
       <Drawer

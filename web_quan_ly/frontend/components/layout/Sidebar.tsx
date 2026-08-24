@@ -4,10 +4,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import { cn } from "@/lib/utils";
 import { canAccessPath } from "@/lib/accessControl";
 import { safeFleetApi } from "@/lib/safeFleetApi";
-import ThemeSwitch from "./ThemeSwitch";
 import {
   LayoutDashboard,
   Map,
@@ -25,17 +25,18 @@ import {
   Shield,
   FileWarning,
   Wrench,
-  PanelLeftClose,
-  PanelLeftOpen,
   HardDrive,
-  LifeBuoy,
-  Sparkles,
-  ChevronRight,
+  Moon,
+  Sun,
+  User,
   type LucideIcon,
 } from "lucide-react";
 
 /* ==========================================================================
    MENU
+   --------------------------------------------------------------------------
+   Bảy nhóm, đúng thứ tự bản thiết kế. "Hồ sơ cá nhân" được đưa vào nhóm
+   "Hệ thống" theo bản thiết kế — trước đây chỉ vào được qua menu ở đầu trang.
    ========================================================================== */
 interface MenuItem {
   key: string;
@@ -97,6 +98,7 @@ const MENU: MenuGroup[] = [
     title: "Hệ thống",
     items: [
       { key: "settings", label: "Cấu hình", icon: Settings, path: "/settings" },
+      { key: "profile", label: "Hồ sơ cá nhân", icon: User, path: "/profile" },
     ],
   },
 ];
@@ -114,22 +116,25 @@ interface SidebarProps {
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const [badges, setBadges] = useState({ alerts: 0, incidents: 0 });
+  const { resolvedTheme, toggleTheme } = useTheme();
+  const [badges, setBadges] = useState({ alerts: 0, incidents: 0, reviews: 0 });
   const navRef = useRef<HTMLElement>(null);
-  const [pill, setPill] = useState<{ top: number; height: number } | null>(null);
+  const [pillTop, setPillTop] = useState<number | null>(null);
 
-  /* --- Badge realtime --- */
+  /* --- Badge realtime: cảnh báo mới, sự cố chưa đóng, phiếu chờ duyệt --- */
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const [alerts, incidents] = await Promise.all([
+      const [alerts, incidents, reviews] = await Promise.all([
         safeFleetApi.safetyEvents().catch(() => []),
         safeFleetApi.incidents().catch(() => []),
+        safeFleetApi.documentPlateReviews("REVIEW_REQUIRED").catch(() => []),
       ]);
       if (cancelled) return;
       setBadges({
         alerts: alerts.filter((a) => a.status === "new").length,
         incidents: incidents.filter((i) => i.status !== "resolved").length,
+        reviews: reviews.length,
       });
     };
     void load();
@@ -145,11 +150,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
     [pathname]
   );
 
-  /* --- Con trượt chỉ mục trang đang mở --- */
+  /* --- Vệt nền trượt tới mục đang mở --- */
   const syncPill = useCallback(() => {
     const el = navRef.current?.querySelector<HTMLElement>('[data-active="true"]');
-    if (el) setPill({ top: el.offsetTop, height: el.offsetHeight });
-    else setPill(null);
+    setPillTop(el ? el.offsetTop : null);
   }, []);
 
   useEffect(() => {
@@ -175,252 +179,158 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
   })).filter((group) => group.items.length > 0);
 
   const badgeFor = (key: string) =>
-    key === "alerts" ? badges.alerts : key === "incidents" ? badges.incidents : 0;
+    key === "alerts"
+      ? badges.alerts
+      : key === "incidents"
+        ? badges.incidents
+        : key === "document-reviews"
+          ? badges.reviews
+          : 0;
 
   return (
     <aside
       className={cn(
         "fixed left-0 top-0 z-50 flex h-screen flex-col bg-[var(--sf-bg-sidebar)]",
-        "border-r border-[var(--sf-border-card)]",
+        "border-r border-[var(--sf-border-card)] px-4 pb-4 pt-[22px]",
         "shadow-[var(--sf-shadow-lg)] lg:shadow-none",
-        "transition-[width,transform] duration-[var(--sf-dur-base)] ease-[var(--sf-ease-out)]",
+        "transition-[width,transform] duration-[420ms] ease-[var(--sf-ease-out)]",
         mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-        collapsed ? "w-[268px] lg:w-[80px]" : "w-[268px]"
+        collapsed ? "w-[268px] lg:w-[84px]" : "w-[268px]"
       )}
     >
-      {/* ===== Logo ===== */}
-      <div
-        className={cn(
-          "flex h-[76px] flex-shrink-0 items-center",
-          collapsed ? "justify-center px-3" : "justify-between px-5"
-        )}
-      >
-        <Link
-          href="/command-center"
-          onClick={onMobileClose}
-          className="flex min-w-0 items-center gap-2.5"
-          title="SafeFleet Command Center"
+      {/* ===== Logo — bấm để thu gọn / mở rộng ===== */}
+      <div className="flex flex-shrink-0 items-center gap-3 px-1.5 pb-[22px]">
+        <button
+          type="button"
+          onClick={onToggle}
+          title="Thu gọn / mở thanh điều hướng"
+          aria-label="Thu gọn hoặc mở thanh điều hướng"
+          className="grid h-10 w-10 flex-shrink-0 cursor-pointer place-items-center rounded-[14px] transition-transform duration-[var(--sf-dur-base)] ease-[var(--sf-ease-spring)] hover:scale-[1.06]"
+          style={{
+            background: "linear-gradient(150deg,#34d3b5,#087f73)",
+            boxShadow: "0 10px 22px -10px rgba(8,127,115,.7)",
+          }}
         >
-          <span
-            className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-[var(--sf-r-sm)]"
-            style={{ background: "var(--sf-primary)" }}
-          >
-            <Shield className="h-[19px] w-[19px] text-[var(--sf-primary-contrast)]" />
-          </span>
-          {!collapsed && (
-            <span className="min-w-0 animate-sf-fade text-[19px] font-extrabold tracking-tight text-sf-text">
-              SafeFleet
-            </span>
-          )}
-        </Link>
+          <Shield className="h-[21px] w-[21px]" style={{ color: "#04211f" }} />
+        </button>
 
         {!collapsed && (
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-label="Thu gọn thanh điều hướng"
-            title="Thu gọn thanh điều hướng"
-            className="hidden h-8 w-8 place-items-center rounded-[var(--sf-r-xs)] text-sf-text-muted transition-colors hover:bg-[var(--sf-bg-inset)] hover:text-sf-text lg:grid cursor-pointer"
+          <Link
+            href="/command-center"
+            onClick={onMobileClose}
+            className="min-w-0 animate-sf-fade overflow-hidden whitespace-nowrap"
           >
-            <PanelLeftClose className="h-4 w-4" />
-          </button>
+            <span className="block text-[15px] font-bold tracking-tight text-sf-text">SafeFleet</span>
+            <span className="sf-eyebrow block text-[11px]">Command</span>
+          </Link>
         )}
       </div>
 
-      {/* ===== Nav ===== */}
-      <nav
-        ref={navRef}
-        className={cn(
-          "relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-3",
-          collapsed ? "px-3" : "px-4"
-        )}
-      >
-        {/* Viên thuốc nền trượt theo mục đang mở */}
-        {pill && (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 z-0 rounded-[var(--sf-r-sm)] transition-all duration-[var(--sf-dur-base)] ease-[var(--sf-ease-spring)]"
-            style={{
-              top: pill.top,
-              height: pill.height,
-              background: "var(--sf-primary)",
-              boxShadow: "0 8px 20px -8px rgba(var(--sf-primary-rgb), 0.6)",
-            }}
-          />
+      {/* ===== Điều hướng ===== */}
+      <nav ref={navRef} className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-0.5">
+        {pillTop != null && (
+          <>
+            <span aria-hidden className="sf-nav-pill" style={{ top: pillTop }} />
+            <span aria-hidden className="sf-nav-bar" style={{ top: pillTop + 12 }} />
+          </>
         )}
 
-        <div className={collapsed ? "space-y-4" : "space-y-5"}>
-          {visibleMenu.map((group) => (
-            <div key={group.title}>
-              {!collapsed ? (
-                <p className="mb-1.5 px-3 text-[12.5px] font-bold uppercase tracking-wider text-sf-text-muted">
-                  {group.title}
-                </p>
-              ) : (
-                <div className="mx-auto mb-2 h-px w-7 bg-[var(--sf-border-light)]" />
-              )}
-
-              <div className="space-y-1">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.path);
-                  const count = badgeFor(item.key);
-                  const badgeColor =
-                    item.badgeTone === "danger" ? "var(--sf-danger)" : "var(--sf-accent)";
-
-                  return (
-                    <Link
-                      key={item.key}
-                      href={item.path}
-                      data-active={active}
-                      onClick={onMobileClose}
-                      title={collapsed ? item.label : undefined}
-                      className={cn(
-                        "group relative z-10 flex items-center rounded-[var(--sf-r-sm)] text-[14px] font-semibold",
-                        "transition-colors duration-[var(--sf-dur-fast)]",
-                        collapsed ? "justify-center px-0 py-3" : "gap-3 px-3 py-3",
-                        active
-                          ? "text-[var(--sf-primary-contrast)]"
-                          : "text-sf-text-secondary hover:bg-[var(--sf-bg-inset)] hover:text-sf-text"
-                      )}
-                    >
-                      <span className="relative flex-shrink-0">
-                        <Icon
-                          className={cn(
-                            "h-[19px] w-[19px]",
-                            active ? "text-[var(--sf-primary-contrast)]" : "text-sf-text-muted"
-                          )}
-                        />
-                        {collapsed && count > 0 && (
-                          <span
-                            className="sf-tnum absolute -right-2 -top-2 grid h-[17px] min-w-[17px] place-items-center rounded-full px-1 text-[12px] font-extrabold text-white"
-                            style={{ background: badgeColor }}
-                          >
-                            {count > 99 ? "99+" : count}
-                          </span>
-                        )}
-                      </span>
-
-                      {!collapsed && (
-                        <>
-                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                          {count > 0 && (
-                            <span
-                              className="sf-tnum grid h-[20px] min-w-[20px] flex-shrink-0 place-items-center rounded-full px-1.5 text-[12.5px] font-extrabold text-white"
-                              style={{ background: active ? "rgba(255,255,255,0.28)" : badgeColor }}
-                            >
-                              {count > 99 ? "99+" : count}
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </Link>
-                  );
-                })}
+        {/* Nhóm KHÔNG được đặt position:relative — nếu không offsetTop của mục
+            sẽ tính theo nhóm thay vì theo <nav>, làm vệt chỉ mục lệch vị trí. */}
+        {visibleMenu.map((group) => (
+          <div key={group.title} className="mb-2.5">
+            {!collapsed && (
+              <div className="mb-2 flex h-[26px] items-center whitespace-nowrap px-2.5 text-[10.5px] uppercase tracking-[0.13em] text-sf-text-muted">
+                {group.title}
               </div>
-            </div>
-          ))}
-        </div>
+            )}
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              const count = badgeFor(item.key);
+              const badgeColor =
+                item.badgeTone === "danger" ? "var(--sf-danger)" : "var(--sf-accent)";
+
+              return (
+                <Link
+                  key={item.key}
+                  href={item.path}
+                  data-active={active}
+                  onClick={onMobileClose}
+                  title={item.label}
+                  className={cn(
+                    "sf-nav-item mb-1",
+                    active && "sf-nav-item-active",
+                    collapsed && "justify-center px-0"
+                  )}
+                >
+                  <span className="relative flex-shrink-0">
+                    <Icon className="h-[21px] w-[21px]" />
+                    {collapsed && count > 0 && (
+                      <span
+                        className="sf-tnum absolute -right-2 -top-1.5 grid h-[17px] min-w-[17px] place-items-center rounded-full px-1 text-[10px] font-bold text-white"
+                        style={{ background: badgeColor }}
+                      >
+                        {count > 99 ? "99+" : count}
+                      </span>
+                    )}
+                  </span>
+
+                  {!collapsed && (
+                    <>
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {count > 0 && (
+                        <span
+                          className="sf-tnum grid h-5 min-w-[20px] flex-shrink-0 place-items-center rounded-full px-1.5 text-[11px] font-semibold text-white"
+                          style={{ background: badgeColor }}
+                        >
+                          {count > 99 ? "99+" : count}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
-      {/* ===== Footer ===== */}
-      <div
-        className={cn("flex-shrink-0 space-y-2.5 pb-4", collapsed ? "px-3" : "px-4")}
-      >
-        {collapsed ? (
-          <>
-            <button
-              type="button"
-              onClick={onToggle}
-              aria-label="Mở rộng thanh điều hướng"
-              title="Mở rộng thanh điều hướng"
-              className="mx-auto grid h-10 w-10 place-items-center rounded-[var(--sf-r-sm)] text-sf-text-muted transition-colors hover:bg-[var(--sf-bg-inset)] hover:text-sf-text cursor-pointer"
-            >
-              <PanelLeftOpen className="h-4 w-4" />
-            </button>
-            <ThemeSwitch compact />
-            <button
-              type="button"
-              onClick={logout}
-              aria-label="Đăng xuất"
-              title="Đăng xuất"
-              className="mx-auto grid h-10 w-10 place-items-center rounded-[var(--sf-r-sm)] transition-colors hover:bg-[var(--sf-danger-soft)] cursor-pointer"
-              style={{ color: "var(--sf-danger)" }}
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </>
-        ) : (
-          <>
-            {/* Hỗ trợ */}
-            <Link
-              href="/settings"
-              onClick={onMobileClose}
-              className="flex items-center gap-3 rounded-[var(--sf-r-sm)] px-3 py-3 text-[14px] font-semibold text-sf-text-secondary transition-colors hover:bg-[var(--sf-bg-inset)] hover:text-sf-text"
-            >
-              <LifeBuoy className="h-[19px] w-[19px] text-sf-text-muted" />
-              Trung tâm hỗ trợ
-            </Link>
+      {/* ===== Chân: đổi nền sáng/tối + đăng xuất ===== */}
+      <div className="flex flex-shrink-0 flex-col gap-1.5 border-t border-[var(--sf-border-card)] pt-3.5">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          title={resolvedTheme === "dark" ? "Chuyển nền sáng" : "Chuyển nền tối"}
+          className={cn(
+            "flex h-[42px] cursor-pointer items-center gap-3 rounded-[14px] px-3 text-[13px] text-sf-text-muted transition-colors hover:bg-[var(--sf-hover)] hover:text-sf-text",
+            collapsed && "justify-center px-0"
+          )}
+        >
+          {resolvedTheme === "dark" ? (
+            <Sun className="h-5 w-5 flex-shrink-0" />
+          ) : (
+            <Moon className="h-5 w-5 flex-shrink-0" />
+          )}
+          {!collapsed && (
+            <span className="whitespace-nowrap">
+              {resolvedTheme === "dark" ? "Nền sáng" : "Nền tối"}
+            </span>
+          )}
+        </button>
 
-            {/* Thẻ trạng thái hệ thống */}
-            <div
-              className="rounded-[var(--sf-r-md)] p-3.5"
-              style={{ background: "var(--sf-accent-soft)" }}
-            >
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4" style={{ color: "var(--sf-accent-hover)" }} />
-                <p
-                  className="text-[13px] font-extrabold"
-                  style={{ color: "var(--sf-accent-hover)" }}
-                >
-                  Trợ lý AI đang bật
-                </p>
-              </div>
-              <p className="mt-1 text-[12px] leading-snug text-sf-text-secondary">
-                Đang giám sát {badges.alerts + badges.incidents > 0 ? "và có việc cần xử lý" : "toàn bộ đội xe"}.
-              </p>
-              <Link
-                href="/alerts"
-                onClick={onMobileClose}
-                className="mt-2.5 inline-flex items-center gap-1 text-[12.5px] font-bold"
-                style={{ color: "var(--sf-accent-hover)" }}
-              >
-                Xem cảnh báo
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-
-            <ThemeSwitch />
-
-            {/* Người dùng + đăng xuất */}
-            <div className="flex items-center gap-2.5 rounded-[var(--sf-r-sm)] px-1 pt-1">
-              <span
-                className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full text-[13px] font-extrabold"
-                style={{ background: "var(--sf-primary-soft)", color: "var(--sf-primary)" }}
-              >
-                {user?.fullName?.charAt(0)?.toUpperCase() || "U"}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-bold leading-tight text-sf-text">
-                  {user?.fullName || "Người dùng"}
-                </span>
-                <span className="block truncate text-[12.5px] leading-tight text-sf-text-muted">
-                  {user?.email || ""}
-                </span>
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={logout}
-              className="flex w-full items-center gap-3 rounded-[var(--sf-r-sm)] px-3 py-2.5 text-[14px] font-bold transition-colors hover:bg-[var(--sf-danger-soft)] cursor-pointer"
-              style={{ color: "var(--sf-danger)" }}
-            >
-              <LogOut className="h-[18px] w-[18px]" />
-              Đăng xuất
-            </button>
-          </>
-        )}
+        <button
+          type="button"
+          onClick={logout}
+          title="Đăng xuất"
+          className={cn(
+            "group flex h-[42px] cursor-pointer items-center gap-3 rounded-[14px] px-3 text-[13px] text-sf-text-muted transition-colors hover:bg-[var(--sf-danger-soft)] hover:text-[var(--sf-danger)]",
+            collapsed && "justify-center px-0"
+          )}
+        >
+          <LogOut className="h-5 w-5 flex-shrink-0" />
+          {!collapsed && <span className="whitespace-nowrap">Đăng xuất</span>}
+        </button>
       </div>
     </aside>
   );

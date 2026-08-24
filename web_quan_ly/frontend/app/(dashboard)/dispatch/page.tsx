@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Vehicle, Driver } from "@/types";
+import { Vehicle, Driver, FloodPoint } from "@/types";
 import {
   DispatchSuggestion,
   LocationSuggestion,
@@ -16,8 +16,8 @@ import {
   Calendar,
   Sparkles,
   CheckCircle2,
+  Droplets,
   MapPin,
-  Compass,
   Clock,
   Loader2,
   PackagePlus,
@@ -31,9 +31,9 @@ import {
   Badge,
   Button,
   Callout,
-  Card,
-  CardHeader,
+  DetailRow,
   Field,
+  HeroPanel,
   TextInput,
 } from "@/components/ui";
 
@@ -318,6 +318,7 @@ export default function DispatchPage() {
   const [notes, setNotes] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
+  const [floodPoints, setFloodPoints] = useState<FloodPoint[]>([]);
   const [isRouting, setIsRouting] = useState(false);
   const [routeError, setRouteError] = useState("");
 
@@ -346,13 +347,15 @@ export default function DispatchPage() {
     const loadOptions = async () => {
       setIsLoadingOptions(true);
       try {
-        const [vehicleData, driverData] = await Promise.all([
+        const [vehicleData, driverData, floodData] = await Promise.all([
           safeFleetApi.vehicles(),
           safeFleetApi.drivers(),
+          safeFleetApi.floodPoints().catch(() => [] as FloodPoint[]),
         ]);
         if (!cancelled) {
           setVehicles(vehicleData);
           setDrivers(driverData);
+          setFloodPoints(floodData);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Không tải được dữ liệu điều phối.";
@@ -620,85 +623,62 @@ export default function DispatchPage() {
   };
 
   const routeCoordinates = routeSummary?.coordinates ?? [];
+
+  /* Điểm ngập nằm trên tuyến: lấy khoảng cách ngắn nhất từ điểm ngập tới các
+     đỉnh của tuyến, dưới ~400 m coi như tuyến đi qua điểm đó. */
+  const floodOnRoute = useMemo(() => {
+    if (routeCoordinates.length === 0 || floodPoints.length === 0) return [];
+    const THRESHOLD_DEG = 0.0036; // ~400 m ở vĩ độ Việt Nam
+    return floodPoints.filter((point) =>
+      routeCoordinates.some(
+        ([lng, lat]) =>
+          Math.abs(lat - point.lat) < THRESHOLD_DEG && Math.abs(lng - point.lng) < THRESHOLD_DEG
+      )
+    );
+  }, [routeCoordinates, floodPoints]);
+
+  /* Mức rủi ro tuyến suy từ điểm ngập thật trên tuyến và việc phải dùng
+     đường chim bay thay cho dữ liệu định tuyến. */
+  const routeRisk = useMemo((): { tone: "success" | "warning" | "danger"; label: string } => {
+    if (floodOnRoute.some((p) => p.severity === "impassable" || p.severity === "heavy"))
+      return { tone: "danger", label: "CAO" };
+    if (floodOnRoute.length > 0 || routeSummary?.fallback)
+      return { tone: "warning", label: "TRUNG BÌNH" };
+    return { tone: "success", label: "THẤP" };
+  }, [floodOnRoute, routeSummary]);
   const routeDuration = routeSummary ? formatDuration(routeSummary.durationMinutes) : "-- giờ -- phút";
 
   return (
-    <div className="flex h-[calc(100vh-116px)] flex-col gap-4">
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-y-auto pb-1 lg:grid-cols-2 lg:overflow-hidden">
-        {/* ===== Cột trái: biểu mẫu ===== */}
-        <Card padding="none" className="flex min-h-0 flex-col">
-          <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-[var(--sf-border)] px-5 py-3.5">
-            <CardHeader
-              title="Thiết lập chuyến đi"
-              subtitle="Thông tin lộ trình và phiếu xuất kho"
-              icon={Route}
-            />
-            <Button
-              type="button"
-              size="xs"
-              variant="accent"
-              icon={Sparkles}
-              loading={isRecommending}
-              onClick={handleAiSuggest}
-            >
-              AI đề xuất
-            </Button>
-          </div>
-
-          <form
-            onSubmit={handleDispatch}
-            className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5"
-          >
-            {recommendation && (
-              <div
-                className="animate-sf-scale space-y-3 rounded-[var(--sf-r-md)] border-l-[3px] p-4"
-                style={{
-                  background: "var(--sf-accent-soft)",
-                  borderLeftColor: "var(--sf-accent)",
-                }}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span
-                    className="flex items-center gap-1.5 text-[12px] font-extrabold"
-                    style={{ color: "var(--sf-accent-hover)" }}
-                  >
-                    <Sparkles className="h-3.5 w-3.5" /> Gợi ý tối ưu từ AI
-                  </span>
-                  <div className="flex gap-1.5">
-                    <Button
-                      type="button"
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => setRecommendation(null)}
-                    >
-                      Bỏ qua
-                    </Button>
-                    <Button type="button" size="xs" onClick={applyRecommendation}>
-                      Áp dụng
-                    </Button>
-                  </div>
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      {/* ==================== Cột trái: biểu mẫu ==================== */}
+      <div className="grid gap-5">
+        <div className="sf-surface overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--sf-border-card)] px-7 py-5">
+            <div className="flex items-center gap-3">
+              <span className="sf-icon-chip">
+                <Route className="h-5 w-5" />
+              </span>
+              <div>
+                <div className="text-[15.5px] font-bold tracking-[-0.01em] text-sf-text">
+                  Thông tin chuyến
                 </div>
-                <div className="space-y-1 text-[12px] text-sf-text-secondary">
-                  <p>
-                    <span className="font-bold text-sf-text">Xe:</span>{" "}
-                    {recommendation.vehicle.plate} ({recommendation.vehicle.brand})
-                  </p>
-                  <p>
-                    <span className="font-bold text-sf-text">Tài xế:</span>{" "}
-                    {recommendation.driver.fullName} · điểm an toàn{" "}
-                    {recommendation.driver.safetyScore}
-                  </p>
-                  <ul className="mt-2 space-y-1 border-l border-[var(--sf-border-strong)] pl-3">
-                    {recommendation.reasons.map((reason) => (
-                      <li key={reason} className="text-[12.5px] text-sf-text-muted">
-                        {reason}
-                      </li>
-                    ))}
-                  </ul>
+                <div className="mt-0.5 text-[12.5px] text-sf-text-muted">
+                  Mã chuyến sinh tự động, có thể sửa
                 </div>
               </div>
-            )}
+            </div>
+            <button
+              type="button"
+              className="sf-pill-ghost"
+              disabled={isRecommending}
+              onClick={handleAiSuggest}
+            >
+              <Sparkles className="h-[17px] w-[17px]" />
+              {isRecommending ? "Đang tìm…" : "Gợi ý ghép cặp"}
+            </button>
+          </div>
 
+          <form onSubmit={handleDispatch} className="space-y-4 px-7 py-6">
             <div className="grid grid-cols-2 gap-4">
               <Field label="Mã chuyến đi">
                 <TextInput value={tripCode} readOnly mono className="opacity-70" />
@@ -712,6 +692,7 @@ export default function DispatchPage() {
                   <option value="delivery">Vận chuyển hàng hóa</option>
                   <option value="passenger">Vận chuyển hành khách</option>
                   <option value="transfer">Trung chuyển nội bộ</option>
+                  <option value="return">Chuyến trả hàng về</option>
                 </select>
               </Field>
             </div>
@@ -1169,24 +1150,139 @@ export default function DispatchPage() {
               />
             </Field>
           </form>
-        </Card>
+        </div>
+      </div>
 
-        {/* ===== Cột phải: xem trước tuyến ===== */}
-        <Card padding="none" className="flex flex-col">
-          <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-[var(--sf-border)] px-5 py-3.5">
-            <CardHeader
-              title="Xem trước tuyến lộ trình"
-              subtitle={routeSummary ? `Nguồn: ${routeSummary.provider}` : "Khu vực Hà Nội"}
-              icon={Compass}
-            />
+      {/* ==================== Cột phải ==================== */}
+      <div className="grid gap-5 self-start">
+        {/* --- Đề xuất ghép cặp từ API dispatchSuggestions --- */}
+        <HeroPanel padding="md">
+          <div
+            className="flex items-center gap-2 text-[11px] uppercase tracking-[0.11em]"
+            style={{ color: "rgba(190,238,229,.7)" }}
+          >
+            <Sparkles className="h-4 w-4" style={{ color: "#7fe3cd" }} />
+            Đề xuất ghép cặp
+          </div>
+
+          {recommendation ? (
+            <>
+              <div className="mt-4 text-[19px] font-bold tracking-[-0.01em] text-white">
+                {recommendation.driver.fullName}
+              </div>
+              <div className="sf-mono mt-1 text-[13.5px]" style={{ color: "#a7ecdc" }}>
+                {recommendation.vehicle.plate} · {recommendation.vehicle.brand}{" "}
+                {recommendation.vehicle.model}
+              </div>
+
+              <div className="mt-4 grid gap-2.5">
+                <div
+                  className="flex justify-between text-[12.5px]"
+                  style={{ color: "rgba(216,240,236,.85)" }}
+                >
+                  <span>Điểm an toàn</span>
+                  <span className="font-semibold text-white">
+                    {recommendation.driver.safetyScore}
+                  </span>
+                </div>
+                <div
+                  className="flex justify-between text-[12.5px]"
+                  style={{ color: "rgba(216,240,236,.85)" }}
+                >
+                  <span>Giờ lái hôm nay</span>
+                  <span className="font-semibold text-white">
+                    {formatDuration(recommendation.driver.drivingTimeToday)}
+                  </span>
+                </div>
+                <div
+                  className="flex justify-between text-[12.5px]"
+                  style={{ color: "rgba(216,240,236,.85)" }}
+                >
+                  <span>Tải trọng phù hợp</span>
+                  <span className="font-semibold text-white">
+                    {recommendation.vehicle.capacity} tấn
+                  </span>
+                </div>
+              </div>
+
+              {recommendation.reasons.length > 0 && (
+                <ul
+                  className="mt-4 space-y-1 border-l pl-3 text-[11.5px]"
+                  style={{
+                    borderColor: "rgba(180,230,222,.28)",
+                    color: "rgba(206,232,229,.72)",
+                  }}
+                >
+                  {recommendation.reasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={applyRecommendation}
+                  className="flex-1 cursor-pointer rounded-[15px] border-0 py-3 text-[12.5px] font-bold"
+                  style={{ background: "var(--sf-bg-card)", color: "#075c56" }}
+                >
+                  Áp dụng
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecommendation(null)}
+                  className="flex-1 cursor-pointer rounded-[15px] border py-3 text-[12.5px] font-semibold"
+                  style={{
+                    borderColor: "rgba(180,230,222,.3)",
+                    background: "rgba(255,255,255,.08)",
+                    color: "#d9efec",
+                  }}
+                >
+                  Bỏ qua
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p
+                className="mt-4 text-[13px] leading-[1.6]"
+                style={{ color: "rgba(206,232,229,.72)" }}
+              >
+                Nhập điểm đi, điểm đến và giờ khởi hành rồi bấm “Gợi ý ghép cặp” để hệ thống chọn
+                cặp tài xế – xe phù hợp nhất theo điểm an toàn và giờ lái còn lại.
+              </p>
+              <button
+                type="button"
+                disabled={isRecommending}
+                onClick={handleAiSuggest}
+                className="mt-5 cursor-pointer rounded-[15px] border-0 py-3 text-[12.5px] font-bold disabled:opacity-60"
+                style={{ background: "var(--sf-bg-card)", color: "#075c56" }}
+              >
+                {isRecommending ? "Đang tìm gợi ý…" : "Gợi ý ghép cặp"}
+              </button>
+            </>
+          )}
+        </HeroPanel>
+
+        {/* --- Xem trước tuyến thật từ routeSummary --- */}
+        <div className="sf-surface overflow-hidden">
+          <div className="flex items-center justify-between gap-2 px-6 pb-4 pt-6">
+            <div>
+              <div className="text-[15.5px] font-bold tracking-[-0.01em] text-sf-text">
+                Xem trước tuyến
+              </div>
+              <div className="mt-1 text-[12.5px] text-sf-text-muted">
+                {routeSummary ? `Nguồn: ${routeSummary.provider}` : "Khu vực Hà Nội"}
+              </div>
+            </div>
             {isRouting && (
-              <span className="flex flex-shrink-0 items-center gap-1.5 text-[12.5px] font-bold text-sf-text-muted">
-                <Loader2 className="h-3.5 w-3.5 animate-sf-spin" /> Đang tính tuyến
+              <span className="flex flex-none items-center gap-1.5 text-[12px] text-sf-text-muted">
+                <Loader2 className="h-3.5 w-3.5 animate-sf-spin" /> Đang tính
               </span>
             )}
           </div>
 
-          <div className="sf-map-dark relative min-h-[18rem] flex-1">
+          <div className="sf-map-dark relative mx-4 h-[170px] overflow-hidden rounded-[20px]">
             <MapView
               interactive={false}
               routeCoordinates={routeCoordinates}
@@ -1205,72 +1301,86 @@ export default function DispatchPage() {
                   : null
               }
             />
-            <div className="sf-glass-panel absolute bottom-4 left-4 right-4 space-y-1 p-3 text-[12.5px] sm:right-auto sm:max-w-md">
-              {selectedOrigin && selectedDestination ? (
-                <p className="line-clamp-2 font-bold text-sf-text">
-                  {selectedOrigin.name} → {selectedDestination.name}
-                </p>
-              ) : (
-                <p className="text-sf-text-muted">
-                  Nhập và chọn điểm đi/đến từ gợi ý để tính tuyến.
-                </p>
-              )}
-              {routeError && (
-                <p className="font-bold" style={{ color: "var(--sf-accent-hover)" }}>
-                  {routeError}
-                </p>
-              )}
-            </div>
           </div>
-        </Card>
-      </div>
 
-      {/* ===== Thanh tổng kết ===== */}
-      <Card padding="sm" className="flex-shrink-0">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-5">
-            <div>
-              <p className="sf-eyebrow">Tổng quãng đường</p>
-              <p className="sf-metric mt-1 text-[19px]">
-                {routeSummary ? `${routeSummary.distanceKm.toFixed(1)} km` : "— km"}
+          <div className="px-6 pb-6 pt-4">
+            {selectedOrigin && selectedDestination ? (
+              <p className="mb-3 line-clamp-2 text-[12.5px] font-semibold text-sf-text">
+                {selectedOrigin.name} → {selectedDestination.name}
               </p>
-            </div>
-            <span className="h-9 w-px bg-[var(--sf-border)]" />
-            <div>
-              <p className="sf-eyebrow">Thời gian dự kiến</p>
-              <p className="sf-metric mt-1 text-[19px]">{routeDuration}</p>
-            </div>
-            <span className="h-9 w-px bg-[var(--sf-border)]" />
-            <div>
-              <p className="sf-eyebrow">Mức rủi ro tuyến</p>
-              <Badge tone={routeSummary?.fallback ? "warning" : "success"} className="mt-1.5">
-                {routeSummary?.fallback ? "Trung bình" : "Thấp"}
-              </Badge>
-            </div>
-          </div>
+            ) : (
+              <p className="mb-3 text-[12.5px] text-sf-text-muted">
+                Nhập và chọn điểm đi/đến từ gợi ý để tính tuyến.
+              </p>
+            )}
 
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              loading={isSubmitting}
-              onClick={() => submitDispatch(false)}
-            >
-              Lưu nháp
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              icon={CheckCircle2}
-              loading={isSubmitting}
-              onClick={() => submitDispatch(true)}
-            >
-              Phát hành &amp; giao chuyến
-            </Button>
+            <div className="grid gap-2.5">
+              <DetailRow
+                label="Quãng đường"
+                value={routeSummary ? `${routeSummary.distanceKm.toFixed(1)} km` : "— km"}
+                mono
+              />
+              <DetailRow label="Thời gian" value={routeDuration} mono />
+              <div className="flex items-center justify-between gap-3 text-[12.5px]">
+                <span className="flex-none text-sf-text-muted">Rủi ro tuyến</span>
+                <Badge tone={routeRisk.tone} size="sm">
+                  {routeRisk.label}
+                </Badge>
+              </div>
+            </div>
+
+            {routeError && (
+              <p
+                className="mt-3 text-[12px] font-semibold"
+                style={{ color: "var(--sf-accent-hover)" }}
+              >
+                {routeError}
+              </p>
+            )}
+
+            {/* Cảnh báo điểm ngập chỉ hiện khi tuyến thật sự đi qua điểm ngập */}
+            {floodOnRoute.length > 0 && (
+              <div
+                className="mt-3.5 flex gap-2.5 rounded-[var(--sf-r-md)] p-3.5"
+                style={{ background: "var(--sf-info-soft)" }}
+              >
+                <Droplets
+                  className="h-[18px] w-[18px] flex-none"
+                  style={{ color: "var(--sf-info)" }}
+                />
+                <span className="text-[12px] leading-[1.55]" style={{ color: "var(--sf-info)" }}>
+                  Tuyến đi qua {floodOnRoute.length} điểm ngập
+                  {floodOnRoute[0] ? ` (${floodOnRoute[0].location})` : ""} — hệ thống sẽ nhắc tài
+                  xế khi tới gần.
+                </span>
+              </div>
+            )}
+
+            <div className="mt-5 flex gap-2.5">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => submitDispatch(false)}
+                className="flex-1 cursor-pointer rounded-[var(--sf-r-md)] border border-[var(--sf-border)] bg-[var(--sf-bg-card)] py-3 text-[12.5px] font-semibold text-sf-text-secondary disabled:opacity-50"
+              >
+                Lưu nháp
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => submitDispatch(true)}
+                className="flex-1 cursor-pointer rounded-[var(--sf-r-md)] border-0 py-3 text-[12.5px] font-semibold text-white disabled:opacity-50"
+                style={{
+                  background: "linear-gradient(140deg,#0b8c7f,#076a61)",
+                  boxShadow: "0 16px 30px -14px rgba(8,127,115,.7)",
+                }}
+              >
+                {isSubmitting ? "Đang xử lý…" : "Phát hành & giao chuyến"}
+              </button>
+            </div>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

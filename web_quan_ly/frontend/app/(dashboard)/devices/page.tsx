@@ -1,26 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Camera, Radio, Smartphone, Wifi, WifiOff, Waves } from "lucide-react";
+import { Cpu, Link as LinkIcon, Unlink, Wifi, WifiOff } from "lucide-react";
 import { FleetDevice, safeFleetApi } from "@/lib/safeFleetApi";
 import { useToast } from "@/context/ToastContext";
 import { formatTimeAgo } from "@/lib/utils";
 import {
-  EmptyState,
-  SearchInput,
-  Segmented,
-  SkeletonRows,
-  Stagger,
+  Badge,
+  CellText,
+  DataTable,
+  FilterChips,
   StatCard,
-  StatSkeletonGrid,
-  StatusLabel,
-  Table,
-  TableShell,
-  Td,
-  Toolbar,
-  Tr,
+  TableCard,
+  TableToolbar,
+  toneOf,
+  type FilterChip,
 } from "@/components/ui";
 
+/** Nhãn loại thiết bị — đúng 5 loại backend trả về (`FleetDevice.type`). */
 const TYPE_LABELS: Record<FleetDevice["type"], string> = {
   GPS_TRACKER: "Định vị GPS",
   CABIN_CAMERA: "Camera cabin",
@@ -29,6 +26,9 @@ const TYPE_LABELS: Record<FleetDevice["type"], string> = {
   IOT_FLOOD_SENSOR: "Cảm biến ngập",
 };
 
+/** Nhãn trạng thái thiết bị — đúng 4 trạng thái backend (`FleetDevice.status`).
+    Bản thiết kế chỉ vẽ "Trực tuyến / Mất kết nối / Chưa gắn" nên bổ sung thêm
+    MAINTENANCE và INACTIVE để chip lọc không bỏ sót thiết bị nào. */
 const STATUS_LABELS: Record<FleetDevice["status"], string> = {
   ONLINE: "Trực tuyến",
   OFFLINE: "Mất kết nối",
@@ -44,22 +44,17 @@ const STATUS_KEY: Record<FleetDevice["status"], string> = {
   INACTIVE: "inactive",
 };
 
-const STATUS_KEYS = ["ALL", ...(Object.keys(STATUS_LABELS) as FleetDevice["status"][])] as const;
-type StatusKey = (typeof STATUS_KEYS)[number];
-
-function deviceIcon(type: FleetDevice["type"]) {
-  if (type === "CABIN_CAMERA" || type === "DASH_CAMERA") return Camera;
-  if (type === "DRIVER_PHONE") return Smartphone;
-  if (type === "IOT_FLOOD_SENSOR") return Waves;
-  return Radio;
-}
+type StatusFilter = "ALL" | FleetDevice["status"];
 
 export default function DevicesPage() {
   const { showToast } = useToast();
   const [devices, setDevices] = useState<FleetDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusKey>("ALL");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  /* "Chưa gắn xe" không phải một trạng thái thiết bị mà là điều kiện
+     vehicleId == null, nên tách thành bộ lọc riêng, độc lập với statusFilter. */
+  const [unassignedOnly, setUnassignedOnly] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,7 +76,7 @@ export default function DevicesPage() {
       total: devices.length,
       online: devices.filter((d) => d.status === "ONLINE").length,
       offline: devices.filter((d) => d.status === "OFFLINE").length,
-      assigned: devices.filter((d) => d.vehicleId != null).length,
+      unassigned: devices.filter((d) => d.vehicleId == null).length,
     }),
     [devices]
   );
@@ -89,138 +84,140 @@ export default function DevicesPage() {
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     return devices.filter((item) => {
-      if (status !== "ALL" && item.status !== status) return false;
+      if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
+      if (unassignedOnly && item.vehicleId != null) return false;
       if (!keyword) return true;
       return [item.deviceCode, item.name, item.vehiclePlateNumber, item.serialNumber]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(keyword));
     });
-  }, [devices, query, status]);
+  }, [devices, query, statusFilter, unassignedOnly]);
+
+  /* Chip lọc dựng theo đúng bốn trạng thái thiết bị của backend, chỉ hiện
+     giá trị thực sự có dữ liệu — bản thiết kế chỉ vẽ hai trạng thái. */
+  const statusChips = useMemo(() => {
+    const chips: FilterChip[] = [{ key: "ALL", label: "Tất cả", count: devices.length }];
+    (Object.keys(STATUS_LABELS) as FleetDevice["status"][]).forEach((key) => {
+      const count = devices.filter((d) => d.status === key).length;
+      if (count > 0) chips.push({ key, label: STATUS_LABELS[key], count });
+    });
+    return chips;
+  }, [devices]);
 
   return (
-    <div className="space-y-5">
-      <Stagger className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        {loading && devices.length === 0 ? (
-          <StatSkeletonGrid count={4} />
-        ) : (
-          <>
-            <StatCard label="Tổng thiết bị" value={stats.total} icon={Activity} tone="primary" />
-            <StatCard
-              label="Trực tuyến"
-              value={stats.online}
-              icon={Wifi}
-              tone="success"
-              onClick={() => setStatus(status === "ONLINE" ? "ALL" : "ONLINE")}
-              active={status === "ONLINE"}
-            />
-            <StatCard
-              label="Mất kết nối"
-              value={stats.offline}
-              icon={WifiOff}
-              tone="danger"
-              onClick={() => setStatus(status === "OFFLINE" ? "ALL" : "OFFLINE")}
-              active={status === "OFFLINE"}
-            />
-            <StatCard label="Đã gắn xe" value={stats.assigned} icon={Radio} tone="accent" />
-          </>
-        )}
-      </Stagger>
-
-      <Toolbar>
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          placeholder="Tìm mã, tên, serial hoặc biển số…"
-          className="sm:max-w-sm"
+    <div className="grid gap-5">
+      {/* ===== Bốn thẻ số liệu, thẻ đầu tô đặc màu thương hiệu ===== */}
+      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <StatCard
+          filled
+          label="Tổng thiết bị"
+          value={stats.total}
+          icon={Cpu}
+          delta={`${stats.total - stats.unassigned} đã gắn xe`}
+          delay={0}
         />
-        <Segmented
-          value={status}
-          onChange={setStatus}
-          options={STATUS_KEYS.map((s) => ({
-            value: s,
-            label: s === "ALL" ? "Tất cả" : STATUS_LABELS[s as FleetDevice["status"]],
+        <StatCard
+          label="Trực tuyến"
+          value={stats.online}
+          icon={Wifi}
+          tone="success"
+          delta={stats.total ? `${Math.round((stats.online / stats.total) * 100)}%` : ""}
+          onClick={() => setStatusFilter(statusFilter === "ONLINE" ? "ALL" : "ONLINE")}
+          active={statusFilter === "ONLINE"}
+          delay={70}
+        />
+        <StatCard
+          label="Mất kết nối"
+          value={stats.offline}
+          icon={WifiOff}
+          tone="danger"
+          deltaTone="danger"
+          delta={stats.total ? `${Math.round((stats.offline / stats.total) * 100)}%` : ""}
+          onClick={() => setStatusFilter(statusFilter === "OFFLINE" ? "ALL" : "OFFLINE")}
+          active={statusFilter === "OFFLINE"}
+          delay={140}
+        />
+        <StatCard
+          label="Chưa gắn xe"
+          value={stats.unassigned}
+          icon={Unlink}
+          tone="warning"
+          deltaTone="warning"
+          delta="trong kho"
+          onClick={() => setUnassignedOnly((v) => !v)}
+          active={unassignedOnly}
+          delay={210}
+        />
+      </div>
+
+      {/* ===== Thẻ bảng: thanh công cụ + bảng dạng thẻ ===== */}
+      <TableCard
+        toolbar={
+          <TableToolbar
+            search={{
+              value: query,
+              onChange: setQuery,
+              placeholder: "Mã, tên, serial, biển số…",
+            }}
+            filters={
+              <FilterChips
+                items={statusChips}
+                value={statusFilter}
+                onChange={(k) => setStatusFilter(k as StatusFilter)}
+              />
+            }
+            action={
+              <button
+                type="button"
+                className="sf-pill-primary"
+                onClick={() =>
+                  showToast("Gắn thiết bị vào xe được thực hiện tại mục Quản lý phương tiện.", "info")
+                }
+              >
+                <LinkIcon className="h-[17px] w-[17px]" />
+                Gắn thiết bị
+              </button>
+            }
+          />
+        }
+      >
+        <DataTable
+          grid="1.1fr 1.3fr 1.1fr 1.2fr 1fr"
+          columns={["Mã thiết bị", "Tên & serial", "Xe đã gắn", "Kết nối cuối", "Trạng thái"]}
+          loading={loading}
+          empty={{
+            icon: Cpu,
+            title: "Không có thiết bị phù hợp",
+            description: "Thử đổi từ khóa tìm kiếm hoặc bỏ bớt bộ lọc đang áp dụng.",
+          }}
+          rows={filtered.map((item) => ({
+            key: String(item.id),
+            cells: [
+              <CellText key="code" mono strong text={item.deviceCode} sub={TYPE_LABELS[item.type]} />,
+              <CellText
+                key="name"
+                text={item.name}
+                sub={item.serialNumber ? `SN ${item.serialNumber}` : "Không có serial"}
+              />,
+              <CellText
+                key="vehicle"
+                mono
+                text={item.vehiclePlateNumber || "—"}
+                sub={item.vehiclePlateNumber ? undefined : "chưa gắn xe"}
+              />,
+              <CellText
+                key="seen"
+                mono
+                text={item.lastSeenAt ? formatTimeAgo(item.lastSeenAt) : "Chưa ghi nhận"}
+                sub={item.phone ? `SĐT ${item.phone}` : undefined}
+              />,
+              <Badge key="status" tone={toneOf(STATUS_KEY[item.status])} dot size="sm">
+                {STATUS_LABELS[item.status].toUpperCase()}
+              </Badge>,
+            ],
           }))}
         />
-      </Toolbar>
-
-      <TableShell loading={loading}>
-        <Table
-          head={[
-            "Thiết bị",
-            "Loại",
-            "Phương tiện",
-            "Firmware / Serial",
-            "Kết nối cuối",
-            "Trạng thái",
-          ]}
-        >
-          {loading && devices.length === 0 ? (
-            <SkeletonRows rows={6} cols={6} />
-          ) : filtered.length === 0 ? (
-            <tr>
-              <Td colSpan={6}>
-                <EmptyState
-                  icon={Radio}
-                  title="Không có thiết bị phù hợp"
-                  description="Thử đổi từ khóa tìm kiếm hoặc chọn trạng thái khác."
-                />
-              </Td>
-            </tr>
-          ) : (
-            filtered.map((item) => {
-              const Icon = deviceIcon(item.type);
-              return (
-                <Tr key={item.id}>
-                  <Td>
-                    <span className="flex items-center gap-3">
-                      <span
-                        className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)]"
-                        style={{ background: "var(--sf-primary-soft)", color: "var(--sf-primary)" }}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-bold text-sf-text">
-                          {item.name}
-                        </span>
-                        <span className="block font-mono text-[12px] text-sf-text-muted">
-                          {item.deviceCode}
-                        </span>
-                      </span>
-                    </span>
-                  </Td>
-                  <Td className="font-semibold">{TYPE_LABELS[item.type]}</Td>
-                  <Td>
-                    {item.vehiclePlateNumber ? (
-                      <span className="font-bold text-sf-text-secondary">
-                        {item.vehiclePlateNumber}
-                      </span>
-                    ) : (
-                      <span className="italic text-sf-text-muted">Chưa gắn xe</span>
-                    )}
-                  </Td>
-                  <Td>
-                    <span className="block font-mono text-[12.5px]">
-                      {item.firmwareVersion || "—"}
-                    </span>
-                    <span className="block font-mono text-[12px] text-sf-text-muted">
-                      {item.serialNumber || "Không có serial"}
-                    </span>
-                  </Td>
-                  <Td>{item.lastSeenAt ? formatTimeAgo(item.lastSeenAt) : "Chưa ghi nhận"}</Td>
-                  <Td>
-                    <StatusLabel
-                      status={STATUS_KEY[item.status]}
-                      label={STATUS_LABELS[item.status]}
-                      pulse={item.status === "ONLINE"}
-                    />
-                  </Td>
-                </Tr>
-              );
-            })
-          )}
-        </Table>
-      </TableShell>
+      </TableCard>
     </div>
   );
 }

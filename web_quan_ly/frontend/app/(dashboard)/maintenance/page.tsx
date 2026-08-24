@@ -1,37 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  CalendarClock,
-  CheckCircle2,
-  CircleDollarSign,
-  Pencil,
-  Plus,
-  Wrench,
-} from "lucide-react";
+import { CalendarClock, CircleDollarSign, Plus, TriangleAlert, Wrench } from "lucide-react";
 import { MaintenanceOrder, MaintenanceOrderInput, safeFleetApi } from "@/lib/safeFleetApi";
 import { Vehicle } from "@/types";
 import { useToast } from "@/context/ToastContext";
 import {
   Badge,
   Button,
-  Card,
-  EmptyState,
-  IconButton,
+  CellText,
+  DataTable,
+  FilterChips,
   Modal,
-  SearchInput,
-  Segmented,
-  SkeletonRows,
-  Stagger,
   StatCard,
-  StatSkeletonGrid,
-  StatusLabel,
-  Table,
-  TableShell,
-  Td,
-  Toolbar,
-  Tr,
+  TableCard,
+  TableToolbar,
+  toneOf,
+  type FilterChip,
   type Tone,
 } from "@/components/ui";
 
@@ -74,8 +59,10 @@ const PRIORITY_TONE: Record<MaintenanceOrder["priority"], Tone> = {
   URGENT: "danger",
 };
 
-const STATUS_KEYS = ["ALL", ...(Object.keys(STATUS_LABELS) as MaintenanceOrder["status"][])] as const;
-type StatusKey = (typeof STATUS_KEYS)[number];
+/** Phiếu còn phải xử lý — dùng để đếm "đang xử lý" và xét quá hạn/sắp tới hạn */
+const ACTIVE_STATUSES: MaintenanceOrder["status"][] = ["OPEN", "SCHEDULED", "IN_PROGRESS"];
+
+type StatusFilter = "ALL" | MaintenanceOrder["status"];
 
 function money(value?: number | null) {
   if (value == null) return "—";
@@ -86,12 +73,30 @@ function money(value?: number | null) {
   }).format(value);
 }
 
+/** true nếu dateStr rơi vào tháng hiện tại (theo giờ trình duyệt) */
+function inCurrentMonth(dateStr?: string | null): boolean {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
+
+/** Số ngày từ hôm nay tới dateStr (âm nghĩa là đã qua) */
+function daysFromNow(dateStr?: string | null): number | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return null;
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  return Math.round((startOfDay(d) - startOfDay(new Date())) / 86400000);
+}
+
 export default function MaintenancePage() {
   const { showToast } = useToast();
   const [orders, setOrders] = useState<MaintenanceOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusKey>("ALL");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<MaintenanceOrder | null>(null);
@@ -175,161 +180,191 @@ export default function MaintenancePage() {
     }
   };
 
-  const stats = useMemo(
-    () => ({
-      total: orders.length,
-      urgent: orders.filter(
-        (o) => o.priority === "URGENT" && o.status !== "COMPLETED" && o.status !== "CANCELLED"
-      ).length,
-      active: orders.filter(
-        (o) => o.status === "OPEN" || o.status === "SCHEDULED" || o.status === "IN_PROGRESS"
-      ).length,
-      completed: orders.filter((o) => o.status === "COMPLETED").length,
-      cost: orders.reduce((sum, o) => sum + (o.cost ?? 0), 0),
-    }),
-    [orders]
-  );
+  const vehicleById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
+
+  const stats = useMemo(() => {
+    const active = orders.filter((o) => ACTIVE_STATUSES.includes(o.status));
+    const urgentActive = active.filter((o) => o.priority === "URGENT").length;
+    const completedThisMonth = orders.filter(
+      (o) => o.status === "COMPLETED" && inCurrentMonth(o.completedDate)
+    ).length;
+    const costThisMonth = orders
+      .filter((o) => inCurrentMonth(o.completedDate || o.scheduledDate))
+      .reduce((sum, o) => sum + (o.cost ?? 0), 0);
+    const dueSoonVehicles = new Set(
+      active
+        .filter((o) => {
+          const days = daysFromNow(o.scheduledDate);
+          return days != null && days <= 7;
+        })
+        .map((o) => o.vehicleId)
+    ).size;
+    return {
+      active: active.length,
+      urgentActive,
+      completedThisMonth,
+      totalCompleted: orders.filter((o) => o.status === "COMPLETED").length,
+      costThisMonth,
+      dueSoonVehicles,
+    };
+  }, [orders]);
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     return orders.filter((item) => {
-      if (status !== "ALL" && item.status !== status) return false;
+      if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
       if (!keyword) return true;
       return [item.maintenanceCode, item.vehiclePlateNumber, item.title, item.assignedToName]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(keyword));
     });
-  }, [orders, query, status]);
+  }, [orders, query, statusFilter]);
+
+  /* Chip lọc dựng theo đúng năm trạng thái phiếu bảo trì của backend
+     (bản thiết kế chỉ vẽ ba), chỉ hiện giá trị thực sự có dữ liệu. */
+  const statusChips = useMemo(() => {
+    const chips: FilterChip[] = [{ key: "ALL", label: "Tất cả", count: orders.length }];
+    (Object.keys(STATUS_LABELS) as MaintenanceOrder["status"][]).forEach((key) => {
+      const count = orders.filter((o) => o.status === key).length;
+      if (count > 0) chips.push({ key, label: STATUS_LABELS[key], count });
+    });
+    return chips;
+  }, [orders]);
 
   return (
-    <div className="space-y-5">
-      <Stagger className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
-        {loading && orders.length === 0 ? (
-          <StatSkeletonGrid count={5} />
-        ) : (
-          <>
-            <StatCard label="Tổng phiếu" value={stats.total} icon={Wrench} tone="primary" />
-            <StatCard
-              label="Đang xử lý"
-              value={stats.active}
-              icon={CalendarClock}
-              tone="primary"
-            />
-            <StatCard
-              label="Khẩn cấp"
-              value={stats.urgent}
-              icon={AlertTriangle}
-              tone="danger"
-              pulse
-            />
-            <StatCard
-              label="Hoàn thành"
-              value={stats.completed}
-              icon={CheckCircle2}
-              tone="success"
-              onClick={() => setStatus(status === "COMPLETED" ? "ALL" : "COMPLETED")}
-              active={status === "COMPLETED"}
-            />
-            <Card padding="sm" className="flex flex-col justify-center">
-              <p className="sf-eyebrow flex items-center gap-1.5">
-                <CircleDollarSign className="h-3.5 w-3.5" style={{ color: "var(--sf-accent)" }} />
-                Tổng chi phí
-              </p>
-              <p
-                className="sf-metric mt-2 text-[20px]"
-                style={{ color: "var(--sf-accent-hover)" }}
-              >
-                {money(stats.cost)}
-              </p>
-            </Card>
-          </>
-        )}
-      </Stagger>
-
-      <Toolbar>
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          placeholder="Tìm mã phiếu, biển số, nội dung…"
-          className="sm:max-w-sm"
+    <div className="grid gap-5">
+      {/* ===== Bốn thẻ số liệu, thẻ đầu tô đặc màu thương hiệu ===== */}
+      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <StatCard
+          filled
+          label="Phiếu đang xử lý"
+          value={stats.active}
+          icon={Wrench}
+          delta={stats.urgentActive > 0 ? `${stats.urgentActive} khẩn cấp` : "không có khẩn cấp"}
+          delay={0}
         />
-        <div className="flex flex-wrap items-center gap-2">
-          <Segmented
-            value={status}
-            onChange={setStatus}
-            options={STATUS_KEYS.map((s) => ({
-              value: s,
-              label: s === "ALL" ? "Tất cả" : STATUS_LABELS[s as MaintenanceOrder["status"]],
-            }))}
-          />
-          <Button icon={Plus} size="sm" onClick={openCreate}>Tạo phiếu</Button>
-        </div>
-      </Toolbar>
+        <StatCard
+          label="Hoàn thành tháng"
+          value={stats.completedThisMonth}
+          icon={CalendarClock}
+          tone="success"
+          delta={`${stats.totalCompleted} tổng cộng`}
+          onClick={() => setStatusFilter(statusFilter === "COMPLETED" ? "ALL" : "COMPLETED")}
+          active={statusFilter === "COMPLETED"}
+          delay={70}
+        />
+        <StatCard
+          label="Chi phí tháng"
+          value={money(stats.costThisMonth)}
+          icon={CircleDollarSign}
+          tone="info"
+          delta="theo phiếu trong tháng"
+          delay={140}
+        />
+        <StatCard
+          label="Xe sắp tới hạn"
+          value={stats.dueSoonVehicles}
+          icon={TriangleAlert}
+          tone="warning"
+          deltaTone="warning"
+          delta="trong 7 ngày"
+          delay={210}
+        />
+      </div>
 
-      <TableShell loading={loading}>
-        <Table
-          head={["Phiếu / Phương tiện", "Công việc", "Lịch", "Phụ trách", "Chi phí", "Trạng thái", ""]}
-        >
-          {loading && orders.length === 0 ? (
-            <SkeletonRows rows={6} cols={6} />
-          ) : filtered.length === 0 ? (
-            <tr>
-              <Td colSpan={7}>
-                <EmptyState
-                  icon={Wrench}
-                  title="Không có phiếu bảo trì"
-                  description="Thử đổi từ khóa tìm kiếm hoặc chọn trạng thái khác."
-                />
-              </Td>
-            </tr>
-          ) : (
-            filtered.map((item) => (
-              <Tr key={item.id}>
-                <Td>
-                  <span className="block text-[13px] font-extrabold text-sf-text">
-                    {item.maintenanceCode}
-                  </span>
-                  <span className="block text-[12.5px] font-semibold text-sf-text-muted">
-                    {item.vehiclePlateNumber}
-                  </span>
-                </Td>
-                <Td className="max-w-sm">
-                  <span className="block truncate text-[12.5px] font-bold text-sf-text-secondary">
+      {/* ===== Thẻ bảng: thanh công cụ + bảng dạng thẻ ===== */}
+      <TableCard
+        toolbar={
+          <TableToolbar
+            search={{
+              value: query,
+              onChange: setQuery,
+              placeholder: "Mã phiếu, biển số, nội dung…",
+            }}
+            filters={
+              <FilterChips
+                items={statusChips}
+                value={statusFilter}
+                onChange={(k) => setStatusFilter(k as StatusFilter)}
+              />
+            }
+            action={
+              <button type="button" className="sf-pill-primary" onClick={openCreate}>
+                <Plus className="h-[17px] w-[17px]" />
+                Tạo phiếu
+              </button>
+            }
+          />
+        }
+      >
+        <DataTable
+          grid="1fr 1.1fr 1.4fr 1.1fr 1fr"
+          columns={["Mã phiếu", "Xe", "Nội dung công việc", "Lịch & chi phí", "Trạng thái"]}
+          loading={loading}
+          empty={{
+            icon: Wrench,
+            title: "Không có phiếu bảo trì",
+            description: "Thử đổi từ khóa tìm kiếm hoặc bỏ bớt bộ lọc đang áp dụng.",
+          }}
+          rows={filtered.map((item) => {
+            const vehicle = vehicleById.get(String(item.vehicleId));
+            const isActive = ACTIVE_STATUSES.includes(item.status);
+            const days = daysFromNow(item.scheduledDate);
+            const overdue = isActive && !item.completedDate && days != null && days < 0;
+
+            const scheduleText = item.completedDate
+              ? `Hoàn tất ${item.completedDate}`
+              : item.scheduledDate
+                ? `Dự kiến ${item.scheduledDate}`
+                : "Chưa xếp lịch";
+
+            return {
+              key: String(item.id),
+              onClick: () => openEdit(item),
+              cells: [
+                <CellText
+                  key="code"
+                  mono
+                  strong
+                  text={item.maintenanceCode}
+                  sub={TYPE_LABELS[item.type]}
+                />,
+                <CellText
+                  key="vehicle"
+                  mono
+                  text={item.vehiclePlateNumber}
+                  sub={vehicle ? `${vehicle.brand} ${vehicle.model}` : undefined}
+                />,
+                <div key="work" className="min-w-0">
+                  <div className="truncate text-[13.5px] font-semibold text-sf-text">
                     {item.title}
-                  </span>
-                  <span className="mt-1 flex items-center gap-1.5">
-                    <span className="text-[12px] text-sf-text-muted">
-                      {TYPE_LABELS[item.type]}
-                    </span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-1.5">
                     <Badge tone={PRIORITY_TONE[item.priority]} size="sm">
                       {PRIORITY_LABELS[item.priority]}
                     </Badge>
-                  </span>
-                </Td>
-                <Td>
-                  {item.completedDate
-                    ? `Hoàn tất ${item.completedDate}`
-                    : item.scheduledDate
-                      ? `Dự kiến ${item.scheduledDate}`
-                      : "Chưa xếp lịch"}
-                </Td>
-                <Td>{item.assignedToName || <span className="italic text-sf-text-muted">Chưa phân công</span>}</Td>
-                <Td className="sf-tnum font-bold">{money(item.cost)}</Td>
-                <Td>
-                  <StatusLabel
-                    status={STATUS_KEY[item.status]}
-                    label={STATUS_LABELS[item.status]}
-                    pulse={item.status === "IN_PROGRESS"}
-                  />
-                </Td>
-                <Td align="center">
-                  <IconButton icon={Pencil} label="Chỉnh sửa phiếu" size="sm" tone="primary" onClick={() => openEdit(item)} />
-                </Td>
-              </Tr>
-            ))
-          )}
-        </Table>
-      </TableShell>
+                    {item.description && (
+                      <span className="truncate text-[11.5px] text-sf-text-muted">
+                        {item.description}
+                      </span>
+                    )}
+                  </div>
+                </div>,
+                <CellText
+                  key="schedule"
+                  mono
+                  text={scheduleText}
+                  sub={`${money(item.cost)}${overdue ? " · quá hạn" : ""}`}
+                  color={overdue ? "var(--sf-danger)" : undefined}
+                />,
+                <Badge key="status" tone={toneOf(STATUS_KEY[item.status])} dot size="sm">
+                  {STATUS_LABELS[item.status].toUpperCase()}
+                </Badge>,
+              ],
+            };
+          })}
+        />
+      </TableCard>
 
       <Modal
         open={editorOpen}

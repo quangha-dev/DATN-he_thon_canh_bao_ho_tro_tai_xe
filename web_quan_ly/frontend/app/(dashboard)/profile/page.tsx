@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { BadgeCheck, KeyRound, Mail, ShieldCheck, UserRound, Fingerprint } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Eye, EyeOff, Info, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { safeFleetApi } from "@/lib/safeFleetApi";
-import { Badge, Button, Card, CardHeader, InfoRow, Reveal, StatusDot } from "@/components/ui";
+import type { AccountStatus, UserRole } from "@/types";
+import { Badge, DetailRow, toneOf } from "@/components/ui";
 
-const ROLE_LABELS: Record<string, string> = {
+/* Đủ sáu vai trò của hệ thống — bản thiết kế chỉ vẽ "Điều phối viên". */
+const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: "Quản trị viên",
   FLEET_MANAGER: "Quản lý đội xe",
   DISPATCHER: "Điều phối viên",
@@ -16,13 +18,53 @@ const ROLE_LABELS: Record<string, string> = {
   DRIVER: "Tài xế",
 };
 
+/* Đủ bốn trạng thái tài khoản — bản thiết kế chỉ vẽ "Đang hoạt động". */
+const STATUS_LABELS: Record<AccountStatus, string> = {
+  ACTIVE: "Đang hoạt động",
+  LOCKED: "Bị khóa",
+  DISABLED: "Vô hiệu hóa",
+  PENDING: "Chờ kích hoạt",
+};
+
+const STATUS_TONE_KEY: Record<AccountStatus, string> = {
+  ACTIVE: "active",
+  LOCKED: "locked",
+  DISABLED: "inactive",
+  PENDING: "pending",
+};
+
+/** Viết tắt tên: chữ cái đầu của hai từ cuối, giống thẻ người dùng ở đầu trang */
+function initialsOf(fullName?: string): string {
+  if (!fullName) return "SF";
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "SF";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[parts.length - 2][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/** Bốn mức độ mạnh: dài ≥ 8, có số, có chữ hoa, có ký tự đặc biệt */
+function passwordStrength(pw: string) {
+  if (!pw) return { score: 0, label: "chưa nhập" };
+  let score = 0;
+  if (pw.length >= 8) score += 1;
+  if (/\d/.test(pw)) score += 1;
+  if (/[A-Z]/.test(pw)) score += 1;
+  if (/[^A-Za-z0-9]/.test(pw)) score += 1;
+  const labels = ["rất yếu", "yếu", "trung bình", "tốt", "rất tốt"];
+  return { score, label: labels[score] };
+}
+
 export default function ProfilePage() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+
+  const strength = useMemo(() => passwordStrength(newPassword), [newPassword]);
+
   if (!user) return null;
 
   const changePassword = async () => {
@@ -48,186 +90,198 @@ export default function ProfilePage() {
     }
   };
 
-  const initial = user.fullName?.trim().charAt(0).toUpperCase() || "U";
+  const status = (user.status ?? "ACTIVE") as AccountStatus;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
-      {/* ===== Thẻ hồ sơ ===== */}
-      <Card padding="none">
-        <div
-          className="relative h-28"
-          style={{
-            background:
-              "linear-gradient(115deg, var(--sf-primary) 0%, var(--sf-primary-700) 42%, var(--sf-accent) 128%)",
-          }}
-        >
+    <div className="grid items-start gap-5 lg:grid-cols-2">
+      {/* ===================== Thẻ hồ sơ ===================== */}
+      <div className="sf-surface overflow-hidden">
+        <div className="relative h-[130px] overflow-hidden" style={{ background: "var(--sf-hero)" }}>
           <span
             aria-hidden
-            className="absolute inset-0 opacity-25"
-            style={{
-              backgroundImage:
-                "linear-gradient(to right, rgba(255,255,255,0.25) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.25) 1px, transparent 1px)",
-              backgroundSize: "36px 36px",
-              maskImage: "radial-gradient(120% 100% at 20% 0%, #000, transparent 75%)",
-              WebkitMaskImage: "radial-gradient(120% 100% at 20% 0%, #000, transparent 75%)",
-            }}
+            className="sf-hero-glow"
+            style={{ width: 260, height: 260, right: -80, top: -120 }}
           />
         </div>
 
-        <div className="px-6 pb-6">
-          <div className="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex items-end gap-4">
-              <span
-                className="grid h-24 w-24 place-items-center rounded-[var(--sf-r-lg)] border-4 text-3xl font-black shadow-[var(--sf-shadow-lg)]"
-                style={{
-                  borderColor: "var(--sf-bg-card)",
-                  background: "var(--sf-ink-900)",
-                  color: "var(--sf-primary-300)",
-                }}
-              >
-                {initial}
-              </span>
-              <div className="pb-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-black tracking-tight text-sf-text">
-                    {user.fullName}
-                  </h2>
-                  <BadgeCheck className="h-5 w-5" style={{ color: "var(--sf-primary)" }} />
-                </div>
-                <p className="mt-1 text-[13px] font-semibold text-sf-text-muted">
-                  {ROLE_LABELS[user.role] || user.role}
-                </p>
-              </div>
-            </div>
+        <div className="relative -mt-[38px] px-7 pb-7">
+          <div
+            className="grid h-[76px] w-[76px] place-items-center rounded-[26px] text-2xl font-bold"
+            style={{
+              background: "linear-gradient(150deg,#34d3b5,#087f73)",
+              color: "#04211f",
+              boxShadow:
+                "0 16px 32px -14px rgba(8,64,62,.6), 0 0 0 5px var(--sf-bg-card)",
+            }}
+          >
+            {initialsOf(user.fullName)}
+          </div>
 
-            <Badge tone="success" className="w-fit">
-              <StatusDot tone="success" pulse />
-              Tài khoản đang hoạt động
+          <h2 className="mt-4 text-[21px] font-bold tracking-[-0.015em] text-sf-text">
+            {user.fullName}
+          </h2>
+          <p className="mt-1 text-[13px] text-sf-text-muted">{user.email || "Chưa cập nhật email"}</p>
+
+          <div className="mt-3.5 flex flex-wrap gap-2">
+            <Badge tone="primary" size="sm">
+              {(ROLE_LABELS[user.role] || user.role).toUpperCase()}
+            </Badge>
+            <Badge tone={toneOf(STATUS_TONE_KEY[status])} dot size="sm">
+              {(STATUS_LABELS[status] || status).toUpperCase()}
             </Badge>
           </div>
-        </div>
-      </Card>
 
-      <div className="grid gap-5 lg:grid-cols-[1.4fr_0.6fr]">
-        {/* ===== Thông tin tài khoản ===== */}
-        <Reveal>
-          <Card padding="lg">
-            <CardHeader
-              title="Thông tin tài khoản"
-              subtitle="Dữ liệu đồng bộ từ hệ thống xác thực"
-              icon={UserRound}
-            />
-            <div className="mt-4">
-              <InfoRow label="Họ và tên" value={user.fullName || "Chưa cập nhật"} />
-              <InfoRow label="Tên đăng nhập" value={user.username} />
-              <InfoRow
-                label="Email"
-                value={
-                  <span className="inline-flex items-center gap-1.5">
-                    <Mail className="h-3.5 w-3.5 text-sf-text-muted" />
-                    {user.email || "Chưa cập nhật"}
-                  </span>
-                }
-              />
-              <InfoRow label="Vai trò" value={ROLE_LABELS[user.role] || user.role} />
-              <InfoRow
-                label="Mã tài khoản"
-                value={
-                  <span className="sf-tnum font-mono">
-                    SF-{String(user.id).padStart(4, "0")}
-                  </span>
-                }
-              />
-              <InfoRow
-                label="Trạng thái"
-                value={<Badge tone="success" size="sm">Đang hoạt động</Badge>}
-              />
-            </div>
-          </Card>
-        </Reveal>
+          <div className="mt-6 grid gap-3">
+            <DetailRow label="Tên đăng nhập" value={user.username} mono />
+            <DetailRow label="Mã tài khoản" value={`ACC-${String(user.id).padStart(4, "0")}`} mono />
+            <DetailRow label="Vai trò hệ thống" value={ROLE_LABELS[user.role] || user.role} />
+          </div>
 
-        {/* ===== Bảo mật ===== */}
-        <Reveal delay={80}>
-          <Card
-            padding="lg"
-            className="h-full border-0"
-            style={{ background: "var(--sf-ink-900)" }}
+          <div
+            className="mt-5 flex gap-3 rounded-[var(--sf-r-md)] p-4"
+            style={{ background: "var(--sf-bg-inset)" }}
           >
-            <ShieldCheck className="h-8 w-8" style={{ color: "var(--sf-primary-300)" }} />
-            <h3 className="mt-4 text-lg font-extrabold tracking-tight text-[var(--sf-ink-25)]">
-              Bảo mật tài khoản
-            </h3>
-            <p className="mt-2 text-[13px] leading-6 text-[var(--sf-ink-400)]">
-              Phiên đăng nhập được bảo vệ bằng JWT và tự động làm mới an toàn qua refresh token.
-            </p>
+            <ShieldCheck
+              className="h-[18px] w-[18px] flex-none"
+              style={{ color: "var(--sf-primary)" }}
+            />
+            <span className="text-[12px] leading-[1.55] text-sf-text-secondary">
+              Phiên làm việc được bảo vệ bằng JWT và tự đăng xuất sau 8 giờ không hoạt động để bảo
+              vệ tài khoản.
+            </span>
+          </div>
+        </div>
+      </div>
 
-            <div className="mt-5 space-y-2.5">
-              <div
-                className="flex items-center gap-3 rounded-[var(--sf-r-md)] p-3.5"
-                style={{ background: "var(--sf-ink-950)" }}
-              >
-                <KeyRound className="h-4 w-4 flex-shrink-0" style={{ color: "var(--sf-primary-300)" }} />
-                <div className="min-w-0">
-                  <p className="text-[12px] font-bold text-[var(--sf-ink-100)]">Mật khẩu</p>
-                  <p className="mt-0.5 text-[12px] text-[var(--sf-ink-500)]">
-                    Lưu dưới dạng băm một chiều (BCrypt)
-                  </p>
-                </div>
-              </div>
-              <div
-                className="flex items-center gap-3 rounded-[var(--sf-r-md)] p-3.5"
-                style={{ background: "var(--sf-ink-950)" }}
-              >
-                <Fingerprint
-                  className="h-4 w-4 flex-shrink-0"
-                  style={{ color: "var(--sf-accent-300)" }}
+      {/* ===================== Đổi mật khẩu ===================== */}
+      <div className="sf-surface p-7">
+        <h3 className="text-[15.5px] font-bold tracking-[-0.01em] text-sf-text">Đổi mật khẩu</h3>
+        <p className="mt-1.5 text-[12.5px] text-sf-text-muted">
+          Xác thực mật khẩu hiện tại trước khi đổi
+        </p>
+
+        <div className="mt-6 grid gap-4">
+          <PasswordField
+            label="Mật khẩu hiện tại"
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            visible={showPw}
+            onToggle={() => setShowPw((v) => !v)}
+            autoComplete="current-password"
+          />
+
+          <div>
+            <PasswordField
+              label="Mật khẩu mới"
+              value={newPassword}
+              onChange={setNewPassword}
+              visible={showPw}
+              onToggle={() => setShowPw((v) => !v)}
+              autoComplete="new-password"
+            />
+            <div className="mt-2.5 flex gap-1.5">
+              {[0, 1, 2, 3].map((i) => (
+                <span
+                  key={i}
+                  className="h-[5px] flex-1 rounded-full transition-colors duration-[var(--sf-dur-base)]"
+                  style={{
+                    background:
+                      i < strength.score
+                        ? strength.score <= 1
+                          ? "var(--sf-danger)"
+                          : strength.score === 2
+                            ? "var(--sf-accent)"
+                            : "var(--sf-primary)"
+                        : "var(--sf-bg-inset-strong, var(--sf-bg-inset))",
+                  }}
                 />
-                <div className="min-w-0">
-                  <p className="text-[12px] font-bold text-[var(--sf-ink-100)]">Phiên đăng nhập</p>
-                  <p className="mt-0.5 text-[12px] text-[var(--sf-ink-500)]">
-                    Tự động thu hồi khi đăng xuất
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
+            <p className="mt-1.5 text-[11.5px] text-sf-text-muted">
+              Độ mạnh: {strength.label} · tối thiểu 8 ký tự, nên có số và chữ hoa
+            </p>
+          </div>
 
-            <div className="mt-5 space-y-3 border-t border-[var(--sf-ink-700)] pt-5">
-              <p className="text-[13px] font-extrabold text-[var(--sf-ink-100)]">Đổi mật khẩu</p>
-              <PasswordInput label="Mật khẩu hiện tại" value={currentPassword} onChange={setCurrentPassword} />
-              <PasswordInput label="Mật khẩu mới" value={newPassword} onChange={setNewPassword} />
-              <PasswordInput label="Nhập lại mật khẩu mới" value={confirmPassword} onChange={setConfirmPassword} />
-              <Button
-                size="sm"
-                block
-                loading={savingPassword}
-                disabled={!currentPassword || !newPassword || !confirmPassword}
-                onClick={() => void changePassword()}
-              >
-                Cập nhật mật khẩu
-              </Button>
-            </div>
-          </Card>
-        </Reveal>
+          <PasswordField
+            label="Xác nhận mật khẩu mới"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            visible={showPw}
+            onToggle={() => setShowPw((v) => !v)}
+            autoComplete="new-password"
+          />
+
+          <button
+            type="button"
+            disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}
+            onClick={() => void changePassword()}
+            className="mt-1.5 cursor-pointer rounded-[var(--sf-r-md)] border-0 py-3.5 text-[13.5px] font-semibold text-white transition-transform duration-[var(--sf-dur-base)] ease-[var(--sf-ease-spring)] hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-50"
+            style={{
+              background: "linear-gradient(140deg,#0b8c7f,#076a61)",
+              boxShadow: "0 16px 30px -14px rgba(8,127,115,.7)",
+            }}
+          >
+            {savingPassword ? "Đang cập nhật…" : "Cập nhật mật khẩu"}
+          </button>
+
+          <div
+            className="flex gap-3 rounded-[var(--sf-r-md)] p-4"
+            style={{ background: "var(--sf-accent-soft)" }}
+          >
+            <Info
+              className="h-[18px] w-[18px] flex-none"
+              style={{ color: "var(--sf-accent-hover)" }}
+            />
+            <span
+              className="text-[12px] leading-[1.55]"
+              style={{ color: "var(--sf-accent-hover)" }}
+            >
+              Đổi mật khẩu sẽ thu hồi toàn bộ phiên đăng nhập cũ trên các thiết bị khác.
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function PasswordInput({ label, value, onChange }: {
+function PasswordField({
+  label,
+  value,
+  onChange,
+  visible,
+  onToggle,
+  autoComplete,
+}: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  visible: boolean;
+  onToggle: () => void;
+  autoComplete: string;
 }) {
   return (
-    <label className="block space-y-1.5 text-[12px] font-semibold text-[var(--sf-ink-300)]">
-      {label}
-      <input
-        className="sf-input border-[var(--sf-ink-700)] bg-[var(--sf-ink-950)] text-[var(--sf-ink-50)]"
-        type="password"
-        autoComplete="new-password"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
+    <div>
+      <label className="mb-2 block text-[12.5px] font-semibold text-sf-text-secondary">
+        {label}
+      </label>
+      <div className="flex items-center gap-2.5 rounded-[15px] border border-[var(--sf-border)] bg-[var(--sf-bg-card)] px-4 py-3.5 transition-colors focus-within:border-[var(--sf-primary)]">
+        <input
+          type={visible ? "text" : "password"}
+          value={value}
+          autoComplete={autoComplete}
+          onChange={(e) => onChange(e.target.value)}
+          className="min-w-0 flex-1 border-0 bg-transparent text-[13.5px] text-sf-text outline-none"
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+          className="grid flex-none cursor-pointer place-items-center text-sf-text-muted transition-colors hover:text-sf-text"
+        >
+          {visible ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
+        </button>
+      </div>
+    </div>
   );
 }

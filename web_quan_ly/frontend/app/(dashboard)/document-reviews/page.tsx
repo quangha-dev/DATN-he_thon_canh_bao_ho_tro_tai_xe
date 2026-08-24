@@ -8,25 +8,21 @@ import { formatDateTime } from "@/lib/utils";
 import {
   Badge,
   Button,
+  CellText,
+  DataTable,
   Drawer,
-  EmptyState,
-  IconButton,
+  FilterChips,
   InfoRow,
-  Segmented,
-  SkeletonRows,
-  Table,
-  TableShell,
-  Td,
-  Tr,
+  StatCard,
+  TableCard,
+  TableToolbar,
+  type FilterChip,
+  type Tone,
 } from "@/components/ui";
-import { CheckCircle2, Eye, FileWarning, ShieldCheck, XCircle } from "lucide-react";
+import { CheckCircle2, FileWarning, ShieldCheck, XCircle } from "lucide-react";
 
-const FILTERS: DocumentPlateReviewStatus[] = [
-  "REVIEW_REQUIRED",
-  "APPROVED",
-  "REJECTED",
-];
-
+/** Bốn trạng thái thật của phiếu — bản thiết kế gốc bỏ sót MATCHED (phiếu khớp
+    biển tự động, không cần duyệt tay) nên phải bổ sung nhãn và tông màu riêng. */
 const LABELS: Record<DocumentPlateReviewStatus, string> = {
   REVIEW_REQUIRED: "Chờ xác nhận",
   APPROVED: "Đã chấp nhận",
@@ -34,17 +30,37 @@ const LABELS: Record<DocumentPlateReviewStatus, string> = {
   MATCHED: "Tự động khớp",
 };
 
-function reviewTone(status: DocumentPlateReviewStatus) {
-  if (status === "APPROVED" || status === "MATCHED") return "success" as const;
-  if (status === "REJECTED") return "danger" as const;
-  return "warning" as const;
+const STATUS_ORDER: DocumentPlateReviewStatus[] = [
+  "REVIEW_REQUIRED",
+  "APPROVED",
+  "REJECTED",
+  "MATCHED",
+];
+
+function reviewTone(status: DocumentPlateReviewStatus): Tone {
+  if (status === "APPROVED" || status === "MATCHED") return "success";
+  if (status === "REJECTED") return "danger";
+  return "warning";
 }
+
+type EmptyByStatus = Record<DocumentPlateReviewStatus, DocumentPlateReview[]>;
+const EMPTY_BY_STATUS: EmptyByStatus = {
+  REVIEW_REQUIRED: [],
+  APPROVED: [],
+  REJECTED: [],
+  MATCHED: [],
+};
 
 export default function DocumentReviewsPage() {
   const { showToast } = useToast();
-  const [status, setStatus] = useState<DocumentPlateReviewStatus>("REVIEW_REQUIRED");
-  const [items, setItems] = useState<DocumentPlateReview[]>([]);
+  /* API chỉ lọc theo đúng một trạng thái mỗi lần gọi (không có "tất cả"), nên
+     để dựng đủ 4 thẻ số liệu + chip theo đúng bản thiết kế, tải song song cả
+     bốn trạng thái rồi lọc ở trình duyệt — không đổi hành vi duyệt/từ chối/xem
+     ảnh, chỉ đổi cách nạp danh sách hiển thị. */
+  const [byStatus, setByStatus] = useState<EmptyByStatus>(EMPTY_BY_STATUS);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<"all" | DocumentPlateReviewStatus>("REVIEW_REQUIRED");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<DocumentPlateReview | null>(null);
   const [note, setNote] = useState("");
   const [acting, setActing] = useState(false);
@@ -53,13 +69,19 @@ export default function DocumentReviewsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setItems(await safeFleetApi.documentPlateReviews(status));
+      const [reviewRequired, approved, rejected, matched] = await Promise.all([
+        safeFleetApi.documentPlateReviews("REVIEW_REQUIRED"),
+        safeFleetApi.documentPlateReviews("APPROVED"),
+        safeFleetApi.documentPlateReviews("REJECTED"),
+        safeFleetApi.documentPlateReviews("MATCHED"),
+      ]);
+      setByStatus({ REVIEW_REQUIRED: reviewRequired, APPROVED: approved, REJECTED: rejected, MATCHED: matched });
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Không tải được phiếu chờ xác nhận.", "error");
     } finally {
       setLoading(false);
     }
-  }, [showToast, status]);
+  }, [showToast]);
 
   useEffect(() => {
     void load();
@@ -87,11 +109,6 @@ export default function DocumentReviewsPage() {
     };
   }, [selected, showToast]);
 
-  const mismatchCount = useMemo(
-    () => items.filter((item) => item.expectedVehiclePlate !== item.recognizedVehiclePlate).length,
-    [items]
-  );
-
   const decide = async (decision: "approve" | "reject") => {
     if (!selected) return;
     setActing(true);
@@ -113,70 +130,153 @@ export default function DocumentReviewsPage() {
     }
   };
 
+  const allItems = useMemo(
+    () => STATUS_ORDER.flatMap((key) => byStatus[key]),
+    [byStatus]
+  );
+
+  const items = statusFilter === "all" ? allItems : byStatus[statusFilter];
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((item) =>
+      (item.voucherNumber?.toLowerCase().includes(q) ?? false) ||
+      item.driverName.toLowerCase().includes(q) ||
+      (item.tripCode?.toLowerCase().includes(q) ?? false) ||
+      (item.projectAddress?.toLowerCase().includes(q) ?? false) ||
+      (item.expectedVehiclePlate?.toLowerCase().includes(q) ?? false) ||
+      (item.recognizedVehiclePlate?.toLowerCase().includes(q) ?? false)
+    );
+  }, [items, searchQuery]);
+
+  /* Chip lọc chỉ hiện trạng thái thực sự có phiếu, luôn có "Tất cả" đứng đầu */
+  const statusChips = useMemo(() => {
+    const chips: FilterChip[] = [{ key: "all", label: "Tất cả", count: allItems.length }];
+    STATUS_ORDER.forEach((key) => {
+      const count = byStatus[key].length;
+      if (count > 0) chips.push({ key, label: LABELS[key], count });
+    });
+    return chips;
+  }, [byStatus, allItems.length]);
+
   return (
-    <div className="space-y-5">
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-[var(--sf-r-md)] border border-[var(--sf-border)] bg-[var(--sf-bg-card)] p-5">
-          <div className="flex items-center gap-3">
-            <FileWarning className="h-8 w-8 text-[var(--sf-warning)]" />
-            <div>
-              <p className="text-2xl font-extrabold text-sf-text">{items.length}</p>
-              <p className="text-sm text-sf-text-muted">Phiếu trong trạng thái đang chọn</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-[var(--sf-r-md)] border border-[var(--sf-border)] bg-[var(--sf-bg-card)] p-5">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="h-8 w-8 text-[var(--sf-primary)]" />
-            <div>
-              <p className="text-2xl font-extrabold text-sf-text">{mismatchCount}</p>
-              <p className="text-sm text-sf-text-muted">Biển OCR khác xe cố định</p>
-            </div>
-          </div>
-        </div>
+    <div className="grid gap-5">
+      {/* ===== Bốn thẻ số liệu, thẻ đầu tô đặc màu thương hiệu ===== */}
+      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <StatCard
+          filled
+          label="Phiếu chờ duyệt"
+          value={byStatus.REVIEW_REQUIRED.length}
+          icon={FileWarning}
+          delta="cần xử lý hôm nay"
+          delay={0}
+        />
+        <StatCard
+          label="Đã duyệt"
+          value={byStatus.APPROVED.length}
+          icon={CheckCircle2}
+          tone="success"
+          onClick={() => setStatusFilter(statusFilter === "APPROVED" ? "all" : "APPROVED")}
+          active={statusFilter === "APPROVED"}
+          delay={70}
+        />
+        <StatCard
+          label="Từ chối"
+          value={byStatus.REJECTED.length}
+          icon={XCircle}
+          tone="danger"
+          deltaTone="danger"
+          delta="yêu cầu làm lại"
+          onClick={() => setStatusFilter(statusFilter === "REJECTED" ? "all" : "REJECTED")}
+          active={statusFilter === "REJECTED"}
+          delay={140}
+        />
+        <StatCard
+          label="Tự động khớp"
+          value={byStatus.MATCHED.length}
+          icon={ShieldCheck}
+          tone="info"
+          delta="không cần duyệt tay"
+          onClick={() => setStatusFilter(statusFilter === "MATCHED" ? "all" : "MATCHED")}
+          active={statusFilter === "MATCHED"}
+          delay={210}
+        />
       </div>
 
-      <Segmented
-        value={status}
-        onChange={(value) => setStatus(value as DocumentPlateReviewStatus)}
-        options={FILTERS.map((value) => ({ value, label: LABELS[value] }))}
-      />
+      {/* ===== Thẻ bảng: thanh công cụ + bảng dạng thẻ ===== */}
+      <TableCard
+        toolbar={
+          <TableToolbar
+            search={{
+              value: searchQuery,
+              onChange: setSearchQuery,
+              placeholder: "Mã phiếu, biển OCR, công trình…",
+            }}
+            filters={
+              <FilterChips
+                items={statusChips}
+                value={statusFilter}
+                onChange={(k) => setStatusFilter(k as "all" | DocumentPlateReviewStatus)}
+              />
+            }
+          />
+        }
+      >
+        <DataTable
+          grid="1.1fr 1.2fr 1.3fr 1.2fr 1fr"
+          columns={["Mã phiếu", "Biển OCR ↔ Xe giao", "Tài xế & chuyến", "Công trình", "Trạng thái"]}
+          loading={loading}
+          empty={{
+            icon: ShieldCheck,
+            title: "Không tìm thấy phiếu",
+            description: "Thử đổi từ khóa hoặc bỏ bớt bộ lọc đang áp dụng.",
+          }}
+          rows={filtered.map((item) => {
+            const expected = item.expectedVehiclePlate || "Chưa gán";
+            const recognized = item.recognizedVehiclePlate || "Không đọc được";
+            const matched =
+              Boolean(item.expectedVehiclePlate) &&
+              Boolean(item.recognizedVehiclePlate) &&
+              item.expectedVehiclePlate!.trim().toUpperCase() === item.recognizedVehiclePlate!.trim().toUpperCase();
 
-      <TableShell loading={loading}>
-        <Table head={["Tài xế", "Biển số cố định", "Biển số OCR", "Chuyến", "Phiếu", "Trạng thái", ""]}>
-          {loading && items.length === 0 ? (
-            <SkeletonRows rows={5} cols={7} />
-          ) : items.length === 0 ? (
-            <tr>
-              <Td colSpan={7}>
-                <EmptyState
-                  icon={ShieldCheck}
-                  title="Không có phiếu cần xử lý"
-                  description="Các phiếu có biển số khớp được xác nhận tự động."
-                />
-              </Td>
-            </tr>
-          ) : (
-            items.map((item) => (
-              <Tr key={item.id} onClick={() => { setSelected(item); setNote(item.reviewNote || ""); }}>
-                <Td>
-                  <p className="font-bold text-sf-text">{item.driverName}</p>
-                  <p className="text-xs text-sf-text-muted">{formatDateTime(item.createdAt)}</p>
-                </Td>
-                <Td><span className="font-extrabold text-sf-text">{item.expectedVehiclePlate || "Chưa gán"}</span></Td>
-                <Td><span className="font-extrabold text-[var(--sf-danger)]">{item.recognizedVehiclePlate || "Không đọc được"}</span></Td>
-                <Td>{item.tripCode || "Không có chuyến đang chạy"}</Td>
-                <Td>{item.voucherNumber || "—"}</Td>
-                <Td><Badge tone={reviewTone(item.reviewStatus)}>{LABELS[item.reviewStatus]}</Badge></Td>
-                <Td align="center">
-                  <IconButton icon={Eye} label="Xem và xác nhận" onClick={(event) => { event.stopPropagation(); setSelected(item); setNote(item.reviewNote || ""); }} />
-                </Td>
-              </Tr>
-            ))
-          )}
-        </Table>
-      </TableShell>
+            return {
+              key: item.id,
+              onClick: () => {
+                setSelected(item);
+                setNote(item.reviewNote || "");
+              },
+              cells: [
+                <CellText
+                  key="voucher"
+                  mono
+                  strong
+                  text={item.voucherNumber || `#${item.id}`}
+                  sub={formatDateTime(item.createdAt)}
+                />,
+                <CellText
+                  key="plate"
+                  mono
+                  text={`${recognized} ${matched ? "=" : "≠"} ${expected}`}
+                  sub={matched ? "khớp biển số" : "lệch biển số — cần đối chiếu"}
+                  color={matched ? undefined : "var(--sf-danger)"}
+                />,
+                <CellText
+                  key="driver"
+                  text={item.driverName}
+                  sub={item.tripCode || "Không có chuyến đang chạy"}
+                />,
+                <CellText key="project" text={item.projectAddress || "—"} sub={item.voucherDate || undefined} />,
+                <Badge key="status" tone={reviewTone(item.reviewStatus)} dot size="sm">
+                  {LABELS[item.reviewStatus].toUpperCase()}
+                </Badge>,
+              ],
+            };
+          })}
+        />
+      </TableCard>
 
+      {/* ===== Panel đối chiếu & duyệt ===== */}
       <Drawer
         open={Boolean(selected)}
         onClose={() => setSelected(null)}

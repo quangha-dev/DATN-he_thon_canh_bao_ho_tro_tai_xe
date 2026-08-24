@@ -20,7 +20,7 @@
 
 :root {
   /* ---- Typography ---- */
-  --font-inter: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-inter: "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono-stack: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* ---- PRIMARY · Teal (brand) ---- */
@@ -85,14 +85,25 @@
   --sf-neutral-soft: var(--sf-ink-100);
 
   /* ---- SURFACES ---- */
-  --sf-bg: #f5f7f9;
-  --sf-bg-elevated: #fafbfc;
+  --sf-bg: #f2f6f5;
+  --sf-bg-elevated: #fafcfc;
   --sf-bg-card: #ffffff;
   --sf-bg-card-alt: #fbfcfd;
   --sf-bg-sidebar: #ffffff;
-  --sf-bg-header: rgba(245, 247, 249, 0.86);
-  --sf-bg-inset: #f0f4f5;
+  --sf-bg-header: rgba(242, 246, 245, 0.82);
+  --sf-bg-inset: #f4f7f7;
+  --sf-bg-inset-strong: #f0f4f5;
   --sf-bg-overlay: rgba(16, 28, 37, 0.38);
+  /* Nền dải nhấn (hero) — thẻ tối duy nhất trên mỗi màn hình */
+  --sf-hero: radial-gradient(115% 130% at 8% 0%, #0d7a70 0%, #075c56 55%, #05403e 100%);
+  --sf-hero-shadow: 0 26px 52px -22px rgba(8, 64, 62, 0.55);
+  --sf-hero-text: #f4fbfa;
+  --sf-hero-muted: rgba(206, 232, 229, 0.72);
+  --sf-hero-line: rgba(180, 230, 222, 0.18);
+  /* Vệt nền chỉ mục đang chọn ở sidebar */
+  --sf-pill: linear-gradient(100deg, #e8faf5, #f1fbf8);
+  --sf-pill-line: rgba(8, 127, 115, 0.1);
+  --sf-hover: rgba(16, 28, 37, 0.035);
 
   /* ---- TEXT ----
      Các mức đều đạt WCAG AA (>= 4.5:1) trên nền card để dễ đọc với người
@@ -105,27 +116,28 @@
   /* ---- BORDERS ----
      Thẻ trong phong cách mềm tách nhau bằng bóng, viền chỉ là hairline rất nhạt.
      `--sf-border` vẫn giữ đủ tương phản cho đường kẻ bảng và ô nhập. */
-  --sf-border: #d9e2e6;
+  --sf-border: #e4ebea;
   --sf-border-strong: #a9b9c1;
-  --sf-border-light: #eceff1;
-  --sf-border-card: #eef2f4;
-  --sf-hairline: rgba(16, 28, 37, 0.07);
+  --sf-border-light: #eef2f3;
+  --sf-border-card: rgba(16, 28, 37, 0.05);
+  --sf-hairline: rgba(16, 28, 37, 0.06);
 
   /* ---- ELEVATION · bóng mềm, khuếch tán rộng ---- */
   --sf-shadow-xs: 0 1px 2px rgba(20, 40, 55, 0.04);
-  --sf-shadow-sm: 0 1px 2px rgba(20, 40, 55, 0.03), 0 6px 16px -6px rgba(20, 40, 55, 0.07);
-  --sf-shadow-md: 0 2px 4px rgba(20, 40, 55, 0.03), 0 14px 30px -10px rgba(20, 40, 55, 0.10);
+  --sf-shadow-sm: 0 2px 4px rgba(20, 40, 55, 0.03), 0 16px 34px -20px rgba(20, 40, 55, 0.18);
+  --sf-shadow-md: 0 2px 4px rgba(20, 40, 55, 0.03), 0 20px 44px -22px rgba(20, 40, 55, 0.16);
   --sf-shadow-lg: 0 4px 8px rgba(20, 40, 55, 0.04), 0 26px 52px -16px rgba(20, 40, 55, 0.14);
   --sf-shadow-xl: 0 8px 16px rgba(20, 40, 55, 0.05), 0 40px 80px -20px rgba(20, 40, 55, 0.18);
   --sf-glow-primary: 0 10px 26px -10px rgba(var(--sf-primary-rgb), 0.45);
   --sf-glow-accent: 0 10px 26px -10px rgba(var(--sf-accent-rgb), 0.42);
 
   /* ---- RADIUS · bo tròn rộng rãi ---- */
-  --sf-r-xs: 9px;
-  --sf-r-sm: 12px;
-  --sf-r-md: 16px;
-  --sf-r-lg: 20px;
-  --sf-r-xl: 26px;
+  --sf-r-xs: 10px;
+  --sf-r-sm: 14px;
+  --sf-r-md: 18px;
+  --sf-r-lg: 22px;
+  --sf-r-xl: 28px;
+  --sf-r-row: 20px;
   --sf-r-pill: 999px;
 
   /* ---- MOTION ---- */
@@ -137,9 +149,9 @@
   --sf-dur-slow: 420ms;
 
   /* ---- LAYOUT ---- */
-  --sidebar-width: 264px;
-  --sidebar-collapsed-width: 76px;
-  --header-height: 68px;
+  --sidebar-width: 268px;
+  --sidebar-collapsed-width: 84px;
+  --header-height: 74px;
 }
 
 .dark {
@@ -167,25 +179,31 @@
   --sf-neutral: var(--sf-ink-400);
   --sf-neutral-soft: rgba(132, 150, 160, 0.14);
 
-  --sf-bg: #0a141c;
-  --sf-bg-elevated: #0e1a23;
-  --sf-bg-card: #14222c;
-  --sf-bg-card-alt: #1a2b36;
-  --sf-bg-sidebar: #101d26;
-  --sf-bg-header: rgba(10, 20, 28, 0.86);
-  --sf-bg-inset: #0d1a23;
+  --sf-bg: #0b1416;
+  --sf-bg-elevated: #0f1c1c;
+  --sf-bg-card: #12201f;
+  --sf-bg-card-alt: #152625;
+  --sf-bg-sidebar: #12201f;
+  --sf-bg-header: rgba(11, 20, 22, 0.8);
+  --sf-bg-inset: #182a29;
+  --sf-bg-inset-strong: #1c2f2d;
   --sf-bg-overlay: rgba(2, 8, 12, 0.62);
+  --sf-hero: radial-gradient(115% 130% at 8% 0%, #0d7a70 0%, #06514c 55%, #04302f 100%);
+  --sf-hero-shadow: 0 26px 52px -24px rgba(0, 0, 0, 0.7);
+  --sf-pill: linear-gradient(100deg, #123330, #16413b);
+  --sf-pill-line: rgba(95, 217, 193, 0.22);
+  --sf-hover: rgba(190, 230, 225, 0.07);
 
-  --sf-text: #eef5f7;
-  --sf-text-secondary: #adc0ca;
-  --sf-text-muted: #8ba3b0;
+  --sf-text: #e8f2f0;
+  --sf-text-secondary: #c2d3d1;
+  --sf-text-muted: #94a8a7;
   --sf-text-inverse: #08131b;
 
-  --sf-border: rgba(168, 202, 216, 0.20);
-  --sf-border-strong: rgba(168, 202, 216, 0.34);
-  --sf-border-light: rgba(168, 202, 216, 0.11);
-  --sf-border-card: rgba(168, 202, 216, 0.12);
-  --sf-hairline: rgba(232, 240, 242, 0.10);
+  --sf-border: rgba(190, 230, 225, 0.16);
+  --sf-border-strong: rgba(190, 230, 225, 0.3);
+  --sf-border-light: rgba(190, 230, 225, 0.1);
+  --sf-border-card: rgba(190, 230, 225, 0.1);
+  --sf-hairline: rgba(190, 230, 225, 0.1);
 
   --sf-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
   --sf-shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
@@ -348,8 +366,8 @@ body {
   position: relative;
   background: var(--sf-bg-card);
   border: 1px solid var(--sf-border-card);
-  border-radius: var(--sf-r-lg);
-  box-shadow: var(--sf-shadow-sm);
+  border-radius: var(--sf-r-xl);
+  box-shadow: var(--sf-shadow-md);
 }
 
 .sf-surface-raised {
@@ -362,11 +380,11 @@ body {
 /* Thẻ tô đặc màu thương hiệu — dùng làm điểm nhấn duy nhất trên mỗi màn hình */
 .sf-surface-filled {
   position: relative;
-  background: var(--sf-primary);
-  color: var(--sf-primary-contrast);
+  background: linear-gradient(140deg, #0d7a70, #05403e);
+  color: #ffffff;
   border: none;
-  border-radius: var(--sf-r-lg);
-  box-shadow: var(--sf-glow-primary);
+  border-radius: var(--sf-r-xl);
+  box-shadow: 0 22px 44px -22px rgba(8, 64, 62, 0.55);
 }
 
 .sf-interactive {
@@ -389,9 +407,9 @@ body {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: var(--sf-r-sm);
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
   background: var(--sf-primary-soft);
   color: var(--sf-primary);
 }
@@ -428,17 +446,18 @@ body {
    ========================================================================== */
 /* Nhãn phụ: phong cách mềm không viết hoa toàn bộ, chỉ cỡ nhỏ và màu dịu */
 .sf-eyebrow {
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--sf-text-muted);
 }
 
 .sf-metric {
+  font-family: var(--font-mono-stack);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-weight: 500;
   line-height: 1.1;
   color: var(--sf-text);
 }
@@ -721,3 +740,279 @@ body {
 .dark .sf-map-dark .maplibregl-canvas-container canvas {
   filter: invert(0.92) hue-rotate(180deg) brightness(0.92) contrast(0.94) saturate(0.7);
 }
+
+/* ============================================================================
+   LỚP TIỆN ÍCH BỔ SUNG — đợt dựng lại giao diện theo bản thiết kế 2026
+   --------------------------------------------------------------------------
+   Các lớp dưới đây mô tả đúng những khối lặp lại trong bản thiết kế:
+   dải nhấn tối, hàng bảng dạng thẻ, chip lọc, ô nhập, vệt chỉ mục sidebar.
+   ========================================================================== */
+
+/* --- Dải nhấn tối: mỗi màn hình chỉ dùng một --- */
+.sf-hero-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--sf-r-xl);
+  background: var(--sf-hero);
+  box-shadow: var(--sf-hero-shadow);
+  color: var(--sf-hero-text);
+}
+
+/* Quầng sáng thở nhẹ trong dải nhấn */
+.sf-hero-glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(52, 211, 181, 0.3), transparent 70%);
+  animation: sf-breathe-slow 10s var(--sf-ease-in-out) infinite;
+}
+
+.sf-hero-tile {
+  min-width: 0;
+  padding: 16px 14px;
+  border-radius: var(--sf-r-lg);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--sf-hero-line);
+}
+
+.sf-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-radius: var(--sf-r-pill);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(180, 230, 222, 0.28);
+  color: #d9efec;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* --- Hàng bảng dạng thẻ (grid, không dùng <table>) --- */
+.sf-row {
+  display: grid;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 16px;
+  border-radius: var(--sf-r-row);
+  background: var(--sf-bg-card);
+  transition:
+    background-color var(--sf-dur-base) var(--sf-ease-out),
+    transform var(--sf-dur-base) var(--sf-ease-out);
+}
+.sf-row-clickable {
+  cursor: pointer;
+}
+.sf-row-clickable:hover {
+  background: var(--sf-bg-inset);
+}
+
+.sf-row-head {
+  display: grid;
+  gap: 16px;
+  padding: 12px 16px;
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--sf-text-muted);
+}
+
+/* --- Chip lọc --- */
+.sf-chip {
+  border: 0;
+  cursor: pointer;
+  padding: 9px 14px;
+  border-radius: var(--sf-r-pill);
+  background: var(--sf-bg-inset);
+  color: var(--sf-text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color var(--sf-dur-base) var(--sf-ease-out),
+    color var(--sf-dur-base) var(--sf-ease-out);
+}
+.sf-chip:hover {
+  color: var(--sf-text-secondary);
+}
+.sf-chip-active {
+  background: var(--sf-primary-soft);
+  color: var(--sf-primary);
+}
+
+/* --- Ô nhập trong thẻ (bo 14–15px như bản thiết kế) --- */
+.sf-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--sf-bg-inset);
+  min-width: 0;
+}
+.sf-search-box input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+  color: var(--sf-text);
+}
+.sf-search-box input::placeholder {
+  color: var(--sf-text-muted);
+}
+
+/* --- Nút chính dạng viên thuốc có bóng màu thương hiệu --- */
+.sf-pill-primary {
+  border: 0;
+  cursor: pointer;
+  padding: 11px 18px;
+  border-radius: var(--sf-r-pill);
+  background: linear-gradient(140deg, #0b8c7f, #076a61);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 14px 28px -14px rgba(8, 127, 115, 0.7);
+  transition: transform var(--sf-dur-base) var(--sf-ease-spring);
+}
+.sf-pill-primary:hover {
+  transform: translateY(-2px);
+}
+.sf-pill-primary:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.sf-pill-ghost {
+  border: 1px solid var(--sf-border);
+  cursor: pointer;
+  padding: 10px 16px;
+  border-radius: var(--sf-r-pill);
+  background: var(--sf-bg-card);
+  color: var(--sf-text-secondary);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: border-color var(--sf-dur-fast) var(--sf-ease-out);
+}
+.sf-pill-ghost:hover {
+  border-color: var(--sf-primary);
+  color: var(--sf-primary);
+}
+
+/* --- Vệt nền chỉ mục đang chọn ở sidebar --- */
+.sf-nav-pill {
+  position: absolute;
+  left: 0;
+  right: 2px;
+  height: 44px;
+  border-radius: var(--sf-r-md);
+  background: var(--sf-pill);
+  box-shadow: inset 0 0 0 1px var(--sf-pill-line);
+  transition: top 0.46s cubic-bezier(0.34, 1.32, 0.64, 1);
+  pointer-events: none;
+}
+.sf-nav-bar {
+  position: absolute;
+  left: 0;
+  width: 3px;
+  height: 20px;
+  border-radius: var(--sf-r-pill);
+  background: var(--sf-primary);
+  transition: top 0.46s cubic-bezier(0.34, 1.32, 0.64, 1);
+  pointer-events: none;
+}
+.sf-nav-item {
+  position: relative;
+  width: 100%;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: var(--sf-r-md);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--sf-text-secondary);
+  transition:
+    color var(--sf-dur-base) var(--sf-ease-out),
+    background-color var(--sf-dur-base) var(--sf-ease-out);
+}
+.sf-nav-item:hover {
+  background: var(--sf-hover);
+}
+.sf-nav-item-active {
+  color: var(--sf-primary);
+}
+
+/* --- Bánh xe tiến độ / thanh tiến độ mảnh --- */
+.sf-track {
+  height: 7px;
+  border-radius: var(--sf-r-pill);
+  background: var(--sf-bg-inset-strong, var(--sf-bg-inset));
+  overflow: hidden;
+}
+.sf-track > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--sf-r-pill);
+  background: linear-gradient(90deg, #34d3b5, #087f73);
+  transition: width var(--sf-dur-slow) var(--sf-ease-out);
+}
+.sf-track-warn > span {
+  background: linear-gradient(90deg, #ffc74d, #d17c05);
+}
+.sf-track-danger > span {
+  background: linear-gradient(90deg, #ff9ea1, #c8393e);
+}
+.sf-track-info > span {
+  background: linear-gradient(90deg, #8fc0ff, #3b82f6);
+}
+
+/* --- Chữ đơn cách dùng cho mã, biển số, thời gian --- */
+.sf-mono {
+  font-family: var(--font-mono-stack);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Hoạt ảnh bổ sung --- */
+@keyframes sf-pop {
+  0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+  60% { transform: scale(1.012) translateY(0); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes sf-bar-grow {
+  from { transform: scaleY(0.18); }
+  to { transform: scaleY(1); }
+}
+@keyframes sf-breathe-slow {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.08); opacity: 0.78; }
+}
+@keyframes sf-drift {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(14px, -10px); }
+  100% { transform: translate(0, 0); }
+}
+
+.animate-sf-pop { animation: sf-pop 0.55s var(--sf-ease-spring) both; }
+.animate-sf-bar { animation: sf-bar-grow 0.7s var(--sf-ease-out) both; transform-origin: bottom; }
+.animate-sf-drift { animation: sf-drift 13s var(--sf-ease-in-out) infinite; }

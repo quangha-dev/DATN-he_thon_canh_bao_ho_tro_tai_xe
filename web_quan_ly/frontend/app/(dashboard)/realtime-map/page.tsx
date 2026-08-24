@@ -1,71 +1,80 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import MapView from "@/components/map/MapView";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import MapView, { type MapViewHandle } from "@/components/map/MapView";
 import { Vehicle, FloodPoint, Incident } from "@/types";
 import { ActiveNavigation, safeFleetApi } from "@/lib/safeFleetApi";
 import { useToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
 import {
   cn,
+  formatTimeAgo,
   VEHICLE_STATUS_LABELS,
   FLOOD_SEVERITY_LABELS,
   INCIDENT_STATUS_LABELS,
 } from "@/lib/utils";
-import { AnimatePresence, motion } from "framer-motion";
 import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Phone,
-  MessageSquare,
-  Siren,
-  X,
-  Truck,
+  Crosshair,
   Droplets,
-  Gauge,
-  AlertTriangle,
-  Route as RouteIcon,
-  MapPin,
+  List,
+  Minus,
+  Phone,
+  Plus,
+  Search,
+  Siren,
+  Truck,
+  WifiOff,
+  X,
 } from "lucide-react";
-import {
-  Badge,
-  Button,
-  EmptyState,
-  IconButton,
-  InfoRow,
-  Segmented,
-  StatusDot,
-  TONE,
-  toneOf,
-} from "@/components/ui";
+import { Badge, DetailRow, MiniStat } from "@/components/ui";
 
 type DetailItem =
   | { type: "vehicle"; data: Vehicle }
   | { type: "flood"; data: FloodPoint }
   | { type: "incident"; data: Incident };
 
-const FILTERS = ["all", "running", "alert", "maintenance", "offline"] as const;
-type FilterKey = (typeof FILTERS)[number];
+/**
+ * Trạng thái hiển thị của một xe trên bản đồ được suy từ dữ liệu thật:
+ * mất tín hiệu GPS > đang có sự cố > có cảnh báo > trạng thái vận hành.
+ * Bản thiết kế dùng danh sách trạng thái cứng, ở đây phải bám enum backend.
+ */
+function vehicleTone(
+  vehicle: Vehicle,
+  hasOpenIncident: boolean
+): { tone: "primary" | "warning" | "danger" | "neutral" | "info"; label: string } {
+  if (hasOpenIncident) return { tone: "danger", label: "SOS" };
+  if (vehicle.gpsStatus === "offline" || vehicle.status === "offline")
+    return { tone: "neutral", label: "Mất GPS" };
+  if (vehicle.gpsStatus === "weak") return { tone: "warning", label: "Tín hiệu yếu" };
+  if (vehicle.totalAlerts > 0) return { tone: "warning", label: "Có cảnh báo" };
+  if (vehicle.status === "maintenance") return { tone: "info", label: "Bảo trì" };
+  return {
+    tone: "primary",
+    label: VEHICLE_STATUS_LABELS[vehicle.status] || vehicle.status,
+  };
+}
 
-const FILTER_LABELS: Record<FilterKey, string> = {
-  all: "Tất cả",
-  running: "Đang chạy",
-  alert: "Cảnh báo",
-  maintenance: "Bảo trì",
-  offline: "Mất GPS",
+const DOT_COLOR: Record<string, string> = {
+  primary: "#0b8c7f",
+  warning: "#f59e0b",
+  danger: "#e5484d",
+  neutral: "#8496a0",
+  info: "#2563c9",
 };
 
 export default function RealtimeMapPage() {
+  const router = useRouter();
   const { showToast } = useToast();
   const { user } = useAuth();
+  const mapRef = useRef<MapViewHandle>(null);
+
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [floodPoints, setFloodPoints] = useState<FloodPoint[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
-  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
+  const [showVehicleList, setShowVehicleList] = useState(false);
   const [selectedItem, setSelectedItem] = useState<DetailItem | null>(null);
   const [acceptingIncidentId, setAcceptingIncidentId] = useState<string | null>(null);
   const [activeNavigation, setActiveNavigation] = useState<ActiveNavigation | null>(null);
@@ -74,7 +83,7 @@ export default function RealtimeMapPage() {
     setAcceptingIncidentId(incident.id);
     try {
       const updated = await safeFleetApi.acceptIncident(incident.id);
-      setIncidents((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setIncidents((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedItem({ type: "incident", data: updated });
       showToast("Đã tiếp nhận sự cố.", "success");
     } catch (error) {
@@ -99,8 +108,7 @@ export default function RealtimeMapPage() {
         setFloodPoints(floodData);
         setIncidents(incidentData);
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Không tải được dữ liệu bản đồ.";
+        const message = error instanceof Error ? error.message : "Không tải được dữ liệu bản đồ.";
         if (!cancelled) showToast(message, "error");
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -143,58 +151,127 @@ export default function RealtimeMapPage() {
 
   const monitoredRoute = useMemo(() => {
     if (!activeNavigation) return null;
-    return activeNavigation.routes.find((route) => route.recommended)
-      ?? activeNavigation.routes[activeNavigation.selectedRouteIndex]
-      ?? null;
+    return (
+      activeNavigation.routes.find((route) => route.recommended) ??
+      activeNavigation.routes[activeNavigation.selectedRouteIndex] ??
+      null
+    );
   }, [activeNavigation]);
 
-  const filteredVehicles = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return vehicles.filter((v) => {
-      if (activeFilter === "running" && v.status !== "running") return false;
-      if (activeFilter === "offline" && v.status !== "offline") return false;
-      if (activeFilter === "alert" && v.totalAlerts === 0) return false;
-      if (activeFilter === "maintenance" && v.status !== "maintenance") return false;
-      if (!q) return true;
-      return (
-        v.plate.toLowerCase().includes(q) ||
-        (v.currentDriverName?.toLowerCase().includes(q) ?? false) ||
-        v.type.toLowerCase().includes(q)
-      );
-    });
-  }, [vehicles, activeFilter, searchQuery]);
+  /** Xe đang có sự cố chưa đóng — dùng để tô màu marker và chip trạng thái */
+  const incidentVehicleIds = useMemo(
+    () =>
+      new Set(
+        incidents
+          .filter((i) => i.status === "open" || i.status === "overdue" || i.status === "in_progress")
+          .map((i) => i.vehicleId)
+      ),
+    [incidents]
+  );
 
-  const counts = useMemo(
-    () => ({
-      all: vehicles.length,
-      running: vehicles.filter((v) => v.status === "running").length,
-      alert: vehicles.filter((v) => v.totalAlerts > 0).length,
-      maintenance: vehicles.filter((v) => v.status === "maintenance").length,
-      offline: vehicles.filter((v) => v.status === "offline").length,
-    }),
+  /* Xe không có toạ độ vẫn nằm trong danh sách nhưng không vẽ lên bản đồ */
+  const mappableVehicles = useMemo(
+    () => vehicles.filter((v) => v.lat !== null && v.lng !== null),
     [vehicles]
   );
 
-  const detailIcon =
-    selectedItem?.type === "vehicle"
-      ? Truck
-      : selectedItem?.type === "flood"
-        ? Droplets
-        : Siren;
-  const detailTone =
-    selectedItem?.type === "incident"
-      ? "danger"
-      : selectedItem?.type === "flood"
-        ? "accent"
-        : "primary";
+  const query = searchQuery.trim().toLowerCase();
+
+  const searchResults = useMemo(() => {
+    if (!query) return [];
+    const out: {
+      key: string;
+      icon: typeof Truck;
+      title: string;
+      sub: string;
+      tone: string;
+      pick: () => void;
+    }[] = [];
+
+    vehicles.forEach((v) => {
+      const haystack = `${v.plate} ${v.currentDriverName ?? ""} ${v.type}`.toLowerCase();
+      if (!haystack.includes(query)) return;
+      out.push({
+        key: `v-${v.id}`,
+        icon: Truck,
+        title: v.plate,
+        sub: `${v.currentDriverName ?? "Chưa gán tài xế"} · ${v.type}`,
+        tone: "primary",
+        pick: () => {
+          setSelectedItem({ type: "vehicle", data: v });
+          setSearchQuery("");
+          if (v.lat !== null && v.lng !== null) mapRef.current?.flyTo(v.lat, v.lng);
+        },
+      });
+    });
+
+    floodPoints.forEach((p) => {
+      const haystack = `${p.location} ${FLOOD_SEVERITY_LABELS[p.severity] ?? ""}`.toLowerCase();
+      if (!haystack.includes(query)) return;
+      out.push({
+        key: `f-${p.id}`,
+        icon: Droplets,
+        title: p.location,
+        sub: `${FLOOD_SEVERITY_LABELS[p.severity] ?? p.severity} · ${p.reportCount} báo cáo`,
+        tone: "info",
+        pick: () => {
+          setSelectedItem({ type: "flood", data: p });
+          setSearchQuery("");
+          mapRef.current?.flyTo(p.lat, p.lng);
+        },
+      });
+    });
+
+    return out.slice(0, 6);
+  }, [query, vehicles, floodPoints]);
+
   const canAcceptIncident = user?.role === "ADMIN" || user?.role === "DISPATCHER";
 
+  /* Nội dung panel chi tiết bên phải, dựng theo loại đối tượng đang chọn */
+  const detail = useMemo(() => {
+    if (!selectedItem) return null;
+
+    if (selectedItem.type === "vehicle") {
+      const v = selectedItem.data;
+      const state = vehicleTone(v, incidentVehicleIds.has(v.id));
+      return {
+        kindLabel: "Báo cáo phương tiện",
+        title: v.plate,
+        subtitle: `${v.brand} ${v.model} · ${v.type}`,
+        tone: state.tone,
+        chip: state.label,
+      };
+    }
+
+    if (selectedItem.type === "flood") {
+      const p = selectedItem.data;
+      return {
+        kindLabel: "Điểm ngập",
+        title: p.location,
+        subtitle: `Nguồn: ${p.source} · ${p.reportCount} báo cáo`,
+        tone: "info" as const,
+        chip: FLOOD_SEVERITY_LABELS[p.severity] ?? p.severity,
+      };
+    }
+
+    const i = selectedItem.data;
+    return {
+      kindLabel: "Sự cố",
+      title: `${i.vehiclePlate} · ${i.driverName}`,
+      subtitle: i.location,
+      tone: "danger" as const,
+      chip: INCIDENT_STATUS_LABELS[i.status] ?? i.status,
+    };
+  }, [selectedItem, incidentVehicleIds]);
+
   return (
-    <div className="relative flex h-[calc(100vh-68px)] w-full overflow-hidden bg-[var(--sf-bg-inset)]">
-      {/* ===== Bản đồ ===== */}
+    <div className="relative h-[calc(100vh-var(--header-height)-56px)] min-h-[540px] overflow-hidden rounded-[var(--sf-r-xl)] border border-[var(--sf-border-card)] shadow-[var(--sf-shadow-md)]">
+      {/* ===================== Bản đồ thật ===================== */}
       <div className="sf-map-dark absolute inset-0 z-0">
         <MapView
-          vehicles={filteredVehicles}
+          ref={mapRef}
+          showNativeControls={false}
+          vehicles={mappableVehicles}
           floodPoints={floodPoints}
           incidents={incidents}
           onVehicleClick={(v) => setSelectedItem({ type: "vehicle", data: v })}
@@ -205,404 +282,456 @@ export default function RealtimeMapPage() {
         />
       </div>
 
-      {/* ===== Tìm kiếm + bộ lọc nổi ===== */}
-      <div
-        className={cn(
-          "pointer-events-none absolute right-4 top-4 z-10 flex flex-col gap-2 transition-[left] duration-[var(--sf-dur-base)]",
-          isLeftPanelOpen ? "left-4 md:left-[22.5rem]" : "left-4 md:left-[4.5rem]"
-        )}
-      >
-        <div className="pointer-events-auto flex w-full max-w-xl gap-2">
-          <div className="sf-glass-panel relative flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sf-text-muted" />
+      {/* ===================== Hàng điều khiển phía trên ===================== */}
+      <div className="pointer-events-none absolute inset-x-5 top-5 z-10 flex items-start gap-3">
+        {/* --- Ô tìm nhanh --- */}
+        <div className="pointer-events-auto relative min-w-0 max-w-[440px] flex-1">
+          <div
+            className="flex h-11 items-center gap-2.5 rounded-2xl border border-white/80 px-4 backdrop-blur-[14px]"
+            style={{
+              background: "color-mix(in srgb, var(--sf-bg-card) 94%, transparent)",
+              boxShadow: "0 14px 32px -16px rgba(20,40,55,.45)",
+            }}
+          >
+            <Search className="h-[19px] w-[19px] flex-none text-sf-text-muted" />
             <input
-              type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm xe, tài xế, loại xe…"
-              className="w-full border-none bg-transparent py-3 pl-11 pr-4 text-[13.5px] font-medium text-sf-text placeholder:text-sf-text-muted focus:outline-none"
+              placeholder="Tìm xe, tài xế hoặc điểm ngập…"
+              className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-sf-text outline-none placeholder:text-sf-text-muted"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                aria-label="Xóa từ khóa"
+                onClick={() => setSearchQuery("")}
+                className="grid flex-none cursor-pointer place-items-center text-sf-text-muted hover:text-sf-text"
+              >
+                <X className="h-[18px] w-[18px]" />
+              </button>
+            )}
           </div>
-          {isLoading && (
-            <span className="sf-glass-panel flex items-center gap-2 px-3.5 text-[12.5px] font-bold text-sf-text-muted">
-              <StatusDot tone="warning" pulse /> Đang tải…
-            </span>
-          )}
-        </div>
 
-        <div className="pointer-events-auto max-w-full overflow-x-auto">
-          <Segmented
-            value={activeFilter}
-            onChange={setActiveFilter}
-            options={FILTERS.map((f) => ({
-              value: f,
-              label: FILTER_LABELS[f],
-              count: counts[f],
-            }))}
-            size="sm"
-            className="shadow-[var(--sf-shadow-md)]"
-          />
-        </div>
-      </div>
-
-      {/* ===== Panel trái: danh sách xe ===== */}
-      <div className="pointer-events-none absolute bottom-4 left-4 top-4 z-10 flex items-stretch">
-        <AnimatePresence initial={false}>
-          {isLeftPanelOpen && (
-            <motion.div
-              initial={{ opacity: 0, x: -300 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -300 }}
-              transition={{ type: "spring", stiffness: 320, damping: 32 }}
-              className="sf-glass-panel pointer-events-auto flex w-72 flex-col overflow-hidden"
+          {query && (
+            <div
+              className="animate-sf-rise-sm absolute inset-x-0 top-[52px] flex flex-col gap-1 rounded-[18px] border border-white/80 p-2 backdrop-blur-[16px]"
+              style={{
+                background: "color-mix(in srgb, var(--sf-bg-card) 97%, transparent)",
+                boxShadow: "0 18px 40px -18px rgba(20,40,55,.45)",
+              }}
             >
-              <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--sf-border)] px-4 py-3">
-                <div>
-                  <h3 className="text-[13.5px] font-extrabold text-sf-text">Đội xe</h3>
-                  <p className="mt-0.5 text-[12px] text-sf-text-muted">
-                    Hiển thị {filteredVehicles.length}/{vehicles.length} xe
-                  </p>
-                </div>
-                <StatusDot tone={isLoading ? "warning" : "success"} pulse />
-              </div>
-
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                {filteredVehicles.length === 0 ? (
-                  <EmptyState
-                    icon={Truck}
-                    title="Không có xe phù hợp"
-                    description="Thử đổi từ khóa hoặc bộ lọc."
-                    compact
-                  />
-                ) : (
-                  filteredVehicles.map((vehicle) => {
-                    const active =
-                      selectedItem?.type === "vehicle" && selectedItem.data.id === vehicle.id;
-                    const tone = toneOf(vehicle.status);
-                    return (
-                      <button
-                        key={vehicle.id}
-                        onClick={() => setSelectedItem({ type: "vehicle", data: vehicle })}
-                        className={cn(
-                          "flex w-full items-center gap-3 border-b border-[var(--sf-border-light)] px-4 py-3 text-left transition-colors last:border-0 cursor-pointer",
-                          active
-                            ? "bg-[var(--sf-primary-soft)]"
-                            : "hover:bg-[var(--sf-bg-inset)]"
-                        )}
+              {searchResults.length === 0 ? (
+                <p className="px-3 py-3.5 text-[12.5px] text-sf-text-muted">
+                  Không tìm thấy xe, tài xế hay điểm ngập phù hợp.
+                </p>
+              ) : (
+                searchResults.map((r) => {
+                  const Icon = r.icon;
+                  return (
+                    <button
+                      key={r.key}
+                      type="button"
+                      onClick={r.pick}
+                      className="flex cursor-pointer items-center gap-3 rounded-[14px] px-3 py-2.5 text-left transition-colors hover:bg-[var(--sf-bg-inset)]"
+                    >
+                      <span
+                        className="grid h-8 w-8 flex-none place-items-center rounded-[11px]"
+                        style={{
+                          background:
+                            r.tone === "info" ? "var(--sf-info-soft)" : "var(--sf-primary-soft)",
+                          color: r.tone === "info" ? "var(--sf-info)" : "var(--sf-primary)",
+                        }}
                       >
-                        <span className="relative flex-shrink-0">
-                          <span
-                            className="grid h-8 w-8 place-items-center rounded-[var(--sf-r-xs)]"
-                            style={{ background: TONE[tone].bg, color: TONE[tone].fg }}
-                          >
-                            <Truck className="h-4 w-4" />
-                          </span>
-                          {vehicle.totalAlerts > 0 && (
-                            <span
-                              className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-sf-pulse-dot rounded-full border-2"
-                              style={{
-                                background: "var(--sf-danger)",
-                                borderColor: "var(--sf-bg-card)",
-                              }}
-                            />
-                          )}
+                        <Icon className="h-[18px] w-[18px]" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-semibold text-sf-text">
+                          {r.title}
                         </span>
-
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center justify-between gap-2">
-                            <span className="truncate text-[12.5px] font-extrabold text-sf-text">
-                              {vehicle.plate}
-                            </span>
-                            <span className="sf-tnum flex-shrink-0 text-[12px] font-bold text-sf-text-muted">
-                              {vehicle.status === "running"
-                                ? `${vehicle.currentSpeed} km/h`
-                                : "Dừng"}
-                            </span>
-                          </span>
-                          <span className="mt-0.5 block truncate text-[12px] text-sf-text-muted">
-                            {vehicle.currentDriverName || "Chưa giao xe"}
-                          </span>
+                        <span className="mt-0.5 block truncate text-[11.5px] text-sf-text-muted">
+                          {r.sub}
                         </span>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </motion.div>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           )}
-        </AnimatePresence>
+        </div>
 
-        <div className="pointer-events-auto ml-2 flex items-center">
+        {/* --- Nút bật danh sách xe --- */}
+        <button
+          type="button"
+          onClick={() => setShowVehicleList((v) => !v)}
+          title="Danh sách các xe"
+          className="pointer-events-auto flex h-11 flex-none cursor-pointer items-center gap-2.5 rounded-2xl border border-white/80 px-4 text-[12.5px] font-semibold backdrop-blur-[12px] transition-colors"
+          style={{
+            background: showVehicleList
+              ? "#0b8c7f"
+              : "color-mix(in srgb, var(--sf-bg-card) 94%, transparent)",
+            color: showVehicleList ? "#ffffff" : "var(--sf-text-secondary)",
+            boxShadow: "0 14px 30px -16px rgba(20,40,55,.5)",
+          }}
+        >
+          <List className="h-5 w-5" />
+          <span className="hidden sm:inline">Danh sách xe</span>
+        </button>
+
+        {/* --- Cụm nút phóng to / thu nhỏ / về khung mặc định --- */}
+        <div
+          className="pointer-events-auto ml-auto flex flex-none flex-col overflow-hidden rounded-2xl border border-white/80 backdrop-blur-[12px]"
+          style={{
+            background: "color-mix(in srgb, var(--sf-bg-card) 94%, transparent)",
+            boxShadow: "0 14px 30px -16px rgba(20,40,55,.5)",
+          }}
+        >
           <button
             type="button"
-            onClick={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
-            aria-label={isLeftPanelOpen ? "Ẩn danh sách xe" : "Hiện danh sách xe"}
-            className="sf-glass-panel grid h-11 w-7 place-items-center text-sf-text-muted transition-colors hover:text-sf-text cursor-pointer"
+            title="Phóng to"
+            onClick={() => mapRef.current?.zoomIn()}
+            className="grid h-11 w-11 cursor-pointer place-items-center text-sf-text-secondary transition-colors hover:bg-[var(--sf-bg-inset)]"
           >
-            {isLeftPanelOpen ? (
-              <ChevronLeft className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
+            <Plus className="h-[22px] w-[22px]" />
+          </button>
+          <span className="h-px bg-[var(--sf-border-card)]" />
+          <button
+            type="button"
+            title="Thu nhỏ"
+            onClick={() => mapRef.current?.zoomOut()}
+            className="grid h-11 w-11 cursor-pointer place-items-center text-sf-text-secondary transition-colors hover:bg-[var(--sf-bg-inset)]"
+          >
+            <Minus className="h-[22px] w-[22px]" />
+          </button>
+          <span className="h-px bg-[var(--sf-border-card)]" />
+          <button
+            type="button"
+            title="Về khung mặc định"
+            onClick={() => mapRef.current?.reset()}
+            className="grid h-11 w-11 cursor-pointer place-items-center text-sf-text-secondary transition-colors hover:bg-[var(--sf-bg-inset)]"
+          >
+            <Crosshair className="h-5 w-5" />
           </button>
         </div>
       </div>
 
-      {/* ===== Panel phải: chi tiết ===== */}
-      <AnimatePresence>
-        {selectedItem && (
-          <motion.aside
-            initial={{ opacity: 0, x: 340 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 340 }}
-            transition={{ type: "spring", stiffness: 320, damping: 32 }}
-            className="sf-glass-panel absolute bottom-4 right-4 top-4 z-20 flex w-80 flex-col overflow-hidden"
-          >
-            <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--sf-border)] px-4 py-3.5">
-              <h3 className="flex items-center gap-2 text-[13.5px] font-extrabold text-sf-text">
-                {(() => {
-                  const Icon = detailIcon;
-                  return (
-                    <Icon
-                      className={cn(
-                        "h-4 w-4",
-                        selectedItem.type === "incident" && "animate-sf-breathe"
-                      )}
-                      style={{ color: TONE[detailTone].fg }}
-                    />
-                  );
-                })()}
-                Chi tiết
-              </h3>
-              <IconButton icon={X} label="Đóng" size="sm" onClick={() => setSelectedItem(null)} />
-            </div>
+      {/* ===================== Panel trái: danh sách xe ===================== */}
+      {showVehicleList && (
+        <div
+          className="animate-sf-slide-left absolute bottom-20 left-5 top-20 z-[7] flex w-[288px] max-w-[calc(100%-40px)] flex-col overflow-hidden rounded-3xl border border-white/80 backdrop-blur-[18px]"
+          style={{
+            background: "color-mix(in srgb, var(--sf-bg-card) 95%, transparent)",
+            boxShadow: "0 24px 52px -22px rgba(20,40,55,.5)",
+          }}
+        >
+          <div className="flex flex-none items-center justify-between gap-2.5 border-b border-[var(--sf-border-card)] px-4 pb-3 pt-4">
+            <span className="sf-eyebrow truncate">Xe trên bản đồ · {vehicles.length} xe</span>
+            <button
+              type="button"
+              aria-label="Đóng danh sách xe"
+              onClick={() => setShowVehicleList(false)}
+              className="grid h-[26px] w-[26px] flex-none cursor-pointer place-items-center rounded-[9px] text-sf-text-muted"
+              style={{ background: "var(--sf-bg-inset)" }}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
 
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-              {/* --- Xe --- */}
-              {selectedItem.type === "vehicle" && (
-                <>
-                  <div>
-                    <h4 className="text-[20px] font-black leading-none tracking-tight text-sf-text">
-                      {selectedItem.data.plate}
-                    </h4>
-                    <p className="mt-1.5 text-[12.5px] text-sf-text-muted">
-                      {selectedItem.data.brand} {selectedItem.data.model} ·{" "}
-                      {selectedItem.data.type}
-                    </p>
-                    <Badge
-                      tone={toneOf(selectedItem.data.status)}
-                      className="mt-2.5"
-                    >
-                      <StatusDot
-                        tone={toneOf(selectedItem.data.status)}
-                        pulse={selectedItem.data.status === "running"}
-                      />
-                      {VEHICLE_STATUS_LABELS[selectedItem.data.status]}
-                    </Badge>
-                  </div>
-
-                  {selectedItem.data.currentDriverName ? (
-                    <div className="sf-inset p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12.5px] font-semibold text-sf-text-muted">
-                          Tài xế hiện tại
-                        </span>
-                        <span className="text-[12.5px] font-bold text-sf-text">
-                          {selectedItem.data.currentDriverName}
-                        </span>
-                      </div>
-                      <div className="mt-2.5 flex items-center justify-between border-t border-[var(--sf-border-light)] pt-2.5">
-                        <span className="text-[12px] text-sf-text-muted">Liên hệ nhanh</span>
-                        <span className="flex gap-1">
-                          <IconButton
-                            icon={Phone}
-                            label="Gọi tài xế — chưa có số điện thoại"
-                            size="sm"
-                            tone="success"
-                            disabled
-                          />
-                          <IconButton
-                            icon={MessageSquare}
-                            label="Nhắn tin"
-                            size="sm"
-                            tone="primary"
-                            disabled
-                          />
-                        </span>
-                      </div>
-                      <p className="mt-2 text-[11.5px] text-sf-text-muted">
-                        Gọi và nhắn tin chưa khả dụng vì API xe chưa cung cấp thông tin liên hệ.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="rounded-[var(--sf-r-md)] border border-dashed border-[var(--sf-border-strong)] p-3 text-center text-[12.5px] text-sf-text-muted">
-                      Chưa giao xe cho tài xế nào
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <MetricBox
-                      icon={Gauge}
-                      label="Tốc độ hiện tại"
-                      value={`${selectedItem.data.currentSpeed} km/h`}
-                    />
-                    <MetricBox
-                      icon={AlertTriangle}
-                      label="Cảnh báo"
-                      value={`${selectedItem.data.totalAlerts} lần`}
-                      danger={selectedItem.data.totalAlerts > 0}
-                    />
-                    <MetricBox
-                      icon={RouteIcon}
-                      label="Tổng km"
-                      value={`${selectedItem.data.totalKm} km`}
-                    />
-                    <MetricBox
-                      icon={Truck}
-                      label="Số chuyến"
-                      value={`${selectedItem.data.totalTrips}`}
-                    />
-                  </div>
-                  <div className="sf-inset px-3.5 py-1">
-                    <InfoRow
-                      label="Vị trí GPS"
-                      value={selectedItem.data.lat !== null && selectedItem.data.lng !== null
-                        ? `${selectedItem.data.lat.toFixed(5)}, ${selectedItem.data.lng.toFixed(5)}`
-                        : "Chưa có dữ liệu GPS"}
-                    />
-                    <InfoRow
-                      label="Cập nhật GPS"
-                      value={selectedItem.data.lastUpdated
-                        ? new Date(selectedItem.data.lastUpdated).toLocaleString("vi-VN")
-                        : "Chưa có dữ liệu"}
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* --- Điểm ngập --- */}
-              {selectedItem.type === "flood" && (
-                <>
-                  <div>
-                    <Badge tone="accent" solid>
-                      Điểm ngập lụt
-                    </Badge>
-                    <h4 className="mt-2.5 text-[17px] font-extrabold leading-tight tracking-tight text-sf-text">
-                      {selectedItem.data.location}
-                    </h4>
-                    <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-sf-text-muted">
-                      <MapPin className="h-3 w-3" />
-                      <span className="sf-tnum font-mono">
-                        {selectedItem.data.lat.toFixed(5)}, {selectedItem.data.lng.toFixed(5)}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="sf-inset px-3.5 py-1">
-                    <InfoRow
-                      label="Mức độ ngập"
-                      value={
-                        <Badge tone={toneOf(selectedItem.data.severity)} size="sm">
-                          {FLOOD_SEVERITY_LABELS[selectedItem.data.severity]}
-                        </Badge>
-                      }
-                    />
-                    <InfoRow
-                      label="Số báo cáo"
-                      value={`${selectedItem.data.reportCount} người`}
-                    />
-                    <InfoRow
-                      label="Độ tin cậy"
-                      value={
-                        <span style={{ color: "var(--sf-success)" }}>
-                          {selectedItem.data.confidence}%
-                        </span>
-                      }
-                    />
-                    <InfoRow
-                      label="Xe bị ảnh hưởng"
-                      value={`${selectedItem.data.affectedVehicles} phương tiện`}
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* --- Sự cố --- */}
-              {selectedItem.type === "incident" && (
-                <>
-                  <div>
-                    <Badge tone="danger" solid icon={Siren}>
-                      SOS khẩn cấp
-                    </Badge>
-                    <h4 className="mt-2.5 text-[17px] font-extrabold leading-tight tracking-tight text-sf-text">
-                      Sự cố xe {selectedItem.data.vehiclePlate}
-                    </h4>
-                  </div>
-
-                  <div className="sf-inset px-3.5 py-1">
-                    <InfoRow label="Tài xế" value={selectedItem.data.driverName} />
-                    <InfoRow label="Vị trí" value={selectedItem.data.location} />
-                    <InfoRow
-                      label="Trạng thái"
-                      value={
-                        <Badge tone={toneOf(selectedItem.data.status)} size="sm">
-                          {INCIDENT_STATUS_LABELS[selectedItem.data.status]}
-                        </Badge>
-                      }
-                    />
-                  </div>
-
-                  <Button
-                    block
-                    variant="danger"
-                    size="sm"
-                    icon={Siren}
-                    loading={acceptingIncidentId === selectedItem.data.id}
-                    disabled={selectedItem.data.status !== "open" || !canAcceptIncident}
-                    title={!canAcceptIncident
-                      ? "Chỉ điều phối viên được tiếp nhận sự cố tại màn hình này"
-                      : undefined}
-                    onClick={() => void handleAcceptIncident(selectedItem.data)}
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 pb-3.5 pt-2.5">
+            {isLoading && vehicles.length === 0 ? (
+              <p className="px-2 py-6 text-center text-[12.5px] text-sf-text-muted">Đang tải…</p>
+            ) : (
+              vehicles.map((v) => {
+                const state = vehicleTone(v, incidentVehicleIds.has(v.id));
+                const active = selectedItem?.type === "vehicle" && selectedItem.data.id === v.id;
+                const noPosition = v.lat === null || v.lng === null;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedItem({ type: "vehicle", data: v });
+                      if (!noPosition) mapRef.current?.flyTo(v.lat as number, v.lng as number);
+                    }}
+                    className={cn(
+                      "cursor-pointer rounded-[18px] px-3.5 py-3 text-left transition-colors",
+                      active ? "bg-[var(--sf-primary-soft)]" : "hover:bg-[var(--sf-bg-inset)]"
+                    )}
+                    style={{
+                      boxShadow: active
+                        ? "inset 0 0 0 1px color-mix(in srgb, var(--sf-primary) 16%, transparent)"
+                        : "inset 0 0 0 1px var(--sf-border-card)",
+                    }}
                   >
-                    {!canAcceptIncident
-                      ? "Không có quyền tiếp nhận"
-                      : selectedItem.data.status !== "open"
-                        ? "Sự cố đã được tiếp nhận"
-                        : "Tiếp nhận sự cố ngay"}
-                  </Button>
-                </>
-              )}
-            </div>
-          </motion.aside>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="h-[7px] w-[7px] flex-none rounded-full"
+                        style={{ background: DOT_COLOR[state.tone] }}
+                      />
+                      <span className="sf-mono min-w-0 flex-1 truncate text-[13px] font-medium text-sf-text">
+                        {v.plate}
+                      </span>
+                      <span className="sf-mono flex-none text-[11.5px] text-sf-text-muted">
+                        {v.currentSpeed} km/h
+                      </span>
+                    </span>
+                    <span className="mt-1.5 block truncate text-[12px] text-sf-text-secondary">
+                      {v.currentDriverName ?? "Chưa gán tài xế"}
+                    </span>
+                    <span className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <Badge tone={state.tone} size="sm">
+                        {state.label.toUpperCase()}
+                      </Badge>
+                      {noPosition && (
+                        <span className="inline-flex items-center gap-1 text-[10.5px] text-sf-text-muted">
+                          <WifiOff className="h-3 w-3" />
+                          chưa có toạ độ
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
 
-function MetricBox({
-  icon: Icon,
-  label,
-  value,
-  danger,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  danger?: boolean;
-}) {
-  return (
-    <div className="sf-inset p-3">
-      <span className="flex items-center gap-1.5 text-[12px] font-semibold text-sf-text-muted">
-        <Icon className="h-3 w-3" />
-        {label}
-      </span>
-      <span
-        className="sf-metric mt-1.5 block text-[15px]"
-        style={danger ? { color: "var(--sf-danger)" } : undefined}
+      {/* ===================== Chú giải ===================== */}
+      <div
+        className="absolute bottom-5 left-5 z-[4] flex max-w-[calc(100%-40px)] gap-3 overflow-x-auto whitespace-nowrap rounded-full border border-white/75 px-4 py-2.5 backdrop-blur-[12px]"
+        style={{
+          background: "color-mix(in srgb, var(--sf-bg-card) 90%, transparent)",
+          boxShadow: "0 14px 32px -18px rgba(20,40,55,.5)",
+        }}
       >
-        {value}
-      </span>
+        {[
+          { color: DOT_COLOR.primary, label: "Đang chạy" },
+          { color: DOT_COLOR.warning, label: "Cảnh báo" },
+          { color: DOT_COLOR.danger, label: "SOS" },
+          { color: DOT_COLOR.neutral, label: "Mất GPS" },
+          { color: DOT_COLOR.info, label: "Điểm ngập" },
+        ].map((item) => (
+          <span
+            key={item.label}
+            className="flex items-center gap-1.5 text-[11.5px] text-sf-text-secondary"
+          >
+            <span
+              className="h-[7px] w-[7px] rounded-full"
+              style={{ background: item.color }}
+            />
+            {item.label}
+          </span>
+        ))}
+      </div>
+
+      {/* ===================== Panel phải: chi tiết ===================== */}
+      {selectedItem && detail && (
+        <div
+          className="animate-sf-slide-left absolute bottom-5 right-5 top-20 z-[9] flex w-[min(340px,calc(100%-40px))] flex-col overflow-hidden rounded-3xl border border-white/80 backdrop-blur-[18px]"
+          style={{
+            background: "color-mix(in srgb, var(--sf-bg-card) 96%, transparent)",
+            boxShadow: "0 26px 56px -22px rgba(20,40,55,.5)",
+          }}
+        >
+          <div className="flex-none border-b border-[var(--sf-border-card)] px-5 pb-4 pt-5">
+            <div className="flex items-start gap-2.5">
+              <div className="min-w-0 flex-1">
+                <div className="sf-eyebrow">{detail.kindLabel}</div>
+                <div className="mt-1.5 truncate text-[17px] font-bold tracking-[-0.015em] text-sf-text">
+                  {detail.title}
+                </div>
+                <div className="mt-1 truncate text-[12.5px] text-sf-text-muted">
+                  {detail.subtitle}
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Đóng"
+                onClick={() => setSelectedItem(null)}
+                className="grid h-[30px] w-[30px] flex-none cursor-pointer place-items-center rounded-[11px] text-sf-text-muted"
+                style={{ background: "var(--sf-bg-inset)" }}
+              >
+                <X className="h-[18px] w-[18px]" />
+              </button>
+            </div>
+            <Badge tone={detail.tone} dot size="sm" className="mt-3">
+              {detail.chip.toUpperCase()}
+            </Badge>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pb-5 pt-4">
+            {selectedItem.type === "vehicle" && (
+              <>
+                {monitoredRoute && (
+                  <div
+                    className="rounded-[var(--sf-r-lg)] p-4"
+                    style={{ background: "var(--sf-bg-inset)" }}
+                  >
+                    <div className="flex items-center justify-between gap-2.5">
+                      <span className="truncate text-[12.5px] font-bold text-sf-text">
+                        {activeNavigation?.destinationName ?? "Hành trình đang chạy"}
+                      </span>
+                      <span className="sf-mono flex-none text-[12px] text-sf-text-muted">
+                        {Math.round(monitoredRoute.distanceMeters / 100) / 10} km
+                      </span>
+                    </div>
+                    <div className="mt-2 text-[12px] leading-[1.5] text-sf-text-secondary">
+                      Còn khoảng {Math.round(monitoredRoute.durationSeconds / 60)} phút
+                      {activeNavigation && !activeNavigation.safe
+                        ? " · tuyến đi qua vùng rủi ro"
+                        : ""}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <MiniStat label="Tốc độ hiện tại" value={`${selectedItem.data.currentSpeed} km/h`} />
+                  <MiniStat
+                    label="Tín hiệu GPS"
+                    value={selectedItem.data.gpsStatus === "online" ? "Ổn định" : "Yếu / mất"}
+                    tone={selectedItem.data.gpsStatus === "online" ? undefined : "danger"}
+                  />
+                </div>
+
+                <div className="grid gap-2.5">
+                  <DetailRow
+                    label="Tài xế"
+                    value={selectedItem.data.currentDriverName ?? "Chưa gán"}
+                  />
+                  <DetailRow
+                    label="Loại xe"
+                    value={`${selectedItem.data.type} · ${selectedItem.data.capacity} tấn`}
+                  />
+                  <DetailRow
+                    label="Cập nhật cuối"
+                    value={
+                      selectedItem.data.lastUpdated
+                        ? formatTimeAgo(selectedItem.data.lastUpdated)
+                        : "Chưa ghi nhận"
+                    }
+                    mono
+                  />
+                  <DetailRow label="Tổng chuyến" value={selectedItem.data.totalTrips} mono />
+                  <DetailRow
+                    label="Cảnh báo tích lũy"
+                    value={selectedItem.data.totalAlerts}
+                    mono
+                    color={
+                      selectedItem.data.totalAlerts > 0 ? "var(--sf-accent-hover)" : undefined
+                    }
+                  />
+                </div>
+              </>
+            )}
+
+            {selectedItem.type === "flood" && (
+              <>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <MiniStat
+                    label="Mức ngập"
+                    value={FLOOD_SEVERITY_LABELS[selectedItem.data.severity] ?? selectedItem.data.severity}
+                    color="var(--sf-info)"
+                  />
+                  <MiniStat label="Độ tin cậy" value={`${selectedItem.data.confidence}%`} />
+                </div>
+                <div
+                  className="flex gap-2.5 rounded-[var(--sf-r-md)] p-3.5"
+                  style={{ background: "var(--sf-info-soft)" }}
+                >
+                  <Droplets
+                    className="h-[18px] w-[18px] flex-none"
+                    style={{ color: "var(--sf-info)" }}
+                  />
+                  <span className="text-[12px] leading-[1.5]" style={{ color: "var(--sf-info)" }}>
+                    {selectedItem.data.reportCount} báo cáo trùng ·{" "}
+                    {selectedItem.data.affectedVehicles} xe trong vùng ảnh hưởng ·{" "}
+                    {formatTimeAgo(selectedItem.data.lastUpdated)}
+                  </span>
+                </div>
+              </>
+            )}
+
+            {selectedItem.type === "incident" && (
+              <>
+                <div className="grid gap-2.5">
+                  <DetailRow label="Tài xế" value={selectedItem.data.driverName} />
+                  <DetailRow label="Vị trí" value={selectedItem.data.location} />
+                  <DetailRow
+                    label="Thời điểm"
+                    value={formatTimeAgo(selectedItem.data.timestamp)}
+                    mono
+                  />
+                  <DetailRow
+                    label="Số bước xử lý"
+                    value={selectedItem.data.timeline.length}
+                    mono
+                  />
+                </div>
+                <div
+                  className="flex gap-2.5 rounded-[var(--sf-r-md)] p-3.5"
+                  style={{ background: "var(--sf-danger-soft)" }}
+                >
+                  <Siren
+                    className="h-[18px] w-[18px] flex-none"
+                    style={{ color: "var(--sf-danger)" }}
+                  />
+                  <span className="text-[12px] leading-[1.5]" style={{ color: "var(--sf-danger)" }}>
+                    {selectedItem.data.description || "Sự cố chưa có mô tả chi tiết."}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="flex flex-none gap-2.5 border-t border-[var(--sf-border-card)] px-5 py-4">
+            {selectedItem.type === "incident" && canAcceptIncident ? (
+              <button
+                type="button"
+                disabled={acceptingIncidentId === selectedItem.data.id}
+                onClick={() => void handleAcceptIncident(selectedItem.data)}
+                className="flex-1 cursor-pointer rounded-[15px] border-0 py-3 text-[12.5px] font-semibold text-white disabled:opacity-50"
+                style={{
+                  background: "linear-gradient(140deg,#0b8c7f,#076a61)",
+                  boxShadow: "0 14px 26px -14px rgba(8,127,115,.7)",
+                }}
+              >
+                {acceptingIncidentId === selectedItem.data.id ? "Đang xử lý…" : "Tiếp nhận sự cố"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(selectedItem.type === "flood" ? "/flood-map" : "/drivers")
+                }
+                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[15px] border-0 py-3 text-[12.5px] font-semibold text-white"
+                style={{
+                  background: "linear-gradient(140deg,#0b8c7f,#076a61)",
+                  boxShadow: "0 14px 26px -14px rgba(8,127,115,.7)",
+                }}
+              >
+                {selectedItem.type === "flood" ? (
+                  "Mở trang điểm ngập"
+                ) : (
+                  <>
+                    <Phone className="h-4 w-4" />
+                    Liên hệ tài xế
+                  </>
+                )}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() =>
+                router.push(selectedItem.type === "incident" ? "/incidents" : "/trips")
+              }
+              className="flex-1 cursor-pointer rounded-[15px] border border-[var(--sf-border)] bg-[var(--sf-bg-card)] py-3 text-[12.5px] font-semibold text-sf-text-secondary"
+            >
+              {selectedItem.type === "incident" ? "Xem sự cố" : "Xem chuyến"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

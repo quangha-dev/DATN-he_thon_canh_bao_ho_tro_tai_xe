@@ -1,48 +1,48 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Driver, Vehicle } from "@/types";
+import { Driver, Vehicle, VehicleStatus } from "@/types";
 import { safeFleetApi, VehicleMutationInput } from "@/lib/safeFleetApi";
 import { useToast } from "@/context/ToastContext";
-import { VEHICLE_STATUS_LABELS } from "@/lib/utils";
+import { cn, VEHICLE_STATUS_LABELS } from "@/lib/utils";
 import {
   Badge,
   Button,
+  CellText,
+  DataTable,
   Drawer,
-  EmptyState,
-  IconButton,
+  FilterChips,
   InfoRow,
   Modal,
-  SearchInput,
-  Segmented,
   Select,
-  SkeletonRows,
-  Stagger,
   StatCard,
-  StatSkeletonGrid,
-  StatusLabel,
-  Table,
-  TableShell,
-  Td,
-  Toolbar,
-  Tr,
+  TableCard,
+  TableToolbar,
   toneOf,
+  type FilterChip,
 } from "@/components/ui";
 import {
-  Truck,
-  Plus,
-  Eye,
-  CircleCheck,
-  Wrench,
-  WifiOff,
-  CalendarClock,
   AlertTriangle,
-  Pencil,
   Ban,
+  CalendarClock,
+  CircleCheck,
+  Pencil,
+  Plus,
+  Truck,
+  WifiOff,
 } from "lucide-react";
 
-const STATUS_FILTERS = ["all", "running", "idle", "maintenance", "offline"] as const;
-type StatusFilter = (typeof STATUS_FILTERS)[number];
+/** "all" hoặc một trong bốn trạng thái vận hành của backend */
+type StatusFilter = "all" | VehicleStatus;
+/** "all" hoặc một trong ba trạng thái tín hiệu GPS của backend */
+type GpsFilter = "all" | Vehicle["gpsStatus"];
+
+/** Bản thiết kế không vẽ nhãn GPS — tự đặt nhãn tiếng Việt cho ba giá trị thật của backend */
+const GPS_STATUS_LABELS: Record<Vehicle["gpsStatus"], string> = {
+  online: "Online",
+  offline: "Mất kết nối",
+  weak: "Tín hiệu yếu",
+};
 
 const EMPTY_FORM = {
   plateNumber: "",
@@ -59,6 +59,30 @@ const EMPTY_FORM = {
   insuranceExpiredAt: "",
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Số ngày còn lại tới hạn (âm = đã quá hạn); null nếu không có/không đọc được ngày */
+function daysUntil(dateStr?: string | null): number | null {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.round((date.getTime() - Date.now()) / DAY_MS);
+}
+
+/** Đăng kiểm hoặc bảo hiểm còn ≤ 60 ngày (hoặc đã quá hạn) */
+function isDocExpiringSoon(vehicle: Vehicle): boolean {
+  const reg = daysUntil(vehicle.registrationExpiry);
+  const ins = daysUntil(vehicle.insuranceExpiry);
+  return (reg !== null && reg <= 60) || (ins !== null && ins <= 60);
+}
+
+function formatMonthYear(dateStr?: string | null): string {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+}
+
 export default function VehiclesPage() {
   const { showToast } = useToast();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -66,6 +90,8 @@ export default function VehiclesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [gpsFilter, setGpsFilter] = useState<GpsFilter>("all");
+  const [docFilter, setDocFilter] = useState(false);
   const [selected, setSelected] = useState<Vehicle | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -103,14 +129,21 @@ export default function VehiclesPage() {
     () => ({
       total: vehicles.length,
       running: vehicles.filter((v) => v.status === "running").length,
-      idle: vehicles.filter((v) => v.status === "idle").length,
-      maintenance: vehicles.filter((v) => v.status === "maintenance").length,
-      offline: vehicles.filter((v) => v.status === "offline").length,
+      docsExpiring: vehicles.filter(isDocExpiringSoon).length,
+      gpsOffline: vehicles.filter((v) => v.gpsStatus === "offline").length,
     }),
     [vehicles]
   );
 
   const vehicleTypes = useMemo(() => Array.from(new Set(vehicles.map((v) => v.type))), [vehicles]);
+
+  /** Chỉ liệt kê các mức tín hiệu GPS thật sự xuất hiện trong dữ liệu */
+  const gpsOptions = useMemo(() => {
+    const present = new Set(vehicles.map((v) => v.gpsStatus));
+    return (Object.keys(GPS_STATUS_LABELS) as Vehicle["gpsStatus"][])
+      .filter((key) => present.has(key))
+      .map((key) => ({ value: key, label: GPS_STATUS_LABELS[key] }));
+  }, [vehicles]);
 
   const openCreate = () => {
     setEditing(null);
@@ -206,6 +239,8 @@ export default function VehiclesPage() {
     return vehicles.filter((v) => {
       if (statusFilter !== "all" && v.status !== statusFilter) return false;
       if (typeFilter !== "all" && v.type !== typeFilter) return false;
+      if (gpsFilter !== "all" && v.gpsStatus !== gpsFilter) return false;
+      if (docFilter && !isDocExpiringSoon(v)) return false;
       if (!q) return true;
       return (
         v.plate.toLowerCase().includes(q) ||
@@ -214,181 +249,168 @@ export default function VehiclesPage() {
         (v.currentDriverName?.toLowerCase().includes(q) ?? false)
       );
     });
-  }, [vehicles, searchQuery, statusFilter, typeFilter]);
+  }, [vehicles, searchQuery, statusFilter, typeFilter, gpsFilter, docFilter]);
+
+  /* Chip lọc dựng theo đúng bốn trạng thái vận hành của backend — bản thiết kế
+     mẫu vẽ đúng bốn nhãn này nên không thiếu, chỉ đổi sang tính động theo dữ liệu. */
+  const statusChips = useMemo(() => {
+    const chips: FilterChip[] = [{ key: "all", label: "Tất cả", count: vehicles.length }];
+    (Object.keys(VEHICLE_STATUS_LABELS) as VehicleStatus[]).forEach((key) => {
+      const count = vehicles.filter((v) => v.status === key).length;
+      if (count > 0) chips.push({ key, label: VEHICLE_STATUS_LABELS[key], count });
+    });
+    return chips;
+  }, [vehicles]);
 
   return (
-    <div className="space-y-5">
-      {/* ===== Thống kê ===== */}
-      <Stagger className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
-        {isLoading && vehicles.length === 0 ? (
-          <StatSkeletonGrid count={5} />
-        ) : (
-          <>
-            <StatCard label="Tổng phương tiện" value={stats.total} icon={Truck} tone="primary" />
-            <StatCard
-              label="Đang hoạt động"
-              value={stats.running}
-              icon={CircleCheck}
-              tone="success"
-              onClick={() => setStatusFilter(statusFilter === "running" ? "all" : "running")}
-              active={statusFilter === "running"}
-            />
-            <StatCard
-              label="Sẵn sàng"
-              value={stats.idle}
-              icon={Truck}
-              tone="primary"
-              onClick={() => setStatusFilter(statusFilter === "idle" ? "all" : "idle")}
-              active={statusFilter === "idle"}
-            />
-            <StatCard
-              label="Đang bảo trì"
-              value={stats.maintenance}
-              icon={Wrench}
-              tone="warning"
-              onClick={() =>
-                setStatusFilter(statusFilter === "maintenance" ? "all" : "maintenance")
-              }
-              active={statusFilter === "maintenance"}
-            />
-            <StatCard
-              label="Mất kết nối"
-              value={stats.offline}
-              icon={WifiOff}
-              tone="neutral"
-              onClick={() => setStatusFilter(statusFilter === "offline" ? "all" : "offline")}
-              active={statusFilter === "offline"}
-            />
-          </>
-        )}
-      </Stagger>
-
-      {/* ===== Thanh công cụ ===== */}
-      <Toolbar>
-        <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Tìm biển số, hãng xe, tài xế…"
-          className="sm:max-w-sm"
+    <div className="grid gap-5">
+      {/* ===== Bốn thẻ số liệu, thẻ đầu tô đặc màu thương hiệu ===== */}
+      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <StatCard
+          filled
+          label="Tổng phương tiện"
+          value={stats.total}
+          icon={Truck}
+          delta={`${vehicleTypes.length} loại xe`}
+          delay={0}
         />
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            ariaLabel="Lọc theo loại xe"
-            value={typeFilter}
-            onChange={setTypeFilter}
-            options={[
-              { value: "all", label: "Tất cả loại xe" },
-              ...vehicleTypes.map((t) => ({ value: t, label: t })),
-            ]}
-          />
-          <Segmented
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={STATUS_FILTERS.map((s) => ({
-              value: s,
-              label: s === "all" ? "Tất cả" : VEHICLE_STATUS_LABELS[s],
-            }))}
-          />
-          <Button icon={Plus} size="sm" onClick={openCreate}>
-            Thêm xe
-          </Button>
-        </div>
-      </Toolbar>
+        <StatCard
+          label="Đang hoạt động"
+          value={stats.running}
+          icon={CircleCheck}
+          tone="primary"
+          delta={stats.total ? `${Math.round((stats.running / stats.total) * 100)}% đội` : ""}
+          onClick={() => setStatusFilter(statusFilter === "running" ? "all" : "running")}
+          active={statusFilter === "running"}
+          delay={70}
+        />
+        <StatCard
+          label="Giấy tờ sắp hết hạn"
+          value={stats.docsExpiring}
+          icon={CalendarClock}
+          tone="warning"
+          deltaTone="warning"
+          delta="trong 60 ngày"
+          onClick={() => setDocFilter((v) => !v)}
+          active={docFilter}
+          delay={140}
+        />
+        <StatCard
+          label="Mất kết nối"
+          value={stats.gpsOffline}
+          icon={WifiOff}
+          tone="danger"
+          deltaTone="danger"
+          delta="GPS ngừng phản hồi"
+          onClick={() => setGpsFilter(gpsFilter === "offline" ? "all" : "offline")}
+          active={gpsFilter === "offline"}
+          delay={210}
+        />
+      </div>
 
-      {/* ===== Bảng ===== */}
-      <TableShell loading={isLoading}>
-        <Table
-          head={[
-            "Biển số",
-            "Hãng & model",
-            "Loại xe",
-            "Tài xế hiện tại",
-            "Trạng thái",
-            "Cảnh báo",
-            "Hạn đăng kiểm",
-            "",
-          ]}
-        >
-          {isLoading && vehicles.length === 0 ? (
-            <SkeletonRows rows={6} cols={8} />
-          ) : filtered.length === 0 ? (
-            <tr>
-              <Td colSpan={8}>
-                <EmptyState
-                  icon={Truck}
-                  title="Không tìm thấy phương tiện"
-                  description="Thử đổi từ khóa tìm kiếm hoặc bỏ bớt bộ lọc đang áp dụng."
+      {/* ===== Thẻ bảng: thanh công cụ + bảng dạng thẻ ===== */}
+      <TableCard
+        toolbar={
+          <TableToolbar
+            search={{
+              value: searchQuery,
+              onChange: setSearchQuery,
+              placeholder: "Biển số, hãng, model, tài xế…",
+            }}
+            filters={
+              <FilterChips items={statusChips} value={statusFilter} onChange={(k) => setStatusFilter(k as StatusFilter)} />
+            }
+            extra={
+              <>
+                <Select
+                  ariaLabel="Lọc theo loại xe"
+                  value={typeFilter}
+                  onChange={setTypeFilter}
+                  options={[
+                    { value: "all", label: "Tất cả loại xe" },
+                    ...vehicleTypes.map((t) => ({ value: t, label: t })),
+                  ]}
+                  className="min-w-[10rem]"
                 />
-              </Td>
-            </tr>
-          ) : (
-            filtered.map((vehicle) => (
-              <Tr key={vehicle.id} onClick={() => setSelected(vehicle)}>
-                <Td>
-                  <span className="flex items-center gap-2.5">
+                <Select
+                  ariaLabel="Lọc theo tín hiệu GPS"
+                  value={gpsFilter}
+                  onChange={(v) => setGpsFilter(v as GpsFilter)}
+                  options={[{ value: "all", label: "Tất cả GPS" }, ...gpsOptions]}
+                  className="min-w-[9.5rem]"
+                />
+              </>
+            }
+            action={
+              <button type="button" className="sf-pill-primary" onClick={openCreate}>
+                <Plus className="h-[17px] w-[17px]" />
+                Thêm xe
+              </button>
+            }
+          />
+        }
+      >
+        <DataTable
+          grid="1.1fr 1.2fr 1.2fr 1fr 1fr"
+          columns={["Biển số", "Loại & tải trọng", "Tài xế phụ trách", "Giấy tờ", "Trạng thái"]}
+          loading={isLoading}
+          empty={{
+            icon: Truck,
+            title: "Không tìm thấy phương tiện",
+            description: "Thử đổi từ khóa hoặc bỏ bớt bộ lọc đang áp dụng.",
+          }}
+          rows={filtered.map((vehicle) => {
+            const expiringSoon = isDocExpiringSoon(vehicle);
+            return {
+              key: vehicle.id,
+              onClick: () => setSelected(vehicle),
+              cells: [
+                <CellText
+                  key="plate"
+                  strong
+                  mono
+                  icon={Truck}
+                  text={vehicle.plate}
+                  sub={`${vehicle.brand} ${vehicle.model}${vehicle.year ? ` · ${vehicle.year}` : ""}`}
+                />,
+                <CellText
+                  key="type"
+                  text={`${vehicle.type}${vehicle.capacity ? ` · ${vehicle.capacity} tấn` : ""}`}
+                  sub={`${vehicle.totalKm.toLocaleString("vi-VN")} km${vehicle.totalTrips ? ` · ${vehicle.totalTrips} chuyến` : ""}`}
+                />,
+                <CellText
+                  key="driver"
+                  text={vehicle.currentDriverName || "—"}
+                  sub={vehicle.currentDriverName ? "gắn cố định" : "chưa gán"}
+                />,
+                <CellText
+                  key="docs"
+                  mono
+                  text={`ĐK ${formatMonthYear(vehicle.registrationExpiry)}`}
+                  sub={expiringSoon ? "sắp hết hạn" : `BH ${formatMonthYear(vehicle.insuranceExpiry)}`}
+                  color={expiringSoon ? "var(--sf-warning)" : undefined}
+                />,
+                <div key="status" className="flex flex-col items-start gap-1.5">
+                  <Badge tone={toneOf(vehicle.status)} dot size="sm">
+                    {(VEHICLE_STATUS_LABELS[vehicle.status] || vehicle.status).toUpperCase()}
+                  </Badge>
+                  {vehicle.gpsStatus !== "online" && (
                     <span
-                      className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)]"
-                      style={{ background: "var(--sf-primary-soft)", color: "var(--sf-primary)" }}
+                      className={cn(
+                        "inline-flex items-center gap-1 text-[11px]",
+                        vehicle.gpsStatus === "offline" ? "text-[var(--sf-danger)]" : "text-[var(--sf-warning)]"
+                      )}
                     >
-                      <Truck className="h-3.5 w-3.5" />
+                      <WifiOff className="h-3 w-3" />
+                      {GPS_STATUS_LABELS[vehicle.gpsStatus]}
                     </span>
-                    <span className="text-[13px] font-extrabold tracking-tight text-sf-text">
-                      {vehicle.plate}
-                    </span>
-                  </span>
-                </Td>
-                <Td className="font-semibold text-sf-text-secondary">
-                  {vehicle.brand} {vehicle.model}
-                </Td>
-                <Td>{vehicle.type}</Td>
-                <Td>
-                  {vehicle.currentDriverName ? (
-                    <span className="font-semibold text-sf-text-secondary">
-                      {vehicle.currentDriverName}
-                    </span>
-                  ) : (
-                    <span className="italic text-sf-text-muted">Chưa giao</span>
                   )}
-                </Td>
-                <Td>
-                  <StatusLabel
-                    status={vehicle.status}
-                    label={VEHICLE_STATUS_LABELS[vehicle.status]}
-                    pulse={vehicle.status === "running"}
-                  />
-                </Td>
-                <Td align="center">
-                  {vehicle.totalAlerts > 0 ? (
-                    <Badge tone="danger" size="sm" icon={AlertTriangle}>
-                      {vehicle.totalAlerts}
-                    </Badge>
-                  ) : (
-                    <span className="text-sf-text-muted">—</span>
-                  )}
-                </Td>
-                <Td>
-                  <span className="flex items-center gap-1.5 text-sf-text-secondary">
-                    <CalendarClock className="h-3.5 w-3.5 text-sf-text-muted" />
-                    {vehicle.registrationExpiry || "—"}
-                  </span>
-                </Td>
-                <Td align="center">
-                  <IconButton
-                    icon={Eye}
-                    label="Xem chi tiết"
-                    size="sm"
-                    tone="primary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelected(vehicle);
-                    }}
-                  />
-                </Td>
-              </Tr>
-            ))
-          )}
-        </Table>
-      </TableShell>
+                </div>,
+              ],
+            };
+          })}
+        />
+      </TableCard>
 
       {/* ===== Panel chi tiết ===== */}
       <Drawer
@@ -410,6 +432,9 @@ export default function VehiclesPage() {
               <Badge tone={toneOf(selected.status)}>
                 {VEHICLE_STATUS_LABELS[selected.status]}
               </Badge>
+              <Badge tone={selected.gpsStatus === "online" ? "success" : selected.gpsStatus === "weak" ? "warning" : "danger"}>
+                GPS {GPS_STATUS_LABELS[selected.gpsStatus]}
+              </Badge>
               {selected.totalAlerts > 0 && (
                 <Badge tone="danger" icon={AlertTriangle}>
                   {selected.totalAlerts} cảnh báo
@@ -423,6 +448,7 @@ export default function VehiclesPage() {
               <InfoRow label="Loại xe" value={selected.type} />
               <InfoRow label="Tài xế" value={selected.currentDriverName ?? "Chưa giao"} />
               <InfoRow label="Hạn đăng kiểm" value={selected.registrationExpiry || "—"} />
+              <InfoRow label="Hạn bảo hiểm" value={selected.insuranceExpiry || "—"} />
               <InfoRow
                 label="Vị trí"
                 value={

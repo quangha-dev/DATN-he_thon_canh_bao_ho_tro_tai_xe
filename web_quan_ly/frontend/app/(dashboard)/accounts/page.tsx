@@ -1,38 +1,47 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Account } from "@/types";
+import { Account, UserRole } from "@/types";
 import { safeFleetApi } from "@/lib/safeFleetApi";
 import { useToast } from "@/context/ToastContext";
-import { Plus, Ban, Lock, Unlock, UserCog, ShieldCheck, Users, Siren, KeyRound } from "lucide-react";
+import { Plus, Ban, Lock, Unlock, ShieldCheck, Users, KeyRound } from "lucide-react";
 import {
   Badge,
   Button,
-  EmptyState,
-  IconButton,
+  DataTable,
+  Drawer,
+  FilterChips,
+  InfoRow,
   Modal,
-  SearchInput,
-  Select,
-  SkeletonRows,
-  Stagger,
   StatCard,
-  StatSkeletonGrid,
-  StatusLabel,
-  Table,
-  TableShell,
-  Td,
-  Toolbar,
-  Tr,
+  TableCard,
+  TableToolbar,
+  toneOf,
+  type FilterChip,
+  type Tone,
 } from "@/components/ui";
 
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: "Quản lý",
-  FLEET_MANAGER: "Quản lý",
-  DISPATCHER: "Quản lý",
-  SAFETY_OFFICER: "Quản lý",
-  RESCUE_TEAM: "Quản lý",
+/** Nhãn tiếng Việt cho đủ sáu vai trò của backend — bản thiết kế chỉ vẽ hai
+    (QUẢN LÝ / TÀI XẾ) nên dùng lại đúng nhãn đã chuẩn hoá ở Header/Hồ sơ. */
+const ROLE_LABELS: Record<UserRole, string> = {
+  ADMIN: "Quản trị viên",
+  FLEET_MANAGER: "Quản lý đội xe",
+  DISPATCHER: "Điều phối viên",
+  SAFETY_OFFICER: "An toàn vận hành",
+  RESCUE_TEAM: "Đội cứu hộ",
   DRIVER: "Tài xế",
 };
+
+const ROLE_TONE: Record<UserRole, Tone> = {
+  ADMIN: "primary",
+  FLEET_MANAGER: "info",
+  DISPATCHER: "info",
+  SAFETY_OFFICER: "accent",
+  RESCUE_TEAM: "danger",
+  DRIVER: "neutral",
+};
+
+const ROLE_ORDER: UserRole[] = ["ADMIN", "FLEET_MANAGER", "DISPATCHER", "SAFETY_OFFICER", "RESCUE_TEAM", "DRIVER"];
 
 const EMPTY_ACCOUNT_FORM = {
   actor: "MANAGER" as "MANAGER" | "DRIVER",
@@ -47,6 +56,7 @@ const EMPTY_ACCOUNT_FORM = {
   licenseExpiredAt: "",
 };
 
+/** Đủ bốn trạng thái tài khoản của backend — bản thiết kế chỉ vẽ ba, thiếu PENDING */
 const STATUS_LABELS: Record<Account["status"], string> = {
   ACTIVE: "Hoạt động",
   LOCKED: "Bị khóa",
@@ -65,10 +75,11 @@ const STATUS_KEY: Record<Account["status"], string> = {
 export default function AccountsPage() {
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState<"all" | UserRole>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | Account["status"]>("all");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selected, setSelected] = useState<Account | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [accountForm, setAccountForm] = useState(EMPTY_ACCOUNT_FORM);
@@ -107,9 +118,10 @@ export default function AccountsPage() {
     () => ({
       total: accounts.length,
       active: accounts.filter((a) => a.status === "ACTIVE").length,
+      locked: accounts.filter((a) => a.status === "LOCKED").length,
+      disabled: accounts.filter((a) => a.status === "DISABLED").length,
       manager: accounts.filter((a) => a.role !== "DRIVER").length,
       driver: accounts.filter((a) => a.role === "DRIVER").length,
-      locked: accounts.filter((a) => a.status === "LOCKED").length,
     }),
     [accounts]
   );
@@ -128,8 +140,32 @@ export default function AccountsPage() {
     });
   }, [accounts, searchQuery, roleFilter, statusFilter]);
 
-  const updateAccount = (next: Account) =>
+  /* Chip lọc theo vai trò — dựng đủ sáu UserRole của backend (bản thiết kế chỉ
+     vẽ hai), chỉ hiện vai trò thật sự có tài khoản. */
+  const roleChips = useMemo(() => {
+    const chips: FilterChip[] = [{ key: "all", label: "Tất cả", count: accounts.length }];
+    ROLE_ORDER.forEach((role) => {
+      const count = accounts.filter((a) => a.role === role).length;
+      if (count > 0) chips.push({ key: role, label: ROLE_LABELS[role], count });
+    });
+    return chips;
+  }, [accounts]);
+
+  /* Chip lọc theo trạng thái — dựng đủ bốn AccountStatus, gồm cả PENDING mà
+     bản thiết kế bỏ sót. */
+  const statusChips = useMemo(() => {
+    const chips: FilterChip[] = [{ key: "all", label: "Tất cả", count: accounts.length }];
+    (Object.keys(STATUS_LABELS) as Account["status"][]).forEach((status) => {
+      const count = accounts.filter((a) => a.status === status).length;
+      if (count > 0) chips.push({ key: status, label: STATUS_LABELS[status], count });
+    });
+    return chips;
+  }, [accounts]);
+
+  const updateAccount = (next: Account) => {
     setAccounts((prev) => prev.map((a) => (a.id === next.id ? next : a)));
+    setSelected((prev) => (prev && prev.id === next.id ? next : prev));
+  };
 
   const handleToggleLock = async (id: number, currentStatus: Account["status"]) => {
     const nextStatus = currentStatus === "ACTIVE" ? "LOCKED" : "ACTIVE";
@@ -200,155 +236,175 @@ export default function AccountsPage() {
   };
 
   return (
-    <div className="space-y-5">
-      {/* ===== Thống kê ===== */}
-      <Stagger className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
-        {isLoading && accounts.length === 0 ? (
-          <StatSkeletonGrid count={5} />
-        ) : (
-          <>
-            <StatCard label="Tổng tài khoản" value={stats.total} icon={Users} tone="primary" />
-            <StatCard
-              label="Đang hoạt động"
-              value={stats.active}
-              icon={ShieldCheck}
-              tone="success"
-              onClick={() => setStatusFilter(statusFilter === "ACTIVE" ? "all" : "ACTIVE")}
-              active={statusFilter === "ACTIVE"}
-            />
-            <StatCard label="Quản lý" value={stats.manager} icon={UserCog} tone="primary" />
-            <StatCard
-              label="Tài xế"
-              value={stats.driver}
-              icon={Users}
-              tone="primary"
-              onClick={() => setRoleFilter(roleFilter === "DRIVER" ? "all" : "DRIVER")}
-              active={roleFilter === "DRIVER"}
-            />
-            <StatCard
-              label="Bị khóa"
-              value={stats.locked}
-              icon={Siren}
-              tone="danger"
-              onClick={() => setStatusFilter(statusFilter === "LOCKED" ? "all" : "LOCKED")}
-              active={statusFilter === "LOCKED"}
-            />
-          </>
-        )}
-      </Stagger>
-
-      {/* ===== Thanh công cụ ===== */}
-      <Toolbar>
-        <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Tìm tên đăng nhập, họ tên, email…"
-          className="sm:max-w-sm"
+    <div className="grid gap-5">
+      {/* ===== Bốn thẻ số liệu, thẻ đầu tô đặc màu thương hiệu ===== */}
+      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <StatCard
+          filled
+          label="Tổng tài khoản"
+          value={stats.total}
+          icon={Users}
+          delta={`${stats.manager} quản lý · ${stats.driver} tài xế`}
+          delay={0}
         />
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            ariaLabel="Lọc theo vai trò"
-            value={roleFilter}
-            onChange={setRoleFilter}
-            options={[
-              { value: "all", label: "Tất cả vai trò" },
-              { value: "DRIVER", label: "Tài xế" },
-            ]}
-            className="min-w-[11rem]"
-          />
-          <Select
-            ariaLabel="Lọc theo trạng thái"
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[
-              { value: "all", label: "Tất cả trạng thái" },
-              ...Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label })),
-            ]}
-          />
-          <Button icon={Plus} size="sm" onClick={() => setCreateOpen(true)}>
-            Tạo tài khoản
-          </Button>
-        </div>
-      </Toolbar>
+        <StatCard
+          label="Đang hoạt động"
+          value={stats.active}
+          icon={ShieldCheck}
+          tone="success"
+          delta={stats.total ? `${Math.round((stats.active / stats.total) * 100)}%` : ""}
+          onClick={() => setStatusFilter(statusFilter === "ACTIVE" ? "all" : "ACTIVE")}
+          active={statusFilter === "ACTIVE"}
+          delay={70}
+        />
+        <StatCard
+          label="Bị khóa"
+          value={stats.locked}
+          icon={Lock}
+          tone="warning"
+          deltaTone="warning"
+          delta="chờ xử lý"
+          onClick={() => setStatusFilter(statusFilter === "LOCKED" ? "all" : "LOCKED")}
+          active={statusFilter === "LOCKED"}
+          delay={140}
+        />
+        <StatCard
+          label="Vô hiệu hóa"
+          value={stats.disabled}
+          icon={Ban}
+          tone="neutral"
+          delta="lưu trữ"
+          onClick={() => setStatusFilter(statusFilter === "DISABLED" ? "all" : "DISABLED")}
+          active={statusFilter === "DISABLED"}
+          delay={210}
+        />
+      </div>
 
-      {/* ===== Bảng ===== */}
-      <TableShell loading={isLoading}>
-        <Table
-          head={["Tên đăng nhập", "Họ và tên", "Email", "Vai trò", "Trạng thái", "Ngày tạo", ""]}
-        >
-          {isLoading && accounts.length === 0 ? (
-            <SkeletonRows rows={6} cols={7} />
-          ) : filtered.length === 0 ? (
-            <tr>
-              <Td colSpan={7}>
-                <EmptyState
-                  icon={UserCog}
-                  title="Không tìm thấy tài khoản"
-                  description="Thử đổi từ khóa hoặc bỏ bớt bộ lọc đang áp dụng."
-                />
-              </Td>
-            </tr>
-          ) : (
-            filtered.map((account) => (
-              <Tr key={account.id}>
-                <Td>
-                  <span className="flex items-center gap-2.5">
-                    <span
-                      className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)] text-[12.5px] font-extrabold"
-                      style={{ background: "var(--sf-primary-soft)", color: "var(--sf-primary)" }}
-                    >
-                      {account.fullName.charAt(0).toUpperCase()}
-                    </span>
-                    <span className="font-mono text-[12.5px] font-bold text-sf-text">
-                      {account.username}
-                    </span>
+      {/* ===== Thẻ bảng: thanh công cụ + bảng dạng thẻ ===== */}
+      <TableCard
+        toolbar={
+          <TableToolbar
+            search={{
+              value: searchQuery,
+              onChange: setSearchQuery,
+              placeholder: "Tên đăng nhập, họ tên, email…",
+            }}
+            filters={
+              <FilterChips items={roleChips} value={roleFilter} onChange={(k) => setRoleFilter(k as typeof roleFilter)} />
+            }
+            extra={
+              <>
+                <span aria-hidden className="hidden h-6 w-px shrink-0 bg-[var(--sf-border-card)] sm:block" />
+                <FilterChips items={statusChips} value={statusFilter} onChange={(k) => setStatusFilter(k as typeof statusFilter)} />
+              </>
+            }
+            action={
+              <button type="button" className="sf-pill-primary" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-[17px] w-[17px]" />
+                Tạo tài khoản
+              </button>
+            }
+          />
+        }
+      >
+        <DataTable
+          grid="1.3fr 1.4fr .9fr 1fr 1fr"
+          columns={["Tài khoản", "Họ tên & email", "Vai trò", "Trạng thái", "Hoạt động cuối"]}
+          loading={isLoading}
+          empty={{
+            icon: Users,
+            title: "Không tìm thấy tài khoản",
+            description: "Thử đổi từ khóa hoặc bỏ bớt bộ lọc đang áp dụng.",
+          }}
+          rows={filtered.map((account) => ({
+            key: String(account.id),
+            onClick: () => setSelected(account),
+            cells: [
+              <span key="account" className="flex min-w-0 items-center gap-3">
+                <span
+                  className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-[12px] text-[13px] font-extrabold"
+                  style={{ background: "var(--sf-primary-soft)", color: "var(--sf-primary)" }}
+                >
+                  {account.fullName.charAt(0).toUpperCase()}
+                </span>
+                <span className="min-w-0">
+                  <span className="sf-mono block truncate text-[13.5px] font-semibold text-sf-text">{account.username}</span>
+                  <span className="mt-[3px] block truncate text-[11.5px] text-sf-text-muted">
+                    ACC-{String(account.id).padStart(4, "0")}
                   </span>
-                </Td>
-                <Td className="font-semibold text-sf-text-secondary">{account.fullName}</Td>
-                <Td>{account.email}</Td>
-                <Td>
-                  <Badge tone={account.role === "ADMIN" ? "primary" : "neutral"} size="sm">
-                    {ROLE_LABELS[account.role] || account.role}
-                  </Badge>
-                </Td>
-                <Td>
-                  <StatusLabel
-                    status={STATUS_KEY[account.status]}
-                    label={STATUS_LABELS[account.status]}
-                    pulse={account.status === "ACTIVE"}
-                  />
-                </Td>
-                <Td className="sf-tnum">{account.createdAt}</Td>
-                <Td align="center">
-                  <span className="flex items-center justify-center gap-1">
-                    <IconButton
-                      icon={KeyRound}
-                      label="Đặt lại mật khẩu"
-                      size="sm"
-                      tone="neutral"
-                      onClick={() => setResetTarget(account)}
-                    />
-                    <IconButton
-                      icon={account.status === "ACTIVE" ? Lock : Unlock}
-                      label={account.status === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
-                      size="sm"
-                      tone="primary"
-                      onClick={() => handleToggleLock(account.id, account.status)}
-                    />
-                    <IconButton
-                      icon={Ban}
-                      label="Vô hiệu hóa tài khoản"
-                      size="sm"
-                      tone="danger"
-                      onClick={() => handleDisable(account.id)}
-                    />
-                  </span>
-                </Td>
-              </Tr>
-            ))
-          )}
-        </Table>
-      </TableShell>
+                </span>
+              </span>,
+              <div key="person" className="min-w-0">
+                <div className="truncate text-[13.5px] font-medium text-sf-text">{account.fullName}</div>
+                <div className="mt-[3px] truncate text-[11.5px] text-sf-text-muted">{account.email}</div>
+              </div>,
+              <Badge key="role" tone={ROLE_TONE[account.role] ?? "neutral"} dot size="sm">
+                {(ROLE_LABELS[account.role] || account.role).toUpperCase()}
+              </Badge>,
+              <Badge key="status" tone={toneOf(STATUS_KEY[account.status])} dot size="sm">
+                {STATUS_LABELS[account.status].toUpperCase()}
+              </Badge>,
+              <span key="lastActive" className="sf-mono block truncate text-[13px] text-sf-text-secondary">
+                {account.lastLogin || account.createdAt || "—"}
+              </span>,
+            ],
+          }))}
+        />
+      </TableCard>
+
+      {/* ===== Panel chi tiết ===== */}
+      <Drawer
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        title={selected?.fullName ?? ""}
+        subtitle={selected ? `@${selected.username} · ${ROLE_LABELS[selected.role] || selected.role}` : undefined}
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={KeyRound}
+              onClick={() => selected && setResetTarget(selected)}
+            >
+              Đặt lại mật khẩu
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={selected?.status === "ACTIVE" ? Lock : Unlock}
+              onClick={() => selected && void handleToggleLock(selected.id, selected.status)}
+            >
+              {selected?.status === "ACTIVE" ? "Khóa" : "Mở khóa"}
+            </Button>
+            {selected?.status !== "DISABLED" && (
+              <Button variant="danger" size="sm" icon={Ban} onClick={() => selected && void handleDisable(selected.id)}>
+                Vô hiệu hóa
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setSelected(null)}>Đóng</Button>
+          </>
+        }
+      >
+        {selected && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={ROLE_TONE[selected.role] ?? "neutral"}>
+                {ROLE_LABELS[selected.role] || selected.role}
+              </Badge>
+              <Badge tone={toneOf(STATUS_KEY[selected.status])}>
+                {STATUS_LABELS[selected.status]}
+              </Badge>
+            </div>
+
+            <div>
+              <InfoRow label="Tên đăng nhập" value={<span className="sf-mono">{selected.username}</span>} />
+              <InfoRow label="Email" value={selected.email} />
+              <InfoRow label="Ngày tạo" value={selected.createdAt || "—"} />
+              <InfoRow label="Đăng nhập cuối" value={selected.lastLogin || "Chưa đăng nhập"} />
+            </div>
+          </div>
+        )}
+      </Drawer>
 
       <Modal
         open={createOpen}

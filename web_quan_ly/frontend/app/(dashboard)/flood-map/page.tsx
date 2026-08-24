@@ -5,30 +5,36 @@ import MapView from "@/components/map/MapView";
 import { FloodPoint, FloodSeverity } from "@/types";
 import { safeFleetApi } from "@/lib/safeFleetApi";
 import { formatTimeAgo } from "@/lib/utils";
-import { AnimatePresence, motion } from "framer-motion";
-import { Droplets, CheckCircle2, Send, X, MapPin, Route } from "lucide-react";
+import { CheckCircle2, Droplets, MapPin, Route, Send } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
-import { Badge, Button, IconButton, InfoRow, Segmented, StatusDot, toneOf } from "@/components/ui";
+import {
+  Badge,
+  FilterChips,
+  MiniStat,
+  Skeleton,
+  toneOf,
+  type FilterChip,
+} from "@/components/ui";
 
+/* Đủ bốn mức ngập của backend — bản thiết kế chỉ vẽ ba. */
 const SEVERITY_VI: Record<FloodSeverity, string> = {
   light: "Ngập nhẹ",
   moderate: "Ngập vừa",
   heavy: "Ngập nặng",
-  impassable: "Không thể đi qua",
+  impassable: "Đường bị chặn",
 };
 
-const SEVERITY_FILTERS = ["all", "light", "moderate", "heavy", "impassable"] as const;
-type SeverityFilter = (typeof SEVERITY_FILTERS)[number];
+const SEVERITY_ORDER: FloodSeverity[] = ["light", "moderate", "heavy", "impassable"];
 
-type VerifyFilter = "all" | "verified" | "unverified";
+/** "all" | mức ngập | "unverified" — chip "Chưa xác minh" lọc theo cờ verified */
+type Filter = "all" | FloodSeverity | "unverified";
 
 export default function FloodMapPage() {
   const { showToast } = useToast();
   const [floodPoints, setFloodPoints] = useState<FloodPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPoint, setSelectedPoint] = useState<FloodPoint | null>(null);
-  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
-  const [verifyFilter, setVerifyFilter] = useState<VerifyFilter>("all");
+  const [filter, setFilter] = useState<Filter>("all");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -54,24 +60,31 @@ export default function FloodMapPage() {
   const filtered = useMemo(
     () =>
       floodPoints.filter((p) => {
-        if (severityFilter !== "all" && p.severity !== severityFilter) return false;
-        if (verifyFilter === "verified" && !p.verified) return false;
-        if (verifyFilter === "unverified" && p.verified) return false;
-        return true;
+        if (filter === "all") return true;
+        if (filter === "unverified") return !p.verified;
+        return p.severity === filter;
       }),
-    [floodPoints, severityFilter, verifyFilter]
+    [floodPoints, filter]
   );
 
-  const counts = useMemo(
-    () => ({
-      all: floodPoints.length,
-      light: floodPoints.filter((p) => p.severity === "light").length,
-      moderate: floodPoints.filter((p) => p.severity === "moderate").length,
-      heavy: floodPoints.filter((p) => p.severity === "heavy").length,
-      impassable: floodPoints.filter((p) => p.severity === "impassable").length,
-    }),
-    [floodPoints]
-  );
+  /* Chip lọc chỉ hiện mức thực sự có dữ liệu, luôn có "Tất cả" đứng đầu */
+  const chips = useMemo(() => {
+    const items: FilterChip[] = [{ key: "all", label: "Tất cả", count: floodPoints.length }];
+    SEVERITY_ORDER.forEach((key) => {
+      const count = floodPoints.filter((p) => p.severity === key).length;
+      if (count > 0) items.push({ key, label: SEVERITY_VI[key], count });
+    });
+    const unverified = floodPoints.filter((p) => !p.verified).length;
+    if (unverified > 0) items.push({ key: "unverified", label: "Chưa xác minh", count: unverified });
+    return items;
+  }, [floodPoints]);
+
+  /* Khi bộ lọc đổi mà điểm đang chọn bị lọc ra thì bỏ chọn cho khỏi lệch */
+  useEffect(() => {
+    if (selectedPoint && !filtered.some((p) => p.id === selectedPoint.id)) {
+      setSelectedPoint(null);
+    }
+  }, [filtered, selectedPoint]);
 
   const updateFloodPoint = (next: FloodPoint) => {
     setFloodPoints((prev) => prev.map((p) => (p.id === next.id ? next : p)));
@@ -120,188 +133,152 @@ export default function FloodMapPage() {
   };
 
   return (
-    <div className="relative flex h-[calc(100vh-68px)] w-full overflow-hidden bg-[var(--sf-bg-inset)]">
-      {/* ===== Bản đồ toàn màn hình ===== */}
-      <div className="sf-map-dark absolute inset-0 z-0">
-        <MapView
-          floodPoints={filtered}
-          onFloodPointClick={(p) => setSelectedPoint(p)}
-          selectedVehicleId={null}
-        />
-      </div>
-
-      {/* ===== Thanh điều khiển nổi ===== */}
-      <div className="pointer-events-none absolute inset-x-4 top-4 z-10 flex flex-col items-start justify-between gap-3 md:flex-row md:items-center">
-        <div className="sf-glass-panel pointer-events-auto flex max-w-full items-center gap-2 overflow-x-auto p-2">
-          <span className="flex flex-shrink-0 items-center gap-2 pl-1.5 pr-1 text-[12.5px] font-extrabold text-sf-text">
-            <Droplets className="h-4 w-4" style={{ color: "var(--sf-primary)" }} />
-            {filtered.length} điểm
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      {/* ===================== Bản đồ ===================== */}
+      <div className="sf-surface overflow-hidden">
+        <div className="flex flex-wrap items-center gap-2.5 px-6 py-5">
+          <FilterChips items={chips} value={filter} onChange={(k) => setFilter(k as Filter)} />
+          <span className="flex-1" />
+          <span className="flex items-center gap-2 text-[12px] text-sf-text-muted">
+            <Droplets className="h-4 w-4" style={{ color: "var(--sf-info)" }} />
+            {filtered.length} điểm đang hiển thị
           </span>
-          <Segmented
-            value={severityFilter}
-            onChange={setSeverityFilter}
-            options={SEVERITY_FILTERS.map((s) => ({
-              value: s,
-              label: s === "all" ? "Tất cả" : SEVERITY_VI[s as FloodSeverity],
-              count: counts[s],
-            }))}
-            size="sm"
-          />
         </div>
 
-        <div className="sf-glass-panel pointer-events-auto flex items-center gap-2 p-2">
-          {isLoading && (
-            <span className="flex items-center gap-1.5 pl-1 text-[12.5px] font-bold text-sf-text-muted">
-              <StatusDot tone="warning" pulse /> Đang tải…
-            </span>
-          )}
-          <Segmented
-            value={verifyFilter}
-            onChange={setVerifyFilter}
-            options={[
-              { value: "all", label: "Tất cả" },
-              { value: "verified", label: "Đã xác minh" },
-              { value: "unverified", label: "Chưa xác minh" },
-            ]}
-            size="sm"
+        <div className="sf-map-dark mx-4 mb-4 h-[420px] overflow-hidden rounded-[22px] xl:h-[calc(100vh-300px)] xl:min-h-[440px]">
+          <MapView
+            floodPoints={filtered}
+            onFloodPointClick={(p) => setSelectedPoint(p)}
+            selectedVehicleId={null}
           />
         </div>
       </div>
 
-      {/* ===== Panel chi tiết ===== */}
-      <AnimatePresence>
-        {selectedPoint && (
-          <motion.aside
-            initial={{ opacity: 0, x: 340 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 340 }}
-            transition={{ type: "spring", stiffness: 320, damping: 32 }}
-            className="sf-glass-panel absolute bottom-4 right-4 top-4 z-20 flex w-[21rem] flex-col overflow-hidden"
-          >
-            <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--sf-border)] px-4 py-3.5">
-              <h3 className="flex items-center gap-2 text-[13.5px] font-extrabold text-sf-text">
-                <Droplets className="h-4 w-4" style={{ color: "var(--sf-primary)" }} />
-                Thông tin điểm ngập
-              </h3>
-              <IconButton
-                icon={X}
-                label="Đóng"
+      {/* ===================== Chi tiết điểm ngập ===================== */}
+      <div className="sf-surface animate-sf-slide-left p-6">
+        {isLoading && !selectedPoint ? (
+          <div className="grid gap-3">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : !selectedPoint ? (
+          <div className="py-10 text-center">
+            <span
+              className="mx-auto grid h-14 w-14 place-items-center rounded-full"
+              style={{ background: "var(--sf-info-soft)", color: "var(--sf-info)" }}
+            >
+              <Droplets className="h-7 w-7" />
+            </span>
+            <p className="mt-4 text-[15px] font-bold text-sf-text">Chưa chọn điểm ngập</p>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-sf-text-muted">
+              Bấm một điểm trên bản đồ để xem mức ngập, độ tin cậy và gửi cảnh báo cho xe gần đó.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <Badge
+                tone={toneOf(selectedPoint.severity)}
+                dot
                 size="sm"
-                onClick={() => setSelectedPoint(null)}
+                solid={selectedPoint.severity === "impassable"}
+              >
+                {SEVERITY_VI[selectedPoint.severity].toUpperCase()}
+              </Badge>
+              <span className="sf-mono text-[11.5px] text-sf-text-muted">
+                {formatTimeAgo(selectedPoint.lastUpdated)}
+              </span>
+            </div>
+
+            <h3 className="mt-3.5 text-[18px] font-bold tracking-[-0.01em] text-sf-text">
+              {selectedPoint.location}
+            </h3>
+            <p className="mt-1.5 text-[12.5px] text-sf-text-muted">
+              Nguồn: {selectedPoint.source} · {selectedPoint.reportCount} báo cáo
+            </p>
+            <p className="mt-1.5 flex items-center gap-1.5 text-[11.5px] text-sf-text-muted">
+              <MapPin className="h-3 w-3 flex-none" />
+              <span className="sf-mono">
+                {selectedPoint.lat.toFixed(5)}, {selectedPoint.lng.toFixed(5)}
+              </span>
+            </p>
+
+            <div className="mt-5 grid grid-cols-2 gap-2.5">
+              <MiniStat
+                label="Mức ngập"
+                value={SEVERITY_VI[selectedPoint.severity]}
+                color="var(--sf-info)"
+              />
+              <MiniStat
+                label="Độ tin cậy"
+                value={`${selectedPoint.confidence}%`}
+                color="var(--sf-success)"
+              />
+              <MiniStat label="Báo cáo trùng" value={selectedPoint.reportCount} />
+              <MiniStat
+                label="Xe bị ảnh hưởng"
+                value={selectedPoint.affectedVehicles}
+                tone="warning"
               />
             </div>
 
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    tone={toneOf(selectedPoint.severity)}
-                    solid={selectedPoint.severity === "impassable"}
-                  >
-                    {SEVERITY_VI[selectedPoint.severity]}
-                  </Badge>
-                  <Badge tone={selectedPoint.verified ? "success" : "warning"} size="sm">
-                    {selectedPoint.verified ? "Đã xác minh" : "Chờ xác minh"}
-                  </Badge>
-                </div>
-
-                <h4 className="mt-2.5 text-[17px] font-extrabold leading-tight tracking-tight text-sf-text">
-                  {selectedPoint.location}
-                </h4>
-                <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-sf-text-muted">
-                  <MapPin className="h-3 w-3" />
-                  <span className="sf-tnum font-mono">
-                    {selectedPoint.lat.toFixed(5)}, {selectedPoint.lng.toFixed(5)}
-                  </span>
-                  · {formatTimeAgo(selectedPoint.lastUpdated)}
-                </p>
+            {selectedPoint.affectedRoutes.length > 0 && (
+              <div
+                className="mt-3 rounded-[var(--sf-r-md)] p-3.5"
+                style={{ background: "var(--sf-bg-inset)" }}
+              >
+                <span className="mb-2 flex items-center gap-1.5 text-[11.5px] text-sf-text-muted">
+                  <Route className="h-3.5 w-3.5" />
+                  Tuyến bị ảnh hưởng
+                </span>
+                <span className="flex flex-wrap gap-1.5">
+                  {selectedPoint.affectedRoutes.map((code) => (
+                    <Badge key={code} tone="primary" size="sm">
+                      {code}
+                    </Badge>
+                  ))}
+                </span>
               </div>
+            )}
 
-              <div className="sf-inset px-3.5 py-1">
-                <InfoRow label="Nguồn tin" value={selectedPoint.source} />
-                <InfoRow label="Báo cáo trùng khớp" value={`${selectedPoint.reportCount} lần`} />
-                <InfoRow
-                  label="Độ tin cậy"
-                  value={
-                    <span style={{ color: "var(--sf-success)" }}>{selectedPoint.confidence}%</span>
-                  }
-                />
-              </div>
-
-              <div className="space-y-2.5">
-                <p className="sf-eyebrow">Tác động đội xe</p>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="sf-inset p-3">
-                    <span className="block text-[12px] font-semibold text-sf-text-muted">
-                      Xe bị ảnh hưởng
-                    </span>
-                    <span className="sf-metric mt-1 block text-[18px]">
-                      {selectedPoint.affectedVehicles}
-                    </span>
-                  </div>
-                  <div className="sf-inset p-3">
-                    <span className="block text-[12px] font-semibold text-sf-text-muted">
-                      Tuyến bị cắt
-                    </span>
-                    <span className="sf-metric mt-1 block text-[18px]">
-                      {selectedPoint.affectedRoutes.length}
-                    </span>
-                  </div>
-                </div>
-
-                {selectedPoint.affectedRoutes.length > 0 && (
-                  <div className="sf-inset p-3">
-                    <span className="mb-2 flex items-center gap-1.5 text-[12px] font-bold text-sf-text-muted">
-                      <Route className="h-3 w-3" />
-                      Mã tuyến bị ảnh hưởng
-                    </span>
-                    <span className="flex flex-wrap gap-1.5">
-                      {selectedPoint.affectedRoutes.map((code) => (
-                        <Badge key={code} tone="primary" size="sm">
-                          {code}
-                        </Badge>
-                      ))}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2 border-t border-[var(--sf-border)] pt-4">
-                {!selectedPoint.verified && (
-                  <Button
-                    block
-                    size="sm"
-                    icon={CheckCircle2}
-                    loading={busy}
-                    onClick={() => handleVerify(selectedPoint.id)}
-                  >
-                    Xác minh điểm ngập
-                  </Button>
-                )}
-                <Button
-                  block
-                  size="sm"
-                  variant="accent"
-                  icon={Send}
-                  loading={busy}
-                  onClick={() => void handleSendWarning(selectedPoint)}
+            <div className="mt-5 grid gap-2.5">
+              {!selectedPoint.verified && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void handleVerify(selectedPoint.id)}
+                  className="cursor-pointer rounded-[var(--sf-r-md)] border-0 py-3.5 text-[13px] font-semibold text-white disabled:opacity-50"
+                  style={{
+                    background: "linear-gradient(140deg,#0b8c7f,#076a61)",
+                    boxShadow: "0 14px 28px -14px rgba(8,127,115,.7)",
+                  }}
                 >
-                  Gửi cảnh báo xe gần đó
-                </Button>
-                <Button
-                  block
-                  size="sm"
-                  variant="outline"
-                  loading={busy}
-                  onClick={() => handleClearFlood(selectedPoint.id)}
-                >
-                  Đánh dấu hết ngập
-                </Button>
-              </div>
+                  <CheckCircle2 className="mr-2 inline h-[17px] w-[17px] align-text-bottom" />
+                  Xác minh điểm ngập
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleSendWarning(selectedPoint)}
+                className="cursor-pointer rounded-[var(--sf-r-md)] border border-[var(--sf-border)] bg-[var(--sf-bg-card)] py-3.5 text-[13px] font-semibold text-sf-text-secondary disabled:opacity-50"
+              >
+                <Send className="mr-2 inline h-[17px] w-[17px] align-text-bottom" />
+                Gửi cảnh báo cho xe gần
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleClearFlood(selectedPoint.id)}
+                className="cursor-pointer rounded-[var(--sf-r-md)] border border-[var(--sf-border)] bg-[var(--sf-bg-card)] py-3.5 text-[13px] font-semibold text-sf-text-secondary disabled:opacity-50"
+              >
+                Đánh dấu hết ngập
+              </button>
             </div>
-          </motion.aside>
+          </>
         )}
-      </AnimatePresence>
+      </div>
     </div>
   );
 }

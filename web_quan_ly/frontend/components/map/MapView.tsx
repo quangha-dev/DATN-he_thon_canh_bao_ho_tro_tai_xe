@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import type React from "react";
 import { MAP_CONFIG } from "@/lib/utils";
 import { Vehicle, FloodPoint, Incident } from "@/types";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,15 @@ const FLOOD_MARKER_COLOR: Record<string, string> = {
   impassable: "var(--sf-danger)",
 };
 
+/** Điều khiển bản đồ từ bên ngoài — trang bản đồ realtime tự vẽ nút zoom
+    theo bản thiết kế nên cần gọi được zoom/flyTo của MapLibre. */
+export interface MapViewHandle {
+  zoomIn: () => void;
+  zoomOut: () => void;
+  reset: () => void;
+  flyTo: (lat: number, lng: number, zoom?: number) => void;
+}
+
 interface MapViewProps {
   vehicles?: Vehicle[];
   floodPoints?: FloodPoint[];
@@ -36,9 +46,11 @@ interface MapViewProps {
   onIncidentClick?: (incident: Incident) => void;
   selectedVehicleId?: string | null;
   interactive?: boolean;
+  /** Tắt cụm nút zoom mặc định của MapLibre khi trang tự vẽ nút riêng */
+  showNativeControls?: boolean;
 }
 
-export default function MapView({
+function MapViewImpl({
   vehicles = [],
   floodPoints = [],
   incidents = [],
@@ -50,7 +62,8 @@ export default function MapView({
   onIncidentClick,
   selectedVehicleId,
   interactive = true,
-}: MapViewProps) {
+  showNativeControls = true,
+}: MapViewProps, ref: React.Ref<MapViewHandle>) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<Record<string, any>>({});
@@ -92,7 +105,7 @@ export default function MapView({
         interactive: interactive,
       });
 
-      if (interactive) {
+      if (interactive && showNativeControls) {
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
       }
 
@@ -108,7 +121,21 @@ export default function MapView({
         mapRef.current = null;
       }
     };
-  }, [interactive]);
+  }, [interactive, showNativeControls]);
+
+  // Cho phép trang cha điều khiển bản đồ bằng nút riêng
+  useImperativeHandle(
+    ref,
+    () => ({
+      zoomIn: () => mapRef.current?.zoomIn?.(),
+      zoomOut: () => mapRef.current?.zoomOut?.(),
+      reset: () =>
+        mapRef.current?.easeTo?.({ center: MAP_CONFIG.center, zoom: MAP_CONFIG.zoom, duration: 500 }),
+      flyTo: (lat: number, lng: number, zoom = 15) =>
+        mapRef.current?.flyTo?.({ center: [lng, lat], zoom, duration: 700 }),
+    }),
+    []
+  );
 
   // Update Markers when data changes
   useEffect(() => {
@@ -375,3 +402,8 @@ export default function MapView({
     </div>
   );
 }
+
+const MapView = forwardRef<MapViewHandle, MapViewProps>(MapViewImpl);
+MapView.displayName = "MapView";
+
+export default MapView;

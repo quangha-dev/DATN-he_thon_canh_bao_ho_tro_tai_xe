@@ -2,11 +2,10 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Driver, Trip } from "@/types";
+import { Driver, DriverStatus, Trip } from "@/types";
 import { safeFleetApi } from "@/lib/safeFleetApi";
 import { useToast } from "@/context/ToastContext";
 import {
-  cn,
   formatDrivingTime,
   getSafetyScoreInfo,
   DRIVER_STATUS_LABELS,
@@ -17,32 +16,34 @@ import {
 import {
   Badge,
   Button,
+  CellText,
+  DataTable,
   Drawer,
-  EmptyState,
-  IconButton,
+  FilterChips,
   InfoRow,
   Modal,
-  ProgressBar,
   ScoreRing,
-  SearchInput,
-  Segmented,
   Select,
-  SkeletonRows,
-  Stagger,
   StatCard,
-  StatSkeletonGrid,
-  StatusLabel,
-  Table,
-  TableShell,
-  Td,
-  Toolbar,
-  Tr,
+  TableCard,
+  TableToolbar,
   toneOf,
+  type FilterChip,
 } from "@/components/ui";
-import { Users, Plus, Eye, Phone, Mail, Car, Clock, ShieldAlert, CircleCheck, Navigation, ArrowRight, Pencil, UserX } from "lucide-react";
+import {
+  ArrowRight,
+  Car,
+  CircleCheck,
+  Navigation,
+  Pencil,
+  ShieldAlert,
+  UserPlus,
+  Users,
+  UserX,
+} from "lucide-react";
 
-const STATUS_FILTERS = ["all", "driving", "available", "resting"] as const;
-type StatusFilter = (typeof STATUS_FILTERS)[number];
+/** "all" hoặc một trong bảy trạng thái tài xế của backend */
+type StatusFilter = "all" | DriverStatus;
 
 const SCORE_OPTIONS = [
   { value: "all", label: "Tất cả điểm an toàn" },
@@ -195,210 +196,153 @@ export default function DriversPage() {
     });
   }, [drivers, searchQuery, statusFilter, scoreFilter]);
 
+  /* Chip lọc dựng theo đúng bảy trạng thái tài xế của backend
+     (bản thiết kế chỉ vẽ bốn) — thêm chip "Rủi ro cao" theo điểm an toàn. */
+  const statusChips = useMemo(() => {
+    const chips: FilterChip[] = [{ key: "all", label: "Tất cả", count: drivers.length }];
+    (Object.keys(DRIVER_STATUS_LABELS) as DriverStatus[]).forEach((key) => {
+      const count = drivers.filter((d) => d.status === key).length;
+      if (count > 0) chips.push({ key, label: DRIVER_STATUS_LABELS[key], count });
+    });
+    return chips;
+  }, [drivers]);
+
+  const avgScore = drivers.length
+    ? Math.round(drivers.reduce((sum, d) => sum + d.safetyScore, 0) / drivers.length)
+    : 0;
+
   return (
-    <div className="space-y-5">
-      {/* ===== Thống kê ===== */}
-      <Stagger className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
-        {isLoading && drivers.length === 0 ? (
-          <StatSkeletonGrid count={5} />
-        ) : (
-          <>
-            <StatCard label="Tổng tài xế" value={stats.total} icon={Users} tone="primary" />
-            <StatCard
-              label="Đang cầm lái"
-              value={stats.driving}
-              icon={Car}
-              tone="primary"
-              onClick={() => setStatusFilter(statusFilter === "driving" ? "all" : "driving")}
-              active={statusFilter === "driving"}
-            />
-            <StatCard
-              label="Sẵn sàng"
-              value={stats.available}
-              icon={CircleCheck}
-              tone="success"
-              onClick={() => setStatusFilter(statusFilter === "available" ? "all" : "available")}
-              active={statusFilter === "available"}
-            />
-            <StatCard
-              label="Đang nghỉ"
-              value={stats.resting}
-              icon={Clock}
-              tone="accent"
-              onClick={() => setStatusFilter(statusFilter === "resting" ? "all" : "resting")}
-              active={statusFilter === "resting"}
-            />
-            <StatCard
-              label="Rủi ro cao"
-              value={stats.highRisk}
-              icon={ShieldAlert}
-              tone="danger"
-              hint="Điểm an toàn dưới 60"
-              onClick={() => setScoreFilter(scoreFilter === "high_risk" ? "all" : "high_risk")}
-              active={scoreFilter === "high_risk"}
-            />
-          </>
-        )}
-      </Stagger>
-
-      {/* ===== Thanh công cụ ===== */}
-      <Toolbar>
-        <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Tìm tên tài xế, SĐT, biển số xe…"
-          className="sm:max-w-sm"
+    <div className="grid gap-5">
+      {/* ===== Bốn thẻ số liệu, thẻ đầu tô đặc màu thương hiệu ===== */}
+      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <StatCard
+          filled
+          label="Tổng tài xế"
+          value={stats.total}
+          icon={Users}
+          delta={`${stats.driving} đang lái`}
+          delay={0}
         />
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            ariaLabel="Lọc theo điểm an toàn"
-            value={scoreFilter}
-            onChange={setScoreFilter}
-            options={SCORE_OPTIONS}
-            className="min-w-[12rem]"
-          />
-          <Segmented
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={STATUS_FILTERS.map((s) => ({
-              value: s,
-              label: s === "all" ? "Tất cả" : DRIVER_STATUS_LABELS[s],
-            }))}
-          />
-          <Button icon={Plus} size="sm" onClick={() => router.push("/accounts?create=driver") }>
-            Thêm tài xế
-          </Button>
-        </div>
-      </Toolbar>
+        <StatCard
+          label="Đang cầm lái"
+          value={stats.driving}
+          icon={Car}
+          tone="primary"
+          delta={stats.total ? `${Math.round((stats.driving / stats.total) * 100)}% đội` : ""}
+          onClick={() => setStatusFilter(statusFilter === "driving" ? "all" : "driving")}
+          active={statusFilter === "driving"}
+          delay={70}
+        />
+        <StatCard
+          label="Rủi ro cao"
+          value={stats.highRisk}
+          icon={ShieldAlert}
+          tone="warning"
+          deltaTone="warning"
+          delta="cần theo dõi"
+          onClick={() => setScoreFilter(scoreFilter === "high_risk" ? "all" : "high_risk")}
+          active={scoreFilter === "high_risk"}
+          delay={140}
+        />
+        <StatCard
+          label="Điểm an toàn TB"
+          value={avgScore}
+          icon={CircleCheck}
+          tone="success"
+          delta={getSafetyScoreInfo(avgScore).label}
+          delay={210}
+        />
+      </div>
 
-      {/* ===== Bảng ===== */}
-      <TableShell loading={isLoading}>
-        <Table
-          head={[
-            "Tài xế",
-            "Liên hệ",
-            "Hạng bằng",
-            "Xe phụ trách",
-            "Trạng thái",
-            "Giờ lái hôm nay",
-            "Điểm an toàn",
-            "",
-          ]}
-        >
-          {isLoading && drivers.length === 0 ? (
-            <SkeletonRows rows={6} cols={8} />
-          ) : filtered.length === 0 ? (
-            <tr>
-              <Td colSpan={8}>
-                <EmptyState
-                  icon={Users}
-                  title="Không tìm thấy tài xế"
-                  description="Thử đổi từ khóa hoặc bỏ bớt bộ lọc đang áp dụng."
-                />
-              </Td>
-            </tr>
-          ) : (
-            filtered.map((driver) => {
-              const scoreInfo = getSafetyScoreInfo(driver.safetyScore);
-              const overtime = driver.drivingTimeToday >= DRIVING_LIMITS.MAX_CONTINUOUS;
-              const nearLimit =
-                !overtime && driver.drivingTimeToday >= DRIVING_LIMITS.WARNING_1;
+      {/* ===== Thẻ bảng: thanh công cụ + bảng dạng thẻ ===== */}
+      <TableCard
+        toolbar={
+          <TableToolbar
+            search={{
+              value: searchQuery,
+              onChange: setSearchQuery,
+              placeholder: "Tên, điện thoại, biển số phụ trách…",
+            }}
+            filters={
+              <FilterChips items={statusChips} value={statusFilter} onChange={(k) => setStatusFilter(k as StatusFilter)} />
+            }
+            extra={
+              <Select
+                ariaLabel="Lọc theo điểm an toàn"
+                value={scoreFilter}
+                onChange={setScoreFilter}
+                options={SCORE_OPTIONS}
+                className="min-w-[11rem] max-w-[13rem]"
+              />
+            }
+            action={
+              <button
+                type="button"
+                className="sf-pill-primary"
+                onClick={() => router.push("/accounts?create=driver")}
+              >
+                <UserPlus className="h-[17px] w-[17px]" />
+                Thêm tài xế
+              </button>
+            }
+          />
+        }
+      >
+        <DataTable
+          grid="1.5fr 1.1fr 1fr .9fr 1.1fr"
+          columns={["Tài xế", "Liên hệ", "Xe phụ trách", "Giờ lái hôm nay", "Điểm an toàn"]}
+          loading={isLoading}
+          empty={{
+            icon: Users,
+            title: "Không tìm thấy tài xế",
+            description: "Thử đổi từ khóa hoặc bỏ bớt bộ lọc đang áp dụng.",
+          }}
+          rows={filtered.map((driver) => {
+            const scoreInfo = getSafetyScoreInfo(driver.safetyScore);
+            const overtime = driver.drivingTimeToday >= DRIVING_LIMITS.MAX_CONTINUOUS;
+            const nearLimit = !overtime && driver.drivingTimeToday >= DRIVING_LIMITS.WARNING_1;
 
-              return (
-                <Tr key={driver.id} onClick={() => setSelected(driver)}>
-                  <Td>
-                    <span className="flex items-center gap-2.5">
-                      <span
-                        className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)] text-[12px] font-extrabold"
-                        style={{
-                          background: "var(--sf-primary-soft)",
-                          color: "var(--sf-primary)",
-                        }}
-                      >
-                        {driver.fullName.charAt(0).toUpperCase()}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-bold text-sf-text">
-                          {driver.fullName}
-                        </span>
-                        <span className="block text-[12px] text-sf-text-muted">
-                          Mã {driver.code || driver.id}
-                        </span>
-                      </span>
-                    </span>
-                  </Td>
-                  <Td>
-                    <span className="block text-[12px] font-semibold text-sf-text-secondary">
-                      <Phone className="mr-1 inline h-3 w-3 text-sf-text-muted" />
-                      {driver.phone}
-                    </span>
-                    <span className="mt-0.5 block truncate text-[12px] text-sf-text-muted">
-                      <Mail className="mr-1 inline h-3 w-3" />
-                      {driver.email}
-                    </span>
-                  </Td>
-                  <Td>Bằng {driver.licenseClass}</Td>
-                  <Td>
-                    {driver.currentVehiclePlate ? (
-                      <span className="font-bold text-sf-text-secondary">
-                        {driver.currentVehiclePlate}
-                      </span>
-                    ) : (
-                      <span className="italic text-sf-text-muted">Sẵn sàng điều phối</span>
-                    )}
-                  </Td>
-                  <Td>
-                    <StatusLabel
-                      status={driver.status}
-                      label={DRIVER_STATUS_LABELS[driver.status] || driver.status}
-                      pulse={driver.status === "driving"}
-                    />
-                  </Td>
-                  <Td align="center">
-                    <span
-                      className={cn("sf-tnum text-[12.5px] font-extrabold")}
-                      style={{
-                        color: overtime
-                          ? "var(--sf-danger)"
-                          : nearLimit
-                            ? "var(--sf-accent-hover)"
-                            : "var(--sf-text-secondary)",
-                      }}
-                    >
-                      {formatDrivingTime(driver.drivingTimeToday)}
-                    </span>
-                    <ProgressBar
-                      className="mt-1.5 w-20"
-                      value={(driver.drivingTimeToday / DRIVING_LIMITS.MAX_CONTINUOUS) * 100}
-                      tone={overtime ? "danger" : nearLimit ? "warning" : "primary"}
-                    />
-                  </Td>
-                  <Td align="center">
-                    <span className="inline-flex items-center gap-2">
-                      <ScoreRing score={driver.safetyScore} size={36} />
-                      <span className="text-[12.5px] font-bold text-sf-text-muted">
-                        {scoreInfo.label}
-                      </span>
-                    </span>
-                  </Td>
-                  <Td align="center">
-                    <IconButton
-                      icon={Eye}
-                      label="Xem chi tiết"
-                      size="sm"
-                      tone="primary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelected(driver);
-                      }}
-                    />
-                  </Td>
-                </Tr>
-              );
-            })
-          )}
-        </Table>
-      </TableShell>
+            return {
+              key: driver.id,
+              onClick: () => setSelected(driver),
+              cells: [
+                <CellText
+                  key="name"
+                  strong
+                  text={driver.fullName}
+                  sub={`Bằng ${driver.licenseClass}${driver.licenseExpiry ? ` · hết hạn ${driver.licenseExpiry}` : ""}`}
+                />,
+                <CellText key="contact" mono text={driver.phone} sub={driver.email} />,
+                <CellText
+                  key="vehicle"
+                  mono
+                  text={driver.currentVehiclePlate || "—"}
+                  sub={driver.currentVehiclePlate ? "gắn cố định" : "chưa gắn xe"}
+                />,
+                <CellText
+                  key="hours"
+                  mono
+                  text={formatDrivingTime(driver.drivingTimeToday)}
+                  sub={overtime ? "vượt ngưỡng" : nearLimit ? "gần ngưỡng" : ""}
+                  color={
+                    overtime
+                      ? "var(--sf-danger)"
+                      : nearLimit
+                        ? "var(--sf-accent-hover)"
+                        : undefined
+                  }
+                />,
+                <span key="score" className="inline-flex items-center gap-2.5">
+                  <ScoreRing score={driver.safetyScore} size={36} />
+                  <Badge tone={toneOf(driver.status)} dot size="sm">
+                    {scoreInfo.label.toUpperCase()}
+                  </Badge>
+                </span>,
+              ],
+            };
+          })}
+        />
+      </TableCard>
 
       {/* ===== Panel chi tiết ===== */}
       <Drawer

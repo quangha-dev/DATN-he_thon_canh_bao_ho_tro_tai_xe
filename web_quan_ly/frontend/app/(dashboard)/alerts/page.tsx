@@ -1,39 +1,43 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Alert, AlertSeverity, AlertType } from "@/types";
+import { Alert, AlertSeverity, AlertStatus, AlertType } from "@/types";
 import { safeFleetApi } from "@/lib/safeFleetApi";
-import { cn, formatDateTime, formatTimeAgo } from "@/lib/utils";
+import { formatDateTime, formatTimeAgo } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
 import {
   Badge,
   Button,
   Callout,
-  Card,
-  CardHeader,
-  EmptyState,
+  CellText,
+  DataTable,
+  Drawer,
+  FilterChips,
   IconButton,
   InfoRow,
-  Select,
-  Skeleton,
-  StatusDot,
-  TONE,
+  StatCard,
+  TableCard,
+  TableToolbar,
   toneOf,
+  type FilterChip,
 } from "@/components/ui";
 import {
-  ShieldAlert,
-  Phone,
-  MessageSquare,
   AlertTriangle,
-  MapPin,
-  Gauge,
-  User,
-  Truck,
-  Video,
+  CheckCheck,
   CheckCircle2,
+  Gauge,
+  Headphones,
   Inbox,
+  MapPin,
+  MessageSquare,
+  Phone,
+  ShieldAlert,
+  Truck,
+  User,
+  Video,
 } from "lucide-react";
 
+/** Chín loại cảnh báo AI thật của backend (AlertType) — bản thiết kế chỉ vẽ 4-5 loại */
 const ALERT_TYPE_VI: Record<AlertType, string> = {
   drowsy: "Ngủ gật",
   phone_usage: "Dùng điện thoại",
@@ -53,14 +57,36 @@ const SEVERITY_VI: Record<AlertSeverity, string> = {
   critical: "Nghiêm trọng",
 };
 
+/** Bốn trạng thái thật của AlertStatus — bản thiết kế bỏ sót "escalated" */
+const ALERT_STATUS_VI: Record<AlertStatus, string> = {
+  new: "Mới",
+  acknowledged: "Đang xử lý",
+  resolved: "Đã giải quyết",
+  escalated: "Đã chuyển cấp trên",
+};
+
+const isToday = (dateStr?: string) => {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+};
+
 export default function AlertsPage() {
   const { showToast } = useToast();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | AlertType>("all");
+  /** Bật/tắt qua thẻ số liệu "Nghiêm trọng" — không phải chip lọc riêng */
+  const [criticalOnly, setCriticalOnly] = useState(false);
   const [selectedAlertId, setSelectedAlertId] = useState("");
-  const [severityFilter, setSeverityFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
   const [busy, setBusy] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,9 +94,7 @@ export default function AlertsPage() {
       setIsLoading(true);
       try {
         const data = await safeFleetApi.safetyEvents();
-        if (cancelled) return;
-        setAlerts(data);
-        setSelectedAlertId((current) => current || data[0]?.id || "");
+        if (!cancelled) setAlerts(data);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Không tải được cảnh báo.";
         if (!cancelled) showToast(message, "error");
@@ -84,32 +108,13 @@ export default function AlertsPage() {
     };
   }, [showToast]);
 
-  const filteredAlerts = useMemo(
-    () =>
-      alerts.filter((a) => {
-        if (severityFilter !== "all" && a.severity !== severityFilter) return false;
-        if (typeFilter !== "all" && a.type !== typeFilter) return false;
-        return true;
-      }),
-    [alerts, severityFilter, typeFilter]
-  );
-
   const selectedAlert = useMemo(
     () => alerts.find((a) => a.id === selectedAlertId),
     [alerts, selectedAlertId]
   );
 
-  const counts = useMemo(
-    () => ({
-      new: alerts.filter((a) => a.status === "new").length,
-      critical: alerts.filter((a) => a.severity === "critical" && a.status !== "resolved").length,
-    }),
-    [alerts]
-  );
-
   const updateAlert = (next: Alert) => {
     setAlerts((prev) => prev.map((a) => (a.id === next.id ? next : a)));
-    setSelectedAlertId(next.id);
   };
 
   const handleAcknowledge = async (id: string) => {
@@ -136,289 +141,301 @@ export default function AlertsPage() {
     }
   };
 
+  /** Nút chính của thanh công cụ — tiếp nhận toàn bộ cảnh báo còn "Mới" cùng lúc,
+      gọi lại đúng API acknowledgeSafetyEvent cho từng bản ghi, không đổi hành vi. */
+  const handleAcknowledgeAll = async () => {
+    const targets = alerts.filter((a) => a.status === "new");
+    if (targets.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const updated = await Promise.all(
+        targets.map((a) => safeFleetApi.acknowledgeSafetyEvent(a.id))
+      );
+      setAlerts((prev) => prev.map((a) => updated.find((u) => u.id === a.id) ?? a));
+      showToast(`Đã tiếp nhận ${updated.length} cảnh báo.`, "success");
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : "Không thể tiếp nhận tất cả cảnh báo.",
+        "error"
+      );
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const stats = useMemo(
+    () => ({
+      new: alerts.filter((a) => a.status === "new").length,
+      critical: alerts.filter((a) => a.severity === "critical" && a.status !== "resolved").length,
+      acknowledged: alerts.filter((a) => a.status === "acknowledged").length,
+      resolvedToday: alerts.filter((a) => a.status === "resolved" && isToday(a.handledAt || a.timestamp)).length,
+    }),
+    [alerts]
+  );
+
+  /* Chip lọc dựng theo đúng chín loại cảnh báo của backend (bản thiết kế chỉ
+     vẽ 4-5 loại) — chỉ hiện loại thực sự có dữ liệu, luôn có "Tất cả" đứng đầu. */
+  const typeChips = useMemo(() => {
+    const chips: FilterChip[] = [{ key: "all", label: "Tất cả", count: alerts.length }];
+    (Object.keys(ALERT_TYPE_VI) as AlertType[]).forEach((key) => {
+      const count = alerts.filter((a) => a.type === key).length;
+      if (count > 0) chips.push({ key, label: ALERT_TYPE_VI[key], count });
+    });
+    return chips;
+  }, [alerts]);
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return alerts.filter((a) => {
+      if (typeFilter !== "all" && a.type !== typeFilter) return false;
+      if (criticalOnly && a.severity !== "critical") return false;
+      if (!q) return true;
+      return (
+        a.driverName.toLowerCase().includes(q) ||
+        a.vehiclePlate.toLowerCase().includes(q) ||
+        a.message.toLowerCase().includes(q)
+      );
+    });
+  }, [alerts, searchQuery, typeFilter, criticalOnly]);
+
   return (
-    <div className="flex h-[calc(100vh-116px)] flex-col gap-4">
-      {/* ===== Thanh lọc ===== */}
-      <Card padding="sm" className="flex-shrink-0">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              ariaLabel="Lọc theo mức độ"
-              value={severityFilter}
-              onChange={setSeverityFilter}
-              options={[
-                { value: "all", label: "Tất cả mức độ" },
-                ...Object.entries(SEVERITY_VI).map(([value, label]) => ({ value, label })),
-              ]}
-            />
-            <Select
-              ariaLabel="Lọc theo loại cảnh báo"
-              value={typeFilter}
-              onChange={setTypeFilter}
-              options={[
-                { value: "all", label: "Tất cả loại cảnh báo" },
-                ...Object.entries(ALERT_TYPE_VI).map(([value, label]) => ({ value, label })),
-              ]}
-              className="min-w-[12rem]"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Badge tone="danger" icon={AlertTriangle}>
-              {counts.critical} nghiêm trọng
-            </Badge>
-            <Badge tone="accent">{counts.new} chưa xử lý</Badge>
-            <span className="text-[12.5px] font-semibold text-sf-text-muted">
-              {filteredAlerts.length} kết quả
-            </span>
-          </div>
-        </div>
-      </Card>
-
-      {/* ===== Nội dung ===== */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-y-auto pb-2 lg:grid-cols-3 lg:overflow-hidden">
-        {/* --- Danh sách --- */}
-        <Card padding="none" className="flex min-h-0 flex-col lg:col-span-1">
-          <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--sf-border)] px-4 py-3.5">
-            <CardHeader
-              title="Dòng cảnh báo"
-              subtitle="Cập nhật theo thời gian thực"
-              icon={ShieldAlert}
-            />
-            <StatusDot tone={isLoading ? "warning" : "success"} pulse />
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
-            {isLoading && alerts.length === 0 ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="flex gap-3 p-3">
-                  <Skeleton className="h-8 w-8 rounded-[var(--sf-r-xs)]" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-3 w-28" />
-                    <Skeleton className="h-2.5 w-40" />
-                  </div>
-                </div>
-              ))
-            ) : filteredAlerts.length === 0 ? (
-              <EmptyState
-                icon={Inbox}
-                title="Không có cảnh báo"
-                description="Chưa ghi nhận cảnh báo nào khớp bộ lọc hiện tại."
-              />
-            ) : (
-              filteredAlerts.map((alert) => {
-                const active = alert.id === selectedAlertId;
-                const tone = toneOf(alert.severity);
-                return (
-                  <button
-                    key={alert.id}
-                    onClick={() => setSelectedAlertId(alert.id)}
-                    className={cn(
-                      "relative flex w-full items-start gap-3 rounded-[var(--sf-r-sm)] border p-3 pl-4 text-left transition-colors duration-[var(--sf-dur-fast)] cursor-pointer",
-                      active
-                        ? "border-[color-mix(in_srgb,var(--sf-primary)_36%,transparent)] bg-[var(--sf-primary-soft)]"
-                        : "border-transparent hover:bg-[var(--sf-bg-inset)]"
-                    )}
-                  >
-                    <span
-                      className="absolute bottom-3 left-0 top-3 w-[3px] rounded-r-full"
-                      style={{ background: TONE[tone].dot }}
-                    />
-                    <span
-                      className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-[var(--sf-r-xs)]"
-                      style={{ background: TONE[tone].bg, color: TONE[tone].fg }}
-                    >
-                      <AlertTriangle className="h-4 w-4" />
-                    </span>
-
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="truncate text-[12.5px] font-extrabold text-sf-text">
-                          {ALERT_TYPE_VI[alert.type] || alert.type}
-                        </span>
-                        <span className="flex-shrink-0 text-[12px] font-semibold text-sf-text-muted">
-                          {formatTimeAgo(alert.timestamp)}
-                        </span>
-                      </span>
-                      <span className="mt-0.5 block truncate text-[12.5px] text-sf-text-secondary">
-                        {alert.vehiclePlate} · {alert.driverName}
-                      </span>
-                      <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                        <Badge tone={tone} size="sm">
-                          {SEVERITY_VI[alert.severity]}
-                        </Badge>
-                        {alert.status !== "new" && (
-                          <Badge tone={toneOf(alert.status)} size="sm">
-                            {alert.status === "resolved" ? "Đã xử lý" : "Đã tiếp nhận"}
-                          </Badge>
-                        )}
-                        {alert.repeatCount && alert.repeatCount > 1 ? (
-                          <Badge tone="danger" size="sm">
-                            Lặp {alert.repeatCount}×
-                          </Badge>
-                        ) : null}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </Card>
-
-        {/* --- Chi tiết --- */}
-        <Card padding="none" className="flex min-h-0 flex-col lg:col-span-2">
-          {selectedAlert ? (
-            <>
-              <div className="flex flex-shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--sf-border)] px-5 py-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-extrabold tracking-tight text-sf-text">
-                      {ALERT_TYPE_VI[selectedAlert.type] || selectedAlert.type}
-                    </h3>
-                    <Badge tone={toneOf(selectedAlert.severity)} solid>
-                      {SEVERITY_VI[selectedAlert.severity]}
-                    </Badge>
-                    <Badge tone={toneOf(selectedAlert.status)}>
-                      {selectedAlert.status === "resolved"
-                        ? "Đã xử lý"
-                        : selectedAlert.status === "new"
-                          ? "Chưa xử lý"
-                          : "Đã tiếp nhận"}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-[12.5px] text-sf-text-muted">
-                    ID {selectedAlert.id} · Phát hiện {formatDateTime(selectedAlert.timestamp)}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <IconButton icon={Phone} label="Gọi tài xế" tone="primary" />
-                  <IconButton icon={MessageSquare} label="Nhắn tin" tone="primary" />
-                </div>
-              </div>
-
-              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  {/* Bằng chứng */}
-                  <div className="space-y-2.5">
-                    <p className="sf-eyebrow">Hình ảnh / video bằng chứng</p>
-                    <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-[var(--sf-r-md)] border border-[var(--sf-border)] bg-[var(--sf-ink-950)]">
-                      <span
-                        aria-hidden
-                        className="absolute inset-0 opacity-[0.07]"
-                        style={{
-                          backgroundImage:
-                            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.6) 2px, rgba(255,255,255,0.6) 3px)",
-                        }}
-                      />
-                      <div className="relative text-center">
-                        <Video className="mx-auto mb-2 h-9 w-9 text-[var(--sf-ink-600)]" />
-                        <span className="font-mono text-[12px] text-[var(--sf-ink-500)]">
-                          CABIN_CAM_{selectedAlert.vehicleId}.stream
-                        </span>
-                      </div>
-                      <span
-                        className="absolute left-2.5 top-2.5 flex items-center gap-1.5 rounded-[var(--sf-r-xs)] px-2 py-1 font-mono text-[9.5px] font-bold uppercase tracking-wider text-white"
-                        style={{ background: "var(--sf-danger)" }}
-                      >
-                        <span className="h-1.5 w-1.5 animate-sf-pulse-dot rounded-full bg-white" />
-                        Rec live
-                      </span>
-                    </div>
-                    <p className="text-center text-[12px] leading-relaxed text-sf-text-muted">
-                      Dữ liệu hình ảnh truyền trực tiếp từ camera AI trong cabin phương tiện.
-                    </p>
-                  </div>
-
-                  {/* Thông số */}
-                  <div className="space-y-2.5">
-                    <p className="sf-eyebrow">Thông tin kỹ thuật</p>
-                    <div className="sf-inset px-4 py-1">
-                      <InfoRow
-                        label="Tài xế"
-                        value={
-                          <span className="inline-flex items-center gap-1.5">
-                            <User className="h-3.5 w-3.5 text-sf-text-muted" />
-                            {selectedAlert.driverName}
-                          </span>
-                        }
-                      />
-                      <InfoRow
-                        label="Phương tiện"
-                        value={
-                          <span className="inline-flex items-center gap-1.5">
-                            <Truck className="h-3.5 w-3.5 text-sf-text-muted" />
-                            {selectedAlert.vehiclePlate}
-                          </span>
-                        }
-                      />
-                      <InfoRow
-                        label="Tốc độ ghi nhận"
-                        value={
-                          <span className="sf-tnum inline-flex items-center gap-1.5">
-                            <Gauge className="h-3.5 w-3.5 text-sf-text-muted" />
-                            {selectedAlert.speed ? `${selectedAlert.speed} km/h` : "—"}
-                          </span>
-                        }
-                      />
-                      <InfoRow
-                        label="Tọa độ GPS"
-                        value={
-                          <span className="sf-tnum inline-flex items-center gap-1.5 font-mono text-[12px]">
-                            <MapPin className="h-3.5 w-3.5 text-sf-text-muted" />
-                            {selectedAlert.lat.toFixed(5)}, {selectedAlert.lng.toFixed(5)}
-                          </span>
-                        }
-                      />
-                      {selectedAlert.handledBy && (
-                        <InfoRow label="Người xử lý" value={selectedAlert.handledBy} />
-                      )}
-                    </div>
-
-                    <Callout
-                      tone={toneOf(selectedAlert.severity)}
-                      icon={AlertTriangle}
-                      title="Chi tiết phát hiện"
-                    >
-                      {selectedAlert.message}
-                    </Callout>
-                  </div>
-                </div>
-
-                {/* Hành động */}
-                <div className="flex flex-wrap items-center gap-2 border-t border-[var(--sf-border)] pt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    loading={busy}
-                    disabled={selectedAlert.status !== "new"}
-                    onClick={() => handleAcknowledge(selectedAlert.id)}
-                  >
-                    Tiếp nhận xử lý
-                  </Button>
-                  <Button
-                    size="sm"
-                    icon={CheckCircle2}
-                    loading={busy}
-                    disabled={selectedAlert.status === "resolved"}
-                    onClick={() => handleResolve(selectedAlert.id)}
-                  >
-                    Đánh dấu đã giải quyết
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <EmptyState
-              icon={ShieldAlert}
-              title="Chưa chọn cảnh báo"
-              description="Chọn một cảnh báo ở danh sách bên trái để xem chi tiết và xử lý."
-              className="flex-1"
-            />
-          )}
-        </Card>
+    <div className="grid gap-5">
+      {/* ===== Bốn thẻ số liệu, thẻ đầu tô đặc màu thương hiệu ===== */}
+      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <StatCard
+          filled
+          label="Cảnh báo mới"
+          value={stats.new}
+          icon={ShieldAlert}
+          delta="trong 1 giờ qua"
+          delay={0}
+        />
+        <StatCard
+          label="Nghiêm trọng"
+          value={stats.critical}
+          icon={AlertTriangle}
+          tone="danger"
+          deltaTone="danger"
+          delta="cần xử lý ngay"
+          onClick={() => setCriticalOnly((v) => !v)}
+          active={criticalOnly}
+          delay={70}
+        />
+        <StatCard
+          label="Đang tiếp nhận"
+          value={stats.acknowledged}
+          icon={Headphones}
+          tone="warning"
+          delta="đã có người xử lý"
+          delay={140}
+        />
+        <StatCard
+          label="Đã giải quyết hôm nay"
+          value={stats.resolvedToday}
+          icon={CheckCircle2}
+          tone="success"
+          delay={210}
+        />
       </div>
+
+      {/* ===== Thẻ bảng: thanh công cụ + bảng dạng thẻ ===== */}
+      <TableCard
+        toolbar={
+          <TableToolbar
+            search={{
+              value: searchQuery,
+              onChange: setSearchQuery,
+              placeholder: "Tài xế, biển số, loại cảnh báo…",
+            }}
+            filters={
+              <FilterChips items={typeChips} value={typeFilter} onChange={(k) => setTypeFilter(k as "all" | AlertType)} />
+            }
+            action={
+              <button
+                type="button"
+                className="sf-pill-primary"
+                disabled={bulkBusy || stats.new === 0}
+                onClick={() => void handleAcknowledgeAll()}
+              >
+                <CheckCheck className="h-[17px] w-[17px]" />
+                Tiếp nhận tất cả
+              </button>
+            }
+          />
+        }
+      >
+        <DataTable
+          grid="1.2fr 1.3fr 1.5fr 1fr 1fr"
+          columns={["Loại & mức độ", "Tài xế & xe", "Chi tiết phát hiện", "Kỹ thuật", "Trạng thái"]}
+          loading={isLoading}
+          empty={{
+            icon: Inbox,
+            title: "Không có cảnh báo",
+            description: "Thử đổi từ khóa hoặc bỏ bớt bộ lọc đang áp dụng.",
+          }}
+          rows={filtered.map((alert) => ({
+            key: alert.id,
+            onClick: () => setSelectedAlertId(alert.id),
+            cells: [
+              <Badge key="type" tone={toneOf(alert.severity)} dot>
+                {`${ALERT_TYPE_VI[alert.type] || alert.type} · ${SEVERITY_VI[alert.severity]}`.toUpperCase()}
+              </Badge>,
+              <CellText key="driver" strong text={alert.driverName} sub={alert.vehiclePlate} subMono />,
+              <CellText
+                key="detail"
+                text={alert.message}
+                sub={
+                  alert.repeatCount && alert.repeatCount > 1
+                    ? `Lặp lại ${alert.repeatCount} lần liên tiếp`
+                    : "Ghi nhận tự động bởi hệ thống AI"
+                }
+              />,
+              <CellText
+                key="tech"
+                mono
+                text={alert.speed != null ? `${alert.speed} km/h` : "—"}
+                sub={formatTimeAgo(alert.timestamp)}
+              />,
+              <Badge key="status" tone={toneOf(alert.status)}>
+                {ALERT_STATUS_VI[alert.status].toUpperCase()}
+              </Badge>,
+            ],
+          }))}
+        />
+      </TableCard>
+
+      {/* ===== Panel chi tiết ===== */}
+      <Drawer
+        open={Boolean(selectedAlert)}
+        onClose={() => setSelectedAlertId("")}
+        title={selectedAlert ? ALERT_TYPE_VI[selectedAlert.type] || selectedAlert.type : ""}
+        subtitle={selectedAlert ? `ID ${selectedAlert.id} · Phát hiện ${formatDateTime(selectedAlert.timestamp)}` : undefined}
+        width="lg"
+        footer={
+          selectedAlert && (
+            <>
+              <IconButton icon={Phone} label="Gọi tài xế" tone="primary" />
+              <IconButton icon={MessageSquare} label="Nhắn tin" tone="primary" />
+              <div className="flex-1" />
+              <Button
+                variant="outline"
+                size="sm"
+                loading={busy}
+                disabled={selectedAlert.status !== "new"}
+                onClick={() => void handleAcknowledge(selectedAlert.id)}
+              >
+                Tiếp nhận xử lý
+              </Button>
+              <Button
+                size="sm"
+                icon={CheckCircle2}
+                loading={busy}
+                disabled={selectedAlert.status === "resolved"}
+                onClick={() => void handleResolve(selectedAlert.id)}
+              >
+                Đánh dấu đã giải quyết
+              </Button>
+            </>
+          )
+        }
+      >
+        {selectedAlert && (
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={toneOf(selectedAlert.severity)} solid>
+                {SEVERITY_VI[selectedAlert.severity]}
+              </Badge>
+              <Badge tone={toneOf(selectedAlert.status)}>
+                {ALERT_STATUS_VI[selectedAlert.status]}
+              </Badge>
+              {selectedAlert.repeatCount && selectedAlert.repeatCount > 1 ? (
+                <Badge tone="danger">Lặp {selectedAlert.repeatCount}×</Badge>
+              ) : null}
+            </div>
+
+            {/* Bằng chứng */}
+            <div className="space-y-2.5">
+              <p className="sf-eyebrow">Hình ảnh / video bằng chứng</p>
+              <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-[var(--sf-r-md)] border border-[var(--sf-border)] bg-[var(--sf-ink-950)]">
+                <span
+                  aria-hidden
+                  className="absolute inset-0 opacity-[0.07]"
+                  style={{
+                    backgroundImage:
+                      "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.6) 2px, rgba(255,255,255,0.6) 3px)",
+                  }}
+                />
+                <div className="relative text-center">
+                  <Video className="mx-auto mb-2 h-9 w-9 text-[var(--sf-ink-600)]" />
+                  <span className="font-mono text-[12px] text-[var(--sf-ink-500)]">
+                    CABIN_CAM_{selectedAlert.vehicleId}.stream
+                  </span>
+                </div>
+                <span
+                  className="absolute left-2.5 top-2.5 flex items-center gap-1.5 rounded-[var(--sf-r-xs)] px-2 py-1 font-mono text-[9.5px] font-bold uppercase tracking-wider text-white"
+                  style={{ background: "var(--sf-danger)" }}
+                >
+                  <span className="h-1.5 w-1.5 animate-sf-pulse-dot rounded-full bg-white" />
+                  Rec live
+                </span>
+              </div>
+              <p className="text-center text-[12px] leading-relaxed text-sf-text-muted">
+                Dữ liệu hình ảnh truyền trực tiếp từ camera AI trong cabin phương tiện.
+              </p>
+            </div>
+
+            {/* Thông số */}
+            <div className="space-y-2.5">
+              <p className="sf-eyebrow">Thông tin kỹ thuật</p>
+              <div className="sf-inset px-4 py-1">
+                <InfoRow
+                  label="Tài xế"
+                  value={
+                    <span className="inline-flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 text-sf-text-muted" />
+                      {selectedAlert.driverName}
+                    </span>
+                  }
+                />
+                <InfoRow
+                  label="Phương tiện"
+                  value={
+                    <span className="inline-flex items-center gap-1.5">
+                      <Truck className="h-3.5 w-3.5 text-sf-text-muted" />
+                      {selectedAlert.vehiclePlate}
+                    </span>
+                  }
+                />
+                <InfoRow
+                  label="Tốc độ ghi nhận"
+                  value={
+                    <span className="sf-tnum inline-flex items-center gap-1.5">
+                      <Gauge className="h-3.5 w-3.5 text-sf-text-muted" />
+                      {selectedAlert.speed ? `${selectedAlert.speed} km/h` : "—"}
+                    </span>
+                  }
+                />
+                <InfoRow
+                  label="Tọa độ GPS"
+                  value={
+                    <span className="sf-tnum inline-flex items-center gap-1.5 font-mono text-[12px]">
+                      <MapPin className="h-3.5 w-3.5 text-sf-text-muted" />
+                      {selectedAlert.lat.toFixed(5)}, {selectedAlert.lng.toFixed(5)}
+                    </span>
+                  }
+                />
+                {selectedAlert.handledBy && (
+                  <InfoRow label="Người xử lý" value={selectedAlert.handledBy} />
+                )}
+              </div>
+
+              <Callout tone={toneOf(selectedAlert.severity)} icon={AlertTriangle} title="Chi tiết phát hiện">
+                {selectedAlert.message}
+              </Callout>
+            </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }
