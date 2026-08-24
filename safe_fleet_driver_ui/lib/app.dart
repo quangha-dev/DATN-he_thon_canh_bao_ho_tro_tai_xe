@@ -90,7 +90,19 @@ class SessionController extends Notifier<SessionStatus> {
     final api = ref.read(apiClientProvider);
     await api.initialize();
     ref.read(syncQueueProvider).start();
-    final signedIn = await api.hasSession();
+    var signedIn = await api.hasSession();
+    if (signedIn) {
+      try {
+        await api.get<Map<String, dynamic>>('/auth/me');
+      } on ApiFailure catch (error) {
+        // Mạng tạm thời gián đoạn vẫn cho phép tài xế dùng dữ liệu offline.
+        // Chỉ xóa phiên khi server xác nhận token thực sự không còn hợp lệ.
+        if (error.statusCode == 401) {
+          await api.clearSession();
+          signedIn = false;
+        }
+      }
+    }
     state = signedIn ? SessionStatus.signedIn : SessionStatus.signedOut;
     if (signedIn) {
       await ref.read(documentOcrSyncQueueProvider).start();

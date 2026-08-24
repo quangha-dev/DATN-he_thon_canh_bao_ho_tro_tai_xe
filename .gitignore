@@ -45,6 +45,11 @@ logs/
 tmp/
 ~$*.docx
 
+# Local SafeFleet quick-start files
+/KHOI_DONG_SAFEFLEET.bat
+/THEO_DOI_KET_NOI_DIEN_THOAI.ps1
+/runtime-local/
+
 # AI model binaries are distributed outside Git
 *.onnx
 *.pth

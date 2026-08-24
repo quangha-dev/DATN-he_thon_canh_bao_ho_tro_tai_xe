@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -177,12 +175,16 @@ class ApiClient {
     await _storage.delete(key: _refreshTokenKey);
   }
 
-  Future<void> _refreshAccessToken() async {
-    if (_refreshing != null) {
-      return _refreshing;
-    }
-    final completer = Completer<void>();
-    _refreshing = completer.future;
+  Future<void> _refreshAccessToken() {
+    final activeRefresh = _refreshing;
+    if (activeRefresh != null) return activeRefresh;
+
+    final refresh = _performRefresh();
+    _refreshing = refresh;
+    return refresh;
+  }
+
+  Future<void> _performRefresh() async {
     try {
       final refreshToken = await _storage.read(key: _refreshTokenKey);
       if (refreshToken == null) {
@@ -197,10 +199,6 @@ class ApiClient {
         ),
       );
       await _saveTokens(unwrapMap(response.data));
-      completer.complete();
-    } catch (error, stackTrace) {
-      completer.completeError(error, stackTrace);
-      rethrow;
     } finally {
       _refreshing = null;
     }
