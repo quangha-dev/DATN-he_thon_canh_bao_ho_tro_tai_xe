@@ -156,6 +156,19 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
     setPillTop(el ? el.offsetTop : null);
   }, []);
 
+  /* Danh sách menu dài hơn chiều cao màn hình nên mục đang mở có thể nằm ngoài
+     vùng nhìn thấy — cuộn nó vào giữa khi đổi trang. */
+  useEffect(() => {
+    const nav = navRef.current;
+    const el = nav?.querySelector<HTMLElement>('[data-active="true"]');
+    if (!nav || !el) return;
+    const top = el.offsetTop;
+    const bottom = top + el.offsetHeight;
+    if (top < nav.scrollTop || bottom > nav.scrollTop + nav.clientHeight) {
+      nav.scrollTo({ top: top - nav.clientHeight / 2 + el.offsetHeight / 2, behavior: "smooth" });
+    }
+  }, [pathname, collapsed]);
+
   useEffect(() => {
     const raf = requestAnimationFrame(syncPill);
     return () => cancelAnimationFrame(raf);

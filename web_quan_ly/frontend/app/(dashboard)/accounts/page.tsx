@@ -143,7 +143,9 @@ export default function AccountsPage() {
   /* Chip lọc theo vai trò — dựng đủ sáu UserRole của backend (bản thiết kế chỉ
      vẽ hai), chỉ hiện vai trò thật sự có tài khoản. */
   const roleChips = useMemo(() => {
-    const chips: FilterChip[] = [{ key: "all", label: "Tất cả", count: accounts.length }];
+    /* Hai nhóm chip đứng cạnh nhau nên chip "tất cả" phải gọi rõ theo nhóm,
+       tránh hai chip trùng nhãn khiến người dùng không biết đang lọc gì. */
+    const chips: FilterChip[] = [{ key: "all", label: "Mọi vai trò", count: accounts.length }];
     ROLE_ORDER.forEach((role) => {
       const count = accounts.filter((a) => a.role === role).length;
       if (count > 0) chips.push({ key: role, label: ROLE_LABELS[role], count });
@@ -154,7 +156,7 @@ export default function AccountsPage() {
   /* Chip lọc theo trạng thái — dựng đủ bốn AccountStatus, gồm cả PENDING mà
      bản thiết kế bỏ sót. */
   const statusChips = useMemo(() => {
-    const chips: FilterChip[] = [{ key: "all", label: "Tất cả", count: accounts.length }];
+    const chips: FilterChip[] = [{ key: "all", label: "Mọi trạng thái", count: accounts.length }];
     (Object.keys(STATUS_LABELS) as Account["status"][]).forEach((status) => {
       const count = accounts.filter((a) => a.status === status).length;
       if (count > 0) chips.push({ key: status, label: STATUS_LABELS[status], count });
