@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+# Mau cau hinh production chi chua placeholder va la dau vao bat buoc cua
+# job compose-validate trong CI; rule .env.* o tren se nuot no neu khong mo.
+!deploy/vps/.env.production.example
 
 # Python
 __pycache__/

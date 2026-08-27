@@ -47,12 +47,28 @@ fi
 
 export IMAGE_TAG="$new_tag"
 "${compose[@]}" config --quiet
-"${compose[@]}" pull backend frontend ai-service caddy
+
+# Nginx không khởi động được nếu chưa có chứng chỉ, nên báo lỗi rõ ràng thay vì
+# để deploy chết ở bước --wait với thông báo khó hiểu.
+app_domain="$(sed -n 's/^APP_DOMAIN=//p' "$ENV_FILE" | tail -n 1 | tr -d '\r')"
+if ! "${compose[@]}" run --rm --entrypoint sh certbot \
+     -c "[ -s /etc/letsencrypt/live/$app_domain/fullchain.pem ]" >/dev/null 2>&1; then
+  echo "Chưa có chứng chỉ TLS cho $app_domain." >&2
+  echo "Chạy một lần: bash $APP_ROOT/deploy/vps/init-tls.sh" >&2
+  exit 1
+fi
+
+"${compose[@]}" pull backend frontend ai-service nginx certbot
 
 if ! "${compose[@]}" up -d --no-build --remove-orphans --wait --wait-timeout 2400; then
   rollback_application || true
   exit 1
 fi
+
+# Nginx phân giải tên upstream một lần lúc nạp cấu hình. Deploy vừa tạo lại
+# backend/frontend nên IP nội bộ có thể đã đổi; không nạp lại thì nginx giữ IP
+# cũ và trả 502 cho tới lần khởi động sau.
+"${compose[@]}" exec -T nginx nginx -s reload
 
 if ! bash "$APP_ROOT/deploy/vps/health-check.sh"; then
   rollback_application || true

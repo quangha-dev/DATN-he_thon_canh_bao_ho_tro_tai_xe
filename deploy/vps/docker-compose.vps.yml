@@ -1,24 +1,64 @@
 services:
-  caddy:
-    image: caddy:2-alpine
+  # Lớp edge duy nhất mở ra Internet. Mọi service khác chỉ nghe trong mạng
+  # safefleet hoặc trên loopback theo PRODUCTION_BIND_ADDRESS.
+  nginx:
+    image: nginx:1.29-alpine
     restart: unless-stopped
     environment:
       APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
+      # Chỉ thay biến bắt đầu bằng APP_ trong template. Thiếu bộ lọc này thì
+      # envsubst nuốt luôn $$host, $$remote_addr… của chính nginx.
+      NGINX_ENVSUBST_FILTER: "^APP_"
+    # Entrypoint gốc vẫn chạy để dựng conf.d từ templates; command chỉ thêm
+    # vòng nạp lại cấu hình để nhận chứng chỉ vừa gia hạn. Làm trong chính
+    # container nginx nên không phải gắn docker.sock vào đâu cả.
+    command:
+      - /bin/sh
+      - -c
+      - |
+        ( while :; do sleep 6h; nginx -s reload 2>/dev/null || true; done ) &
+        exec nginx -g 'daemon off;'
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp"
     volumes:
-      - ./deploy/vps/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      - ./deploy/vps/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/vps/nginx/templates:/etc/nginx/templates:ro
+      - letsencrypt_conf:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot:ro
+      - nginx_logs:/var/log/nginx
     depends_on:
       backend:
         condition: service_healthy
       frontend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     security_opt:
       - no-new-privileges:true
+    networks: [safefleet]
+
+  # Gia hạn chứng chỉ. Certbot chỉ ghi lại khi còn dưới 30 ngày, nên chạy 12
+  # tiếng một lần là dư an toàn và không chạm rate limit của Let's Encrypt.
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - letsencrypt_conf:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        trap exit TERM
+        while :; do
+          certbot renew --webroot --webroot-path=/var/www/certbot --quiet
+          sleep 12h & wait $${!}
+        done
     networks: [safefleet]
 
   backend:
@@ -39,5 +79,6 @@ services:
     pull_policy: always
 
 volumes:
-  caddy_data:
-  caddy_config:
+  letsencrypt_conf:
+  certbot_webroot:
+  nginx_logs:
