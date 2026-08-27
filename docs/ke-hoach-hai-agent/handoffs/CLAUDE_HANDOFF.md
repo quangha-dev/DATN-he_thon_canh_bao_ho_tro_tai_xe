@@ -2,6 +2,83 @@
 
 Claude chỉ ghi kết quả task của mình trong file này. Giữ các mục mới nhất ở trên cùng và không xóa lịch sử.
 
+## [INFRA] Thay Caddy bằng Nginx, sửa CI, chuẩn bị deploy VPS — 2026-08-27 10:45
+
+- Status: REVIEW
+- Baseline SHA: `a595adb90656fcf37f99c2bcf1641ae5508848d9`
+- Commit SHA: `ea013c8` (hạ tầng), `fe61aa6` (sửa bản phát hành)
+- Branch: `clients/system-completion`
+
+### ĐỔI QUYỀN SỞ HỮU — cần Codex biết ngay
+
+Người dùng đã quyết định **Claude tiếp quản hạ tầng**: `.github/**`, `deploy/**`,
+`.gitignore` và `docker-compose*.yml`. Codex **dừng sửa** các file này để tránh
+xung đột khi gộp nhánh. Quyết định này ghi đè mục 5 của `00_SHARED_CONTEXT.md`
+cho tới khi người dùng nói khác.
+
+Người dùng cũng chọn **Nginx thay Caddy** sau khi tôi nêu rằng Caddy đã chạy được
+và tự lo chứng chỉ.
+
+### Phạm vi đã làm
+
+| File | Việc |
+|---|---|
+| `deploy/vps/nginx/nginx.conf` | rate limit theo IP, log JSON có `request_time`, gzip, giới hạn body 16 MB theo `EVIDENCE_MAX_SIZE_BYTES`/`OCR_MAX_UPLOAD_BYTES` |
+| `deploy/vps/nginx/templates/safefleet.conf.template` | HTTP→HTTPS, webroot ACME, `/healthz`, TLS 1.2/1.3, HSTS, chặn `/actuator` và `/swagger-ui`, WebSocket `/ws-native` timeout 1 giờ, hạn mức riêng cho `/api/v1/auth/login` |
+| `deploy/vps/init-tls.sh` | phát hành chứng chỉ lần đầu, kiểm tra DNS trước để không đốt hạn mức Let's Encrypt |
+| `deploy/vps/docker-compose.vps.yml` | `caddy` → `nginx` + `certbot`; nginx tự nạp lại mỗi 6 giờ, không cần gắn `docker.sock` |
+| `deploy/vps/deploy.sh` | chặn sớm khi chưa có chứng chỉ; `nginx -s reload` sau khi stack lên |
+| `deploy/vps/health-check.sh` | kiểm tra định tuyến `/ws-native` và số ngày còn lại của chứng chỉ |
+| `deploy/vps/RUNBOOK.md` | quy trình triển khai đầy đủ, mới |
+| `.gitignore` | mở ngoại lệ cho `deploy/vps/.env.production.example` |
+| `.github/workflows/ci-cd.yml` | job `mobile-release`; cổng checksum model; validate `nginx.conf` bằng chính image production |
+| `android/app/build.gradle.kts` | sửa tên biến trong thông báo lỗi |
+
+### Lệnh test và kết quả
+
+| Kiểm tra | Kết quả |
+|---|---|
+| `nginx -t` trong `nginx:1.29-alpine`, chứng chỉ trong volume | **pass**; chỉ cảnh báo `ssl_stapling ignored` do cert tự ký, sẽ hết khi có cert thật |
+| `docker compose config` 4 file chồng nhau | **pass** |
+| `bash -n` cho 4 script deploy | **pass** |
+| YAML workflow parse | **pass**, 8 job |
+| envsubst giữ nguyên biến nginx | **pass** — `APP_DOMAIN` được thay, `$host`/`$remote_addr` còn nguyên nhờ `NGINX_ENVSUBST_FILTER=^APP_` |
+| sha256 model vs metadata | **khớp** ở cả baseline lẫn worktree chính, nên cổng CI mới sẽ pass |
+
+### BLOCKER-CI-1 đã xử lý
+
+`deploy/vps/.env.production.example` bị `.gitignore` dòng 3 (`.env.*`) nuốt nên
+không có trong bất kỳ checkout nào của CI, làm job `compose-validate` chết ngay
+bước đầu. Đã thêm ngoại lệ và commit file (chỉ chứa placeholder).
+
+### Phát hiện mới khi build bản phát hành
+
+`flutter build apk --release` **thất bại có chủ đích**: `build.gradle.kts` ném
+`GradleException` với mọi task chứa chữ "release" nếu thiếu bốn biến
+`SAFEEFLEET_ANDROID_*`. Đây là thiết kế tốt, nhưng kéo theo hai việc:
+
+1. Thông báo lỗi ghi sai tên biến (`SAFEFLEET_` thay vì `SAFEEFLEET_`) — đã sửa.
+2. Job `mobile-release` sẽ fail chắc chắn khi chưa có secret keystore — đã gắn
+   điều kiện theo `ANDROID_KEYSTORE_BASE64` và in notice thay vì để job đỏ.
+
+Chưa có keystore nên bản giao cho người dùng lần này là **APK debug** tách theo
+ABI, trỏ về `https://safefleet.duckdns.org/api/v1`.
+
+### Rủi ro/blocker còn lại
+
+- **DNS chưa trỏ đúng.** `safefleet.duckdns.org` đang trỏ `1.55.171.51`, không
+  phải `169.58.207.226`. Không sửa thì `init-tls.sh` sẽ dừng ở bước kiểm tra DNS.
+- **Chưa deploy thật.** Tôi không nhận mật khẩu root, nên việc chạy trên VPS do
+  người dùng thực hiện theo `RUNBOOK.md`. Mọi kết luận vẫn ở mức `code-ready`.
+- **CSP đang ở Report-Only.** Cần soi báo cáo vi phạm rồi mới chuyển sang chặn.
+- **Sao lưu vẫn nằm trên cùng VPS**; chưa có bản off-site và chưa diễn tập khôi phục.
+- BLOCKER-CL000-1 (model ngủ gật trong baseline là bản cũ) **vẫn mở**.
+
+### Task phía agent kia có thể bắt đầu
+
+- Codex: dừng sửa `.github/**` và `deploy/**`. C-001 vẫn chờ; input contract cho
+  CL-201/204/207 đã có trong mục CL-001 bên dưới.
+
 ## [RÀ SOÁT] Trạng thái CI/CD và self-hosted runner — 2026-08-27 08:10
 
 - Status: REVIEW (chỉ rà soát, không sửa — `.github/**` và `deploy/**` thuộc Codex)
