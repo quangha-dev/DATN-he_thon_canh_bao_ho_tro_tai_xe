@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.safefleet.common.dto.ApiResponse;
 import com.safefleet.infrastructure.security.CustomUserDetailsService;
 import com.safefleet.infrastructure.security.JwtAuthenticationFilter;
+import com.safefleet.infrastructure.security.MutationAuditFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,6 +40,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
     private final ObjectMapper objectMapper;
+    private final MutationAuditFilter mutationAuditFilter;
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
@@ -46,10 +48,27 @@ public class SecurityConfig {
     @Value("${app.cors.allow-localhost-patterns:false}")
     private boolean allowLocalhostPatterns;
 
+    @Value("${app.openapi.public-enabled:false}")
+    private boolean publicOpenApiEnabled;
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
+                .headers(headers -> {
+                    headers.contentSecurityPolicy(csp ->
+                            csp.policyDirectives("default-src 'none'; frame-ancestors 'none'"));
+                    headers.frameOptions(frame -> frame.deny());
+                    headers.referrerPolicy(referrer -> referrer.policy(
+                            org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER
+                    ));
+                    headers.permissionsPolicy(permissions ->
+                            permissions.policy("camera=(), microphone=(), geolocation=()"));
+                    headers.httpStrictTransportSecurity(hsts -> hsts
+                            .includeSubDomains(true)
+                            .preload(true)
+                            .maxAgeInSeconds(31536000));
+                })
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
@@ -68,11 +87,15 @@ public class SecurityConfig {
                                 "/api/v1/auth/logout"
                         ).permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/ws/**", "/ws-native/**").permitAll()
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**")
+                        .access((authentication, context) -> new org.springframework.security.authorization.AuthorizationDecision(
+                                publicOpenApiEnabled && authentication.get().isAuthenticated()
+                        ))
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(mutationAuditFilter, JwtAuthenticationFilter.class)
                 .build();
     }
 

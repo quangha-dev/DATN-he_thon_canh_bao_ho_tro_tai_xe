@@ -1,0 +1,723 @@
+@import "tailwindcss";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+/* Tailwind v4 defaults dark: to the OS media query. SafeFleet supports a
+   persisted manual selector, so dark utilities must follow the root class. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================================
+   SAFEFLEET — NEO-COMMAND DESIGN SYSTEM
+   ----------------------------------------------------------------------------
+   Quy tắc màu (BẮT BUỘC tuân thủ khi viết trang mới):
+     1. Mỗi trang chỉ dùng 2 màu có sắc độ:  PRIMARY (teal) + ACCENT (amber)
+        cộng với dải NEUTRAL (ink). Không thêm màu thứ 3 làm màu trang trí.
+     2. Các màu SEMANTIC (success / warning / danger / info) CHỈ được dùng cho
+        tín hiệu trạng thái ở kích thước nhỏ: chấm, badge, viền trái, icon.
+        Không dùng làm nền lớn, không dùng làm màu nút chính.
+     3. Nút hành động chính = primary. Nút nhấn mạnh phụ = accent. Còn lại
+        là neutral (ghost / outline).
+   ========================================================================== */
+
+:root {
+  /* ---- Typography ---- */
+  --font-inter: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono-stack: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ---- PRIMARY · Teal (brand) ---- */
+  --sf-primary-50: #ecfdf8;
+  --sf-primary-100: #d1faee;
+  --sf-primary-200: #a7f3df;
+  --sf-primary-300: #6ee7cd;
+  --sf-primary-400: #34d3b5;
+  --sf-primary-500: #12b39a;
+  --sf-primary-600: #087f73;
+  --sf-primary-700: #06685f;
+  --sf-primary-800: #07524c;
+  --sf-primary-900: #06403d;
+
+  --sf-primary: var(--sf-primary-600);
+  --sf-primary-hover: var(--sf-primary-700);
+  --sf-primary-soft: var(--sf-primary-50);
+  --sf-primary-contrast: #ffffff;
+  --sf-primary-rgb: 8, 127, 115;
+
+  /* ---- ACCENT · Amber ---- */
+  --sf-accent-50: #fff8eb;
+  --sf-accent-100: #ffefc7;
+  --sf-accent-200: #ffdd8a;
+  --sf-accent-300: #ffc74d;
+  --sf-accent-400: #ffb020;
+  --sf-accent-500: #f59e0b;
+  --sf-accent-600: #d17c05;
+  --sf-accent-700: #a85b07;
+
+  --sf-accent: var(--sf-accent-500);
+  --sf-accent-hover: var(--sf-accent-600);
+  --sf-accent-soft: var(--sf-accent-50);
+  --sf-accent-contrast: #3a2503;
+  --sf-accent-rgb: 245, 158, 11;
+
+  /* ---- NEUTRAL · Ink (hơi ngả lạnh để hợp teal) ---- */
+  --sf-ink-0: #ffffff;
+  --sf-ink-25: #fafcfc;
+  --sf-ink-50: #f3f6f7;
+  --sf-ink-100: #e7edef;
+  --sf-ink-200: #d3dcdf;
+  --sf-ink-300: #b0bec4;
+  --sf-ink-400: #8496a0;
+  --sf-ink-500: #5f7482;
+  --sf-ink-600: #475966;
+  --sf-ink-700: #33434f;
+  --sf-ink-800: #1e2c37;
+  --sf-ink-900: #101c25;
+  --sf-ink-950: #08131b;
+
+  /* ---- SEMANTIC (chỉ dùng cho tín hiệu trạng thái nhỏ) ---- */
+  --sf-success: #10b981;
+  --sf-success-soft: #e7f8f1;
+  --sf-warning: #f59e0b;
+  --sf-warning-soft: #fef4e2;
+  --sf-danger: #e5484d;
+  --sf-danger-soft: #fdeced;
+  --sf-info: #3b82f6;
+  --sf-info-soft: #eaf1fe;
+  --sf-neutral: var(--sf-ink-400);
+  --sf-neutral-soft: var(--sf-ink-100);
+
+  /* ---- SURFACES ---- */
+  --sf-bg: #f5f7f9;
+  --sf-bg-elevated: #fafbfc;
+  --sf-bg-card: #ffffff;
+  --sf-bg-card-alt: #fbfcfd;
+  --sf-bg-sidebar: #ffffff;
+  --sf-bg-header: rgba(245, 247, 249, 0.86);
+  --sf-bg-inset: #f0f4f5;
+  --sf-bg-overlay: rgba(16, 28, 37, 0.38);
+
+  /* ---- TEXT ----
+     Các mức đều đạt WCAG AA (>= 4.5:1) trên nền card để dễ đọc với người
+     mắt kém: muted 4.9:1, secondary 7.1:1, primary 15.8:1. */
+  --sf-text: #0c1720;
+  --sf-text-secondary: #3d4f5c;
+  --sf-text-muted: #5f7482;
+  --sf-text-inverse: #ffffff;
+
+  /* ---- BORDERS ----
+     Thẻ trong phong cách mềm tách nhau bằng bóng, viền chỉ là hairline rất nhạt.
+     `--sf-border` vẫn giữ đủ tương phản cho đường kẻ bảng và ô nhập. */
+  --sf-border: #d9e2e6;
+  --sf-border-strong: #a9b9c1;
+  --sf-border-light: #eceff1;
+  --sf-border-card: #eef2f4;
+  --sf-hairline: rgba(16, 28, 37, 0.07);
+
+  /* ---- ELEVATION · bóng mềm, khuếch tán rộng ---- */
+  --sf-shadow-xs: 0 1px 2px rgba(20, 40, 55, 0.04);
+  --sf-shadow-sm: 0 1px 2px rgba(20, 40, 55, 0.03), 0 6px 16px -6px rgba(20, 40, 55, 0.07);
+  --sf-shadow-md: 0 2px 4px rgba(20, 40, 55, 0.03), 0 14px 30px -10px rgba(20, 40, 55, 0.10);
+  --sf-shadow-lg: 0 4px 8px rgba(20, 40, 55, 0.04), 0 26px 52px -16px rgba(20, 40, 55, 0.14);
+  --sf-shadow-xl: 0 8px 16px rgba(20, 40, 55, 0.05), 0 40px 80px -20px rgba(20, 40, 55, 0.18);
+  --sf-glow-primary: 0 10px 26px -10px rgba(var(--sf-primary-rgb), 0.45);
+  --sf-glow-accent: 0 10px 26px -10px rgba(var(--sf-accent-rgb), 0.42);
+
+  /* ---- RADIUS · bo tròn rộng rãi ---- */
+  --sf-r-xs: 9px;
+  --sf-r-sm: 12px;
+  --sf-r-md: 16px;
+  --sf-r-lg: 20px;
+  --sf-r-xl: 26px;
+  --sf-r-pill: 999px;
+
+  /* ---- MOTION ---- */
+  --sf-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --sf-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --sf-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --sf-dur-fast: 140ms;
+  --sf-dur-base: 240ms;
+  --sf-dur-slow: 420ms;
+
+  /* ---- LAYOUT ---- */
+  --sidebar-width: 264px;
+  --sidebar-collapsed-width: 76px;
+  --header-height: 68px;
+}
+
+.dark {
+  /* Primary sáng hơn để đủ tương phản trên nền tối */
+  --sf-primary: var(--sf-primary-400);
+  --sf-primary-hover: var(--sf-primary-300);
+  --sf-primary-soft: rgba(52, 211, 181, 0.12);
+  --sf-primary-contrast: #04211f;
+  --sf-primary-rgb: 52, 211, 181;
+
+  --sf-accent: var(--sf-accent-400);
+  --sf-accent-hover: var(--sf-accent-300);
+  --sf-accent-soft: rgba(255, 176, 32, 0.13);
+  --sf-accent-contrast: #2b1a02;
+  --sf-accent-rgb: 255, 176, 32;
+
+  --sf-success: #35d39a;
+  --sf-success-soft: rgba(53, 211, 154, 0.14);
+  --sf-warning: #ffb020;
+  --sf-warning-soft: rgba(255, 176, 32, 0.14);
+  --sf-danger: #ff6369;
+  --sf-danger-soft: rgba(255, 99, 105, 0.14);
+  --sf-info: #6098ff;
+  --sf-info-soft: rgba(96, 152, 255, 0.14);
+  --sf-neutral: var(--sf-ink-400);
+  --sf-neutral-soft: rgba(132, 150, 160, 0.14);
+
+  --sf-bg: #0a141c;
+  --sf-bg-elevated: #0e1a23;
+  --sf-bg-card: #14222c;
+  --sf-bg-card-alt: #1a2b36;
+  --sf-bg-sidebar: #101d26;
+  --sf-bg-header: rgba(10, 20, 28, 0.86);
+  --sf-bg-inset: #0d1a23;
+  --sf-bg-overlay: rgba(2, 8, 12, 0.62);
+
+  --sf-text: #eef5f7;
+  --sf-text-secondary: #adc0ca;
+  --sf-text-muted: #8ba3b0;
+  --sf-text-inverse: #08131b;
+
+  --sf-border: rgba(168, 202, 216, 0.20);
+  --sf-border-strong: rgba(168, 202, 216, 0.34);
+  --sf-border-light: rgba(168, 202, 216, 0.11);
+  --sf-border-card: rgba(168, 202, 216, 0.12);
+  --sf-hairline: rgba(232, 240, 242, 0.10);
+
+  --sf-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sf-shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --sf-shadow-md: 0 10px 28px -8px rgba(0, 0, 0, 0.55);
+  --sf-shadow-lg: 0 24px 56px -16px rgba(0, 0, 0, 0.65);
+  --sf-shadow-xl: 0 36px 84px -20px rgba(0, 0, 0, 0.72);
+  --sf-glow-primary: 0 0 0 1px rgba(var(--sf-primary-rgb), 0.28), 0 12px 36px -12px rgba(var(--sf-primary-rgb), 0.42);
+  --sf-glow-accent: 0 0 0 1px rgba(var(--sf-accent-rgb), 0.28), 0 12px 36px -12px rgba(var(--sf-accent-rgb), 0.40);
+}
+
+/* ===== TAILWIND THEME BRIDGE ===== */
+@theme inline {
+  --color-background: var(--sf-bg);
+  --color-foreground: var(--sf-text);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-mono-stack);
+
+  --color-sf-primary: var(--sf-primary);
+  --color-sf-primary-hover: var(--sf-primary-hover);
+  --color-sf-primary-soft: var(--sf-primary-soft);
+  --color-sf-primary-contrast: var(--sf-primary-contrast);
+  --color-sf-primary-50: var(--sf-primary-50);
+  --color-sf-primary-100: var(--sf-primary-100);
+  --color-sf-primary-200: var(--sf-primary-200);
+  --color-sf-primary-300: var(--sf-primary-300);
+  --color-sf-primary-400: var(--sf-primary-400);
+  --color-sf-primary-500: var(--sf-primary-500);
+  --color-sf-primary-600: var(--sf-primary-600);
+  --color-sf-primary-700: var(--sf-primary-700);
+
+  --color-sf-accent: var(--sf-accent);
+  --color-sf-accent-hover: var(--sf-accent-hover);
+  --color-sf-accent-soft: var(--sf-accent-soft);
+  --color-sf-accent-contrast: var(--sf-accent-contrast);
+
+  --color-sf-success: var(--sf-success);
+  --color-sf-warning: var(--sf-warning);
+  --color-sf-danger: var(--sf-danger);
+  --color-sf-info: var(--sf-info);
+  --color-sf-neutral: var(--sf-neutral);
+
+  --color-sf-bg: var(--sf-bg);
+  --color-sf-bg-elevated: var(--sf-bg-elevated);
+  --color-sf-bg-card: var(--sf-bg-card);
+  --color-sf-bg-card-alt: var(--sf-bg-card-alt);
+  --color-sf-bg-inset: var(--sf-bg-inset);
+  --color-sf-bg-sidebar: var(--sf-bg-sidebar);
+  --color-sf-bg-header: var(--sf-bg-header);
+
+  --color-sf-text: var(--sf-text);
+  --color-sf-text-secondary: var(--sf-text-secondary);
+  --color-sf-text-muted: var(--sf-text-muted);
+  --color-sf-text-inverse: var(--sf-text-inverse);
+
+  --color-sf-border: var(--sf-border);
+  --color-sf-border-strong: var(--sf-border-strong);
+  --color-sf-border-light: var(--sf-border-light);
+
+  --radius-sf-xs: var(--sf-r-xs);
+  --radius-sf-sm: var(--sf-r-sm);
+  --radius-sf-md: var(--sf-r-md);
+  --radius-sf-lg: var(--sf-r-lg);
+  --radius-sf-xl: var(--sf-r-xl);
+}
+
+/* ===== BASE ===== */
+* {
+  border-color: var(--sf-border);
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: light;
+}
+.dark html,
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--sf-bg);
+  color: var(--sf-text);
+  font-family: var(--font-inter), Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  transition: background-color var(--sf-dur-slow) var(--sf-ease-out),
+    color var(--sf-dur-slow) var(--sf-ease-out);
+}
+
+/* Chuyển theme mượt trên các bề mặt chính, nhưng không làm chậm hover/interaction */
+.sf-theme-transition,
+.sf-theme-transition * {
+  transition:
+    background-color var(--sf-dur-slow) var(--sf-ease-out),
+    border-color var(--sf-dur-slow) var(--sf-ease-out),
+    color var(--sf-dur-slow) var(--sf-ease-out),
+    fill var(--sf-dur-slow) var(--sf-ease-out),
+    box-shadow var(--sf-dur-slow) var(--sf-ease-out) !important;
+}
+
+::selection {
+  background: rgba(var(--sf-primary-rgb), 0.24);
+  color: var(--sf-text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 2px;
+  border-radius: var(--sf-r-xs);
+}
+
+/* ============================================================================
+   APP SHELL — nền phẳng, sạch, không hoạ tiết
+   ========================================================================== */
+.sf-app-shell {
+  position: relative;
+  background: var(--sf-bg);
+}
+
+/* ============================================================================
+   AUTH — trang đăng nhập
+   ----------------------------------------------------------------------------
+   Nền phẳng, không có hoạ tiết nằm dưới chữ. Mọi hình minh hoạ động đều được
+   đặt trong khung riêng, không có chữ đè lên.
+   ========================================================================== */
+.sf-auth-page {
+  background: var(--sf-bg-elevated);
+}
+
+.dark .sf-auth-page {
+  background: #071019;
+}
+
+/* Dải nền rất nhạt ở mép trên, không chạm vùng nội dung */
+.sf-auth-hero {
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--sf-primary) 6%, transparent) 0%,
+    transparent 38%
+  );
+}
+
+/* Khung chứa hình minh hoạ động — chữ luôn nằm ngoài khung này */
+.sf-visual-frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--sf-border);
+  border-radius: var(--sf-r-lg);
+  background: var(--sf-bg-inset);
+}
+
+/* ============================================================================
+   SURFACES
+   ========================================================================== */
+/* Thẻ trong phong cách mềm: nền trắng, bo góc rộng, tách nền bằng bóng khuếch
+   tán thay vì viền đậm. */
+.sf-surface {
+  position: relative;
+  background: var(--sf-bg-card);
+  border: 1px solid var(--sf-border-card);
+  border-radius: var(--sf-r-lg);
+  box-shadow: var(--sf-shadow-sm);
+}
+
+.sf-surface-raised {
+  background: var(--sf-bg-card);
+  border: 1px solid var(--sf-border-card);
+  border-radius: var(--sf-r-lg);
+  box-shadow: var(--sf-shadow-md);
+}
+
+/* Thẻ tô đặc màu thương hiệu — dùng làm điểm nhấn duy nhất trên mỗi màn hình */
+.sf-surface-filled {
+  position: relative;
+  background: var(--sf-primary);
+  color: var(--sf-primary-contrast);
+  border: none;
+  border-radius: var(--sf-r-lg);
+  box-shadow: var(--sf-glow-primary);
+}
+
+.sf-interactive {
+  transition:
+    transform var(--sf-dur-base) var(--sf-ease-out),
+    box-shadow var(--sf-dur-base) var(--sf-ease-out);
+  will-change: transform;
+}
+.sf-interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--sf-shadow-lg);
+}
+.sf-interactive:active {
+  transform: translateY(-1px);
+  transition-duration: var(--sf-dur-fast);
+}
+
+/* Ô icon bo tròn đặt ở góc thẻ */
+.sf-icon-chip {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--sf-r-sm);
+  background: var(--sf-primary-soft);
+  color: var(--sf-primary);
+}
+
+.sf-inset {
+  background: var(--sf-bg-inset);
+  border: 1px solid var(--sf-border-light);
+  border-radius: var(--sf-r-md);
+}
+
+.sf-hairline {
+  border-color: var(--sf-border);
+}
+
+/* Glass — dùng cho header, panel nổi trên bản đồ */
+.sf-glass {
+  background: var(--sf-bg-header);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid var(--sf-border);
+}
+
+.sf-glass-panel {
+  background: color-mix(in srgb, var(--sf-bg-card) 82%, transparent);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid var(--sf-border);
+  border-radius: var(--sf-r-lg);
+  box-shadow: var(--sf-shadow-lg);
+}
+
+/* ============================================================================
+   TYPOGRAPHY HELPERS
+   ========================================================================== */
+/* Nhãn phụ: phong cách mềm không viết hoa toàn bộ, chỉ cỡ nhỏ và màu dịu */
+.sf-eyebrow {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sf-text-muted);
+}
+
+.sf-metric {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--sf-text);
+}
+
+/* Chênh lệch so với kỳ trước — luôn cỡ nhỏ, đặt cạnh số liệu */
+.sf-delta {
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--sf-success);
+}
+.sf-delta-down {
+  color: var(--sf-danger);
+}
+
+.sf-tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.sf-gradient-text {
+  background: linear-gradient(120deg, var(--sf-primary) 0%, var(--sf-accent) 130%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ============================================================================
+   SCROLLBAR
+   ========================================================================== */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sf-border-strong);
+  border-radius: var(--sf-r-pill);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sf-text-muted);
+  background-clip: content-box;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sf-border-strong) transparent;
+}
+
+/* ============================================================================
+   ANIMATIONS
+   ========================================================================== */
+@keyframes sf-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sf-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes sf-rise-sm {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes sf-drop {
+  from { opacity: 0; transform: translateY(-10px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes sf-slide-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes sf-slide-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes sf-scale-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes sf-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.55); }
+  70% { box-shadow: 0 0 0 14px rgba(229, 72, 77, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); }
+}
+@keyframes sf-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.45); }
+}
+@keyframes sf-shimmer {
+  0% { background-position: -180% 0; }
+  100% { background-position: 180% 0; }
+}
+@keyframes sf-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+@keyframes sf-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes sf-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+.animate-sf-fade { animation: sf-fade-in var(--sf-dur-base) var(--sf-ease-out) both; }
+.animate-sf-rise { animation: sf-rise var(--sf-dur-slow) var(--sf-ease-out) both; }
+.animate-sf-rise-sm { animation: sf-rise-sm var(--sf-dur-base) var(--sf-ease-out) both; }
+.animate-sf-drop { animation: sf-drop var(--sf-dur-base) var(--sf-ease-out) both; }
+.animate-sf-slide-right { animation: sf-slide-right var(--sf-dur-base) var(--sf-ease-out) both; }
+.animate-sf-slide-left { animation: sf-slide-left var(--sf-dur-base) var(--sf-ease-out) both; }
+.animate-sf-scale { animation: sf-scale-in var(--sf-dur-base) var(--sf-ease-spring) both; }
+.animate-sf-pulse-ring { animation: sf-pulse-ring 1.8s infinite; }
+.animate-sf-pulse-dot { animation: sf-pulse-dot 2s var(--sf-ease-in-out) infinite; }
+.animate-sf-breathe { animation: sf-breathe 2.4s var(--sf-ease-in-out) infinite; }
+.animate-sf-spin { animation: sf-spin 0.8s linear infinite; }
+
+/* Legacy aliases — giữ để các trang chưa refactor không vỡ */
+.animate-fadeIn { animation: sf-fade-in var(--sf-dur-base) var(--sf-ease-out) both; }
+.animate-fadeInUp { animation: sf-rise var(--sf-dur-slow) var(--sf-ease-out) both; }
+.animate-fadeInDown { animation: sf-drop var(--sf-dur-base) var(--sf-ease-out) both; }
+.animate-slideInRight { animation: sf-slide-right var(--sf-dur-base) var(--sf-ease-out) both; }
+.animate-slideInLeft { animation: sf-slide-left var(--sf-dur-base) var(--sf-ease-out) both; }
+.animate-scaleIn { animation: sf-scale-in var(--sf-dur-base) var(--sf-ease-spring) both; }
+.animate-pulse-sos { animation: sf-pulse-ring 1.8s infinite; }
+.animate-pulse-dot { animation: sf-pulse-dot 2s var(--sf-ease-in-out) infinite; }
+
+/* Stagger — dùng cho lưới thẻ khi tải trang */
+.sf-stagger > * {
+  animation: sf-rise var(--sf-dur-slow) var(--sf-ease-out) both;
+}
+.sf-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.sf-stagger > *:nth-child(2) { animation-delay: 45ms; }
+.sf-stagger > *:nth-child(3) { animation-delay: 90ms; }
+.sf-stagger > *:nth-child(4) { animation-delay: 135ms; }
+.sf-stagger > *:nth-child(5) { animation-delay: 180ms; }
+.sf-stagger > *:nth-child(6) { animation-delay: 225ms; }
+.sf-stagger > *:nth-child(7) { animation-delay: 270ms; }
+.sf-stagger > *:nth-child(8) { animation-delay: 315ms; }
+.sf-stagger > *:nth-child(n + 9) { animation-delay: 360ms; }
+
+/* Skeleton */
+.sf-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--sf-bg-inset);
+  border-radius: var(--sf-r-sm);
+}
+.sf-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--sf-text-muted) 14%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: sf-shimmer 1.6s infinite;
+}
+
+/* Thanh quét dùng cho trạng thái "đang tải trực tiếp" */
+.sf-scanline {
+  position: relative;
+  overflow: hidden;
+}
+.sf-scanline::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--sf-primary), transparent);
+  animation: sf-sweep 1.8s var(--sf-ease-in-out) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================================
+   FORM CONTROLS
+   ========================================================================== */
+.sf-input {
+  width: 100%;
+  background: var(--sf-bg-inset);
+  border: 1px solid var(--sf-border);
+  border-radius: var(--sf-r-sm);
+  color: var(--sf-text);
+  font-size: 13px;
+  padding: 9px 12px;
+  transition: border-color var(--sf-dur-fast) var(--sf-ease-out),
+    box-shadow var(--sf-dur-fast) var(--sf-ease-out),
+    background-color var(--sf-dur-fast) var(--sf-ease-out);
+}
+.sf-input::placeholder {
+  color: var(--sf-text-muted);
+}
+.sf-input:hover {
+  border-color: var(--sf-border-strong);
+}
+.sf-input:focus {
+  outline: none;
+  background: var(--sf-bg-card);
+  border-color: var(--sf-primary);
+  box-shadow: 0 0 0 3px rgba(var(--sf-primary-rgb), 0.16);
+}
+
+.sf-select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--sf-text-muted) 50%),
+    linear-gradient(135deg, var(--sf-text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) calc(50% + 1px), calc(100% - 11px) calc(50% + 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 32px;
+}
+.sf-select option {
+  background: var(--sf-bg-card);
+  color: var(--sf-text);
+}
+
+/* ============================================================================
+   MAPLIBRE
+   ========================================================================== */
+.maplibregl-map {
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+}
+.maplibregl-popup-content {
+  border-radius: var(--sf-r-md) !important;
+  padding: 0 !important;
+  background: var(--sf-bg-card) !important;
+  color: var(--sf-text) !important;
+  box-shadow: var(--sf-shadow-lg) !important;
+  border: 1px solid var(--sf-border);
+  overflow: hidden;
+}
+.maplibregl-popup-tip {
+  border-top-color: var(--sf-bg-card) !important;
+  border-bottom-color: var(--sf-bg-card) !important;
+}
+.maplibregl-popup-close-button {
+  font-size: 18px;
+  padding: 4px 9px;
+  color: var(--sf-text-muted);
+  background: transparent !important;
+}
+.maplibregl-popup-close-button:hover {
+  color: var(--sf-text);
+}
+.maplibregl-ctrl-attrib {
+  font-size: 10px !important;
+  opacity: 0.55;
+}
+.maplibregl-ctrl-group {
+  background: var(--sf-bg-card) !important;
+  border: 1px solid var(--sf-border) !important;
+  box-shadow: var(--sf-shadow-sm) !important;
+  border-radius: var(--sf-r-sm) !important;
+  overflow: hidden;
+}
+.maplibregl-ctrl-group button + button {
+  border-top-color: var(--sf-border) !important;
+}
+.dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1.6);
+}
+/* Nền bản đồ tối ở dark mode để đỡ chói */
+.dark .sf-map-dark .maplibregl-canvas-container canvas {
+  filter: invert(0.92) hue-rotate(180deg) brightness(0.92) contrast(0.94) saturate(0.7);
+}

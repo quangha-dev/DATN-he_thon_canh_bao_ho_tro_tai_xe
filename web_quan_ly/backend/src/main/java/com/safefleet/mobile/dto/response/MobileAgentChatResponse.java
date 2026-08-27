@@ -26,7 +26,12 @@ public record MobileAgentChatResponse(
     public record ClientAction(
             String type,
             String destination,
-            Long tripId
+            Long tripId,
+            String destinationName,
+            String destinationAddress,
+            Double destinationLat,
+            Double destinationLng,
+            Boolean autoStart
     ) {
     }
 
@@ -35,6 +40,8 @@ public record MobileAgentChatResponse(
             String action,
             Long tripId,
             String note,
+            String severity,
+            String description,
             String prompt
     ) {
     }

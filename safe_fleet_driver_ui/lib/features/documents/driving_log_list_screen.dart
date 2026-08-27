@@ -416,23 +416,41 @@ class _DrivingLogListScreenState extends ConsumerState<DrivingLogListScreen> {
     final p = context.sf;
     return Scaffold(
       backgroundColor: p.bg,
-      appBar: AppBar(
-        title: const Text('Nhật trình & phiếu'),
-        actions: [
-          IconButton(
-            onPressed: _chooseSource,
-            tooltip: 'Quét phiếu',
-            icon: const Icon(Icons.document_scanner_outlined),
-          ),
-        ],
+      bottomNavigationBar: Container(
+        padding: EdgeInsets.fromLTRB(
+          SfSpace.x16,
+          SfSpace.x12,
+          SfSpace.x16,
+          MediaQuery.paddingOf(context).bottom + SfSpace.x12,
+        ),
+        decoration: BoxDecoration(
+          color: p.surface,
+          border: Border(top: BorderSide(color: p.border)),
+        ),
+        child: SfPrimaryAction(
+          label: 'Quét phiếu mới',
+          icon: Icons.document_scanner_rounded,
+          onPressed: _chooseSource,
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _chooseSource,
-        icon: const Icon(Icons.camera_alt_outlined),
-        label: const Text('Quét phiếu'),
-      ),
-      body: Stack(
+      body: Column(
         children: [
+          SfGradientHeader(
+            title: 'Nhật trình phiếu',
+            subtitle: _pendingCount == 0
+                ? 'Tháng ${_month.month}/${_month.year}'
+                : 'Tháng ${_month.month}/${_month.year} · '
+                      '$_pendingCount chờ đồng bộ',
+            trailing: SfIconButton(
+              icon: Icons.ios_share_rounded,
+              onHero: true,
+              tooltip: 'Xuất Excel',
+              onTap: _exporting ? null : _exportCurrentMonth,
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
           FutureBuilder<List<DrivingLogEntry>>(
             future: _future,
             builder: (context, snapshot) {
@@ -490,9 +508,9 @@ class _DrivingLogListScreenState extends ConsumerState<DrivingLogListScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(
                     SfSpace.x16,
-                    SfSpace.x8,
                     SfSpace.x16,
-                    112,
+                    SfSpace.x16,
+                    SfSpace.x24,
                   ),
                   children: [
                     _monthSelector(),
@@ -661,9 +679,29 @@ class _DrivingLogListScreenState extends ConsumerState<DrivingLogListScreen> {
               right: 0,
               child: LinearProgressIndicator(),
             ),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  /// Số ảnh/phiếu đang xếp hàng chờ OCR hoặc chờ gửi lên máy chủ.
+  int get _pendingCount => _scanQueue.length + _serverQueue.length;
+
+  /// Xuất toàn bộ phiếu của tháng đang xem.
+  Future<void> _exportCurrentMonth() async {
+    final entries = await _future;
+    if (!mounted) return;
+    final completed = entries
+        .where((entry) => entry.missingFields.isEmpty)
+        .toList();
+    if (completed.isEmpty) {
+      showError(context, 'Chưa có phiếu hoàn chỉnh nào trong tháng này.');
+      return;
+    }
+    await _export(completed);
   }
 
   Widget _monthSelector() {
@@ -773,7 +811,7 @@ class _ScanQueueCard extends StatelessWidget {
     final color = failed
         ? SfColors.danger
         : processing
-        ? SfColors.teal
+        ? SfColors.green700
         : p.textMuted;
     final label = failed
         ? 'Xử lý thất bại'
@@ -904,7 +942,7 @@ class _ServerOcrQueueCard extends StatelessWidget {
         item.lastError == null
             ? 'Máy tính đang xử lý OCR...'
             : 'Chờ mạng để nhận kết quả từ máy tính',
-        SfColors.teal,
+        SfColors.green700,
         Icons.memory_rounded,
       ),
       DocumentOcrQueueStatus.waitingReview => (
@@ -1034,7 +1072,7 @@ class _EntryCard extends StatelessWidget {
     final p = context.sf;
     final date = entry.voucherDate;
     final incomplete = entry.missingFields.isNotEmpty;
-    final color = incomplete ? SfColors.amber : SfColors.success;
+    final color = incomplete ? SfColors.amber : SfColors.green700;
     return SfCard(
       onTap: onTap,
       child: Row(

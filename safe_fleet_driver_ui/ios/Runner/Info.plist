@@ -35,6 +35,8 @@
 	<string>SafeFleet xử lý camera cabin ngay trên thiết bị để phát hiện buồn ngủ và sử dụng điện thoại; video không được tải liên tục lên máy chủ.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>SafeFleet dùng vị trí cho dẫn đường, telemetry và SOS.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>SafeFleet cần vị trí nền để tiếp tục dẫn đường an toàn khi màn hình tắt.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SafeFleet dùng micro để nhận lệnh giọng nói rảnh tay.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
@@ -60,6 +62,11 @@
 			</array>
 		</dict>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>location</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

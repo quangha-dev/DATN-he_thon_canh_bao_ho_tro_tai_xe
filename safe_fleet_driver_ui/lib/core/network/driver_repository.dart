@@ -1,6 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../features/navigation/engine/nav_route.dart';
 import '../../models/driver_models.dart';
 import '../storage/local_database.dart';
 import '../storage/sync_queue.dart';
@@ -110,7 +111,7 @@ class DriverRepository {
     return workflow(tripId, normalized, note: note);
   }
 
-  Future<NavigationRoute> navigationRoute({
+  Future<NavSession> navigationRoute({
     required double originLat,
     required double originLng,
     required double destinationLat,
@@ -130,7 +131,7 @@ class DriverRepository {
       },
     );
     await database.cache('navigation_current', data);
-    return NavigationRoute.fromJson(data);
+    return NavSession.fromJson(data);
   }
 
   Future<List<LocationPoint>> autocompleteLocation(String query) async {
@@ -146,6 +147,32 @@ class DriverRepository {
         .toList();
   }
 
+  /// Names a point the driver dropped on the map.
+  ///
+  /// Falls back to the raw coordinates when the geocoder cannot be reached, so
+  /// a pin dropped out of coverage is still a usable destination.
+  Future<LocationPoint> reverseGeocode({
+    required double lat,
+    required double lng,
+  }) async {
+    try {
+      final data = await api.get<Map<String, dynamic>>(
+        '/mobile/locations/reverse',
+        query: {'lat': lat, 'lng': lng},
+      );
+      return LocationPoint.fromJson(data);
+    } catch (_) {
+      return LocationPoint(
+        name: 'Vị trí đã chọn trên bản đồ',
+        address:
+            '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
+        lat: lat,
+        lng: lng,
+        source: 'MAP_PIN',
+      );
+    }
+  }
+
   Future<List<Map<String, dynamic>>> nearbyFloodPoints({
     required double lat,
     required double lng,
@@ -158,49 +185,101 @@ class DriverRepository {
     return data.map((item) => Map<String, dynamic>.from(item as Map)).toList();
   }
 
-  Future<NavigationRoute?> currentNavigation() async {
+  /// Restores the session the driver was following, falling back to the copy
+  /// cached on disk so guidance survives an app restart with no connectivity.
+  Future<NavSession?> currentNavigation() async {
     try {
       final data = await api.get<Map<String, dynamic>>(
         '/mobile/navigation/current',
       );
-      return NavigationRoute.fromJson(data);
+      await database.cache('navigation_current', data);
+      return NavSession.fromJson(data);
     } catch (_) {
-      return null;
+      final cached = await database.cached<Map<String, dynamic>>(
+        'navigation_current',
+      );
+      return cached == null ? null : NavSession.fromJson(cached);
     }
   }
 
-  Future<NavigationRoute> reroute({
+  Future<NavSession> reroute({
     required String sessionId,
     required Position position,
+    String reason = 'OFF_ROUTE_CONFIRMED',
+  }) => rerouteAt(
+    sessionId: sessionId,
+    latitude: position.latitude,
+    longitude: position.longitude,
+    gpsAccuracyMeters: position.accuracy,
+    reason: reason,
+  );
+
+  Future<NavSession> rerouteAt({
+    required String sessionId,
+    required double latitude,
+    required double longitude,
+    double? gpsAccuracyMeters,
+    String reason = 'OFF_ROUTE_CONFIRMED',
   }) async {
     final data = await api.post<Map<String, dynamic>>(
       '/mobile/navigation/reroute',
       data: {
         'sessionId': sessionId,
-        'currentLat': position.latitude,
-        'currentLng': position.longitude,
-        'gpsAccuracyMeters': position.accuracy,
-        'reason': 'OFF_ROUTE_CONFIRMED',
+        'currentLat': latitude,
+        'currentLng': longitude,
+        'gpsAccuracyMeters': gpsAccuracyMeters,
+        'reason': reason,
       },
     );
     await database.cache('navigation_current', data);
-    return NavigationRoute.fromJson(data);
+    return NavSession.fromJson(data);
+  }
+
+  /// Closes a session so it stops being restored on the next launch and stops
+  /// accumulating as an open row in the fleet database.
+  Future<void> completeNavigation({
+    required String sessionId,
+    String reason = 'ARRIVED',
+  }) async {
+    await api.post<Map<String, dynamic>>(
+      '/mobile/navigation/complete',
+      data: {'sessionId': sessionId, 'reason': reason},
+    );
+    await database.remove('navigation_current');
   }
 
   Future<Map<String, dynamic>> navigationEvent({
     required String sessionId,
     required Position position,
     required double distanceToRouteMeters,
+  }) => navigationEventAt(
+    sessionId: sessionId,
+    latitude: position.latitude,
+    longitude: position.longitude,
+    distanceToRouteMeters: distanceToRouteMeters,
+    gpsAccuracyMeters: position.accuracy,
+    occurredAt: position.timestamp,
+  );
+
+  Future<Map<String, dynamic>> navigationEventAt({
+    required String sessionId,
+    required double latitude,
+    required double longitude,
+    double? distanceToRouteMeters,
+    double? gpsAccuracyMeters,
+    DateTime? occurredAt,
   }) => api.post<Map<String, dynamic>>(
     '/mobile/navigation/events',
     data: {
       'sessionId': sessionId,
       'eventType': 'LOCATION_UPDATE',
-      'lat': position.latitude,
-      'lng': position.longitude,
+      'lat': latitude,
+      'lng': longitude,
       'distanceToRouteMeters': distanceToRouteMeters,
-      'gpsAccuracyMeters': position.accuracy,
-      'occurredAt': position.timestamp.toIso8601String(),
+      'gpsAccuracyMeters': gpsAccuracyMeters,
+      // Always offset-qualified: a device clock reads UTC, and sending a naive
+      // local string is what used to store these seven hours adrift.
+      'occurredAt': (occurredAt ?? DateTime.now()).toUtc().toIso8601String(),
     },
   );
 
@@ -220,18 +299,21 @@ class DriverRepository {
     'speed': position.speed < 0 ? 0 : position.speed * 3.6,
     'heading': position.heading,
     'batteryLevel': batteryLevel,
+    'gpsAccuracyMeters': position.accuracy,
     'gpsStatus': position.accuracy <= 25 ? 'GOOD' : 'WEAK',
     'createdAt': position.timestamp.toIso8601String(),
   });
 
   Future<Map<String, dynamic>> reportFlood({
     required Position position,
+    String hazardType = 'FLOOD',
     required String severity,
     String? address,
   }) async {
     final payload = <String, dynamic>{
       'lat': position.latitude,
       'lng': position.longitude,
+      'hazardType': hazardType,
       'severity': severity,
       'address': address,
       'clientEventId': _uuid.v4(),
@@ -244,6 +326,57 @@ class DriverRepository {
     } on ApiFailure catch (error) {
       if (error.statusCode != null) rethrow;
       await syncQueue.enqueueFlood(payload);
+      return {
+        'status': 'QUEUED_OFFLINE',
+        'queued': true,
+        'clientEventId': payload['clientEventId'],
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> reportFloodSegment({
+    required Position position,
+    required List<Map<String, double>> geometry,
+    String severity = 'BLOCKED',
+  }) => reportFloodSegmentAt(
+    latitude: position.latitude,
+    longitude: position.longitude,
+    geometry: geometry,
+    severity: severity,
+  );
+
+  /// Reports a flooded stretch of road rather than a single pin.
+  ///
+  /// A segment is what the router can actually exclude as a corridor, so this
+  /// is the report shape that removes the street from everybody's route.
+  Future<Map<String, dynamic>> reportFloodSegmentAt({
+    required double latitude,
+    required double longitude,
+    required List<Map<String, double>> geometry,
+    String severity = 'BLOCKED',
+  }) async {
+    if (geometry.length < 2) {
+      throw ArgumentError.value(geometry, 'geometry', 'Cần ít nhất 2 điểm');
+    }
+    final payload = <String, dynamic>{
+      'lat': latitude,
+      'lng': longitude,
+      'address': 'Đoạn đường ngập do tài xế báo trong lúc dẫn đường',
+      'severity': severity,
+      'source': 'DRIVER_REPORT',
+      'clientEventId': _uuid.v4(),
+      'geometryType': 'SEGMENT',
+      'geometry': geometry,
+      'radiusMeters': 80,
+    };
+    try {
+      return await api.post<Map<String, dynamic>>(
+        '/flood-reports/hazards',
+        data: payload,
+      );
+    } on ApiFailure catch (error) {
+      if (error.statusCode != null) rethrow;
+      await syncQueue.enqueueFloodHazard(payload);
       return {
         'status': 'QUEUED_OFFLINE',
         'queued': true,

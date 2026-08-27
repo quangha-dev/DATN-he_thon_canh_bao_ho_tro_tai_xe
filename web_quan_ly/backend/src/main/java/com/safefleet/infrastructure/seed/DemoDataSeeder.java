@@ -78,7 +78,11 @@ public class DemoDataSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (userAccountRepository.count() > 0 || vehicleRepository.count() > 0) {
+        // V19 intentionally inserts map-only demo vehicles before this runner
+        // executes. Checking vehicle count here left a fresh installation with
+        // no login accounts at all. The admin account is the idempotency anchor
+        // for the complete application demo dataset.
+        if (userAccountRepository.existsByUsername("admin")) {
             return;
         }
 

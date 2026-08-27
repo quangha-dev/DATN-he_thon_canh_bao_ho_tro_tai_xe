@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Account, UserRole } from "@/types";
 import { safeFleetApi } from "@/lib/safeFleetApi";
 import { useToast } from "@/context/ToastContext";
+import { formatDateTime } from "@/lib/utils";
 import { Plus, Ban, Lock, Unlock, ShieldCheck, Users, KeyRound } from "lucide-react";
 import {
   Badge,
@@ -347,7 +348,11 @@ export default function AccountsPage() {
                 {STATUS_LABELS[account.status].toUpperCase()}
               </Badge>,
               <span key="lastActive" className="sf-mono block truncate text-[13px] text-sf-text-secondary">
-                {account.lastLogin || account.createdAt || "—"}
+                {account.lastLogin
+                  ? formatDateTime(account.lastLogin)
+                  : account.createdAt
+                    ? formatDateTime(account.createdAt)
+                    : "—"}
               </span>,
             ],
           }))}

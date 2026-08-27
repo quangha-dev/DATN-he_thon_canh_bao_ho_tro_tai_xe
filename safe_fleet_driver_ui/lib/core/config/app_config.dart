@@ -16,6 +16,28 @@ abstract final class AppConfig {
     defaultValue: 'https://tiles.openfreemap.org/styles/bright',
   );
 
+  // Firebase client identifiers are public build configuration, not server
+  // credentials. Never pass the Admin service-account key to the mobile app.
+  static const firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
+  static const firebaseProjectId = String.fromEnvironment(
+    'FIREBASE_PROJECT_ID',
+  );
+  static const firebaseMessagingSenderId = String.fromEnvironment(
+    'FIREBASE_MESSAGING_SENDER_ID',
+  );
+  static const firebaseAndroidAppId = String.fromEnvironment(
+    'FIREBASE_ANDROID_APP_ID',
+  );
+  static const firebaseIosAppId = String.fromEnvironment('FIREBASE_IOS_APP_ID');
+
+  static bool get hasFirebaseConfig =>
+      firebaseApiKey.isNotEmpty &&
+      firebaseProjectId.isNotEmpty &&
+      firebaseMessagingSenderId.isNotEmpty &&
+      (Platform.isAndroid
+          ? firebaseAndroidAppId.isNotEmpty
+          : firebaseIosAppId.isNotEmpty);
+
   /// Style bản đồ dùng cho Chế độ lái ban đêm.
   ///
   /// Mặc định trùng [mapStyleUrl] để không thay đổi hành vi hiện tại. Đặt

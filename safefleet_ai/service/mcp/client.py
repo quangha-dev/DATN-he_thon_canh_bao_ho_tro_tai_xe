@@ -17,6 +17,7 @@ class SafeFleetMcpClient:
         self._authorization = user_authorization
         self._url = os.getenv("MCP_INTERNAL_URL", "http://127.0.0.1:8000/mcp")
         self._service_token = os.getenv("AI_INTERNAL_TOKEN", "")
+        self._timeout_seconds = max(5.0, float(os.getenv("MCP_TIMEOUT_SECONDS", "60")))
 
     def list_tools(self) -> list[dict[str, Any]]:
         return list(self._call("tools/list", {}).get("tools") or [])
@@ -47,7 +48,7 @@ class SafeFleetMcpClient:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=20) as response:
+            with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
                 value = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exception:
             raise McpToolError(f"MCP server trả về lỗi {exception.code}") from exception

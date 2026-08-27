@@ -155,6 +155,15 @@ class ApiClient {
     }
   }
 
+  Future<T> delete<T>(String path, {Object? data}) async {
+    try {
+      final response = await dio.delete<Map<String, dynamic>>(path, data: data);
+      return _unwrap<T>(response.data);
+    } on DioException catch (error) {
+      throw _failure(error);
+    }
+  }
+
   Future<void> setBaseUrl(String value) async {
     final normalized = _normalize(value.trim());
     final uri = Uri.tryParse(normalized);

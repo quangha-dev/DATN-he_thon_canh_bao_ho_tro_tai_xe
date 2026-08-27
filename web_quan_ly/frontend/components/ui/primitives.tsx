@@ -405,7 +405,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-[7px] rounded-[var(--sf-r-pill)] font-bold tracking-[0.02em] whitespace-nowrap",
+        "inline-flex max-w-full min-w-0 items-center gap-[7px] overflow-hidden rounded-[var(--sf-r-pill)] font-bold tracking-[0.02em] whitespace-nowrap",
         size === "sm" ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-[11.5px]",
         className
       )}
@@ -422,7 +422,7 @@ export function Badge({
         />
       )}
       {Icon && <Icon className="h-3 w-3" />}
-      {children}
+      <span className="min-w-0 truncate">{children}</span>
     </span>
   );
 }

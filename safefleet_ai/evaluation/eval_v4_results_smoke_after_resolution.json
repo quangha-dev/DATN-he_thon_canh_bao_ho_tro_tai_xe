@@ -1,0 +1,799 @@
+{
+  "dataset": "safefleet-agent-gold-v4-progressive-50",
+  "snapshotId": "safefleet-v4-b05663d29a71b3f0",
+  "referenceDatetime": "2026-08-25T10:32:16+07:00",
+  "mode": "LIVE_AGENT_V4_MULTI_TURN",
+  "historyMode": "actual",
+  "snapshotPreflight": {
+    "matches": true,
+    "expectedSnapshotId": "safefleet-v4-b05663d29a71b3f0",
+    "actualSnapshotId": "safefleet-v4-b05663d29a71b3f0",
+    "expectedFingerprint": "b05663d29a71b3f0b19907e2b6286782c30fdcc7c18ae0d2abcee47b4cf12857",
+    "actualFingerprint": "b05663d29a71b3f0b19907e2b6286782c30fdcc7c18ae0d2abcee47b4cf12857",
+    "capturedAt": "2026-08-25T11:33:32+07:00"
+  },
+  "selection": {
+    "level": 0,
+    "split": "all",
+    "ids": [
+      "SFV4-001",
+      "SFV4-003",
+      "SFV4-004",
+      "SFV4-005",
+      "SFV4-008",
+      "SFV4-013",
+      "SFV4-014",
+      "SFV4-020",
+      "SFV4-028",
+      "SFV4-030"
+    ]
+  },
+  "summary": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
+    "passRate": 1.0,
+    "durationSeconds": 3.28,
+    "averageLatencySeconds": 0.328,
+    "classificationCounts": {
+      "PASS": 10
+    },
+    "averageScores": {
+      "coherence": 1.0,
+      "completeness": 1.0,
+      "correctness": 1.0,
+      "relevance": 0.8321,
+      "taskCompletion": 1.0,
+      "toolCallContractF1": 1.0,
+      "toolCallContractPrecision": 1.0,
+      "toolCallContractRecall": 1.0,
+      "toolF1": 1.0
+    },
+    "categories": {
+      "agent_data": {
+        "total": 8,
+        "passed": 8,
+        "passRate": 1.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 1.0,
+          "correctness": 1.0,
+          "relevance": 0.8261,
+          "taskCompletion": 1.0,
+          "toolCallContractF1": 1.0,
+          "toolCallContractPrecision": 1.0,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 1.0
+        }
+      },
+      "agent_action": {
+        "total": 2,
+        "passed": 2,
+        "passRate": 1.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 1.0,
+          "correctness": 1.0,
+          "relevance": 0.856,
+          "taskCompletion": 1.0,
+          "toolCallContractF1": 1.0,
+          "toolCallContractPrecision": 1.0,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 1.0
+        }
+      }
+    }
+  },
+  "levels": {
+    "1": {
+      "total": 5,
+      "passed": 5,
+      "passRate": 1.0,
+      "averageDurationSeconds": 0.352
+    },
+    "2": {
+      "total": 3,
+      "passed": 3,
+      "passRate": 1.0,
+      "averageDurationSeconds": 0.315
+    },
+    "3": {
+      "total": 2,
+      "passed": 2,
+      "passRate": 1.0,
+      "averageDurationSeconds": 0.286
+    }
+  },
+  "results": [
+    {
+      "id": "SFV4-001",
+      "sourceCaseId": "SFV3-001",
+      "difficultyLevel": 1,
+      "difficulty": "direct_lookup",
+      "workflowId": "SFV4-L1-W1",
+      "turnIndex": 1,
+      "historyUserTurns": 0,
+      "requestMessageCount": 1,
+      "category": "agent_data",
+      "question": "Chuyến được phân công hiện tại của tôi là chuyến nào và đã làm checklist chưa?",
+      "expectedAnswer": "Phân công hiện tại là DEMO-TRIP-006, trạng thái ASSIGNED, tiến độ 0%, rủi ro HIGH và chưa nộp checklist.",
+      "actualAnswer": "Phân công hiện tại là DEMO-TRIP-006, trạng thái ASSIGNED, tiến độ 0%, rủi ro HIGH và chưa nộp checklist.",
+      "expectedTools": [
+        "get_current_assignment"
+      ],
+      "actualTools": [
+        "get_current_assignment"
+      ],
+      "toolCalls": [
+        {
+          "name": "get_current_assignment",
+          "arguments": {},
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "get_current_assignment"
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 1.0,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.859
+    },
+    {
+      "id": "SFV4-003",
+      "sourceCaseId": "SFV3-003",
+      "difficultyLevel": 1,
+      "difficulty": "direct_lookup",
+      "workflowId": "SFV4-L1-W1",
+      "turnIndex": 3,
+      "historyUserTurns": 1,
+      "requestMessageCount": 3,
+      "category": "agent_data",
+      "question": "Chuyến 6 đang có mức rủi ro và tiến độ bao nhiêu?",
+      "expectedAnswer": "DEMO-TRIP-006 có rủi ro HIGH, trạng thái ASSIGNED và tiến độ 0%.",
+      "actualAnswer": "Chuyến 6 có mã DEMO-TRIP-006, xe 001, đi từ Ha Dong đến Kieu Mai, khởi hành dự kiến 15/08/2026 00:14, trạng thái ASSIGNED, tiến độ 0% và mức rủi ro HIGH.",
+      "expectedTools": [
+        "get_trip_detail"
+      ],
+      "actualTools": [
+        "get_trip_detail"
+      ],
+      "toolCalls": [
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 6
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "get_trip_detail"
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.6368,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "00",
+          "001",
+          "08",
+          "14",
+          "15",
+          "2026"
+        ]
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.196
+    },
+    {
+      "id": "SFV4-004",
+      "sourceCaseId": "SFV3-004",
+      "difficultyLevel": 1,
+      "difficulty": "direct_lookup",
+      "workflowId": "SFV4-L1-W1",
+      "turnIndex": 4,
+      "historyUserTurns": 2,
+      "requestMessageCount": 5,
+      "category": "agent_data",
+      "question": "Kiểm tra lịch và tuyến đường của chuyến 8.",
+      "expectedAnswer": "Chuyến DEMO-TRIP-008 được giao, dự kiến khởi hành ngày 17/08/2026 lúc 00:14, đi từ Mỹ Đình đến Hồ Tùng Mậu bằng xe 001.",
+      "actualAnswer": "Chuyến 8 có mã DEMO-TRIP-008, xe 001, đi từ My Dinh đến Ho Tung Mau, khởi hành dự kiến 17/08/2026 00:14, trạng thái ASSIGNED, tiến độ 0% và mức rủi ro LOW.",
+      "expectedTools": [
+        "get_trip_detail"
+      ],
+      "actualTools": [
+        "get_trip_detail"
+      ],
+      "toolCalls": [
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 8
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "get_trip_detail"
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.7345,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.246
+    },
+    {
+      "id": "SFV4-005",
+      "sourceCaseId": "SFV3-005",
+      "difficultyLevel": 1,
+      "difficulty": "direct_lookup",
+      "workflowId": "SFV4-L1-W1",
+      "turnIndex": 5,
+      "historyUserTurns": 3,
+      "requestMessageCount": 7,
+      "category": "agent_data",
+      "question": "Chuyến 9 hiện đang thế nào và phiên lái tương ứng có hoạt động không?",
+      "expectedAnswer": "DEMO-TRIP-009 đang ASSIGNED, tiến độ 0%, rủi ro LOW; hiện không có phiên lái active.",
+      "actualAnswer": "Chuyến 9 có mã DEMO-TRIP-009, trạng thái ASSIGNED, tiến độ 0%, rủi ro LOW; không có phiên lái hoạt động.",
+      "expectedTools": [
+        "get_trip_detail",
+        "get_current_driving_session"
+      ],
+      "actualTools": [
+        "get_trip_detail",
+        "get_current_driving_session"
+      ],
+      "toolCalls": [
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 9
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        },
+        {
+          "name": "get_current_driving_session",
+          "arguments": {},
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "get_trip_detail"
+          },
+          {
+            "name": "get_current_driving_session"
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.7633,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.296
+    },
+    {
+      "id": "SFV4-008",
+      "sourceCaseId": "SFV3-008",
+      "difficultyLevel": 1,
+      "difficulty": "direct_lookup",
+      "workflowId": "SFV4-L1-W2",
+      "turnIndex": 3,
+      "historyUserTurns": 0,
+      "requestMessageCount": 1,
+      "category": "agent_data",
+      "question": "Tình hình an toàn lái xe hiện tại của tôi thế nào?",
+      "expectedAnswer": "Trạng thái an toàn hiện tại là AVAILABLE, điểm 57, tổng 26 cảnh báo, còn 240 phút lái liên tục và totalTrips trong phạm vi an toàn là 2.",
+      "actualAnswer": "Trạng thái an toàn hiện tại là AVAILABLE, điểm an toàn 57, có 26 cảnh báo, còn 240 phút lái liên tục và dữ liệu an toàn đang bao phủ 2 chuyến.",
+      "expectedTools": [
+        "get_safety_summary"
+      ],
+      "actualTools": [
+        "get_safety_summary"
+      ],
+      "toolCalls": [
+        {
+          "name": "get_safety_summary",
+          "arguments": {},
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "get_safety_summary"
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.8245,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.164
+    },
+    {
+      "id": "SFV4-013",
+      "sourceCaseId": "SFV3-013",
+      "difficultyLevel": 2,
+      "difficulty": "linked_lookup",
+      "workflowId": "SFV4-L2-W1",
+      "turnIndex": 3,
+      "historyUserTurns": 0,
+      "requestMessageCount": 1,
+      "category": "agent_data",
+      "question": "Tiếp tục trong cùng cuộc hội thoại. Hãy kiểm tra lại dữ liệu thật của tài khoản đang đăng nhập, giữ đúng phạm vi thời gian người dùng nêu và không suy đoán từ câu trả lời trước. Trong các chuyến chưa đi, chuyến nào cần thực hiện sớm nhất? Nêu mã đối tượng và trạng thái chính trong kết luận.",
+      "expectedAnswer": "Chuyến sớm nhất là DEMO-TRIP-006, dự kiến 15/08/2026, tuyến Hà Đông đến Kiều Mai, trạng thái ASSIGNED và rủi ro HIGH.",
+      "actualAnswer": "Chuyến chưa đi sớm nhất là DEMO-TRIP-006, khởi hành ngày 15/08/2026, tuyến Ha Dong đến Kieu Mai, trạng thái ASSIGNED và rủi ro HIGH.",
+      "expectedTools": [
+        "rank_upcoming_trips"
+      ],
+      "actualTools": [
+        "rank_upcoming_trips"
+      ],
+      "toolCalls": [
+        {
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 1
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "rank_upcoming_trips"
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.8745,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.304
+    },
+    {
+      "id": "SFV4-014",
+      "sourceCaseId": "SFV3-014",
+      "difficultyLevel": 2,
+      "difficulty": "linked_lookup",
+      "workflowId": "SFV4-L2-W1",
+      "turnIndex": 4,
+      "historyUserTurns": 1,
+      "requestMessageCount": 3,
+      "category": "agent_data",
+      "question": "Tiếp tục trong cùng cuộc hội thoại. Hãy kiểm tra lại dữ liệu thật của tài khoản đang đăng nhập, giữ đúng phạm vi thời gian người dùng nêu và không suy đoán từ câu trả lời trước. Hiện tôi có những chuyến nào đang chạy? Nêu mã đối tượng và trạng thái chính trong kết luận.",
+      "expectedAnswer": "Hiện không có chuyến nào đang chạy; danh sách active có 0 chuyến.",
+      "actualAnswer": "Hiện không có chuyến nào đang chạy (0 chuyến active).",
+      "expectedTools": [
+        "list_active_trips"
+      ],
+      "actualTools": [
+        "list_active_trips"
+      ],
+      "toolCalls": [
+        {
+          "name": "list_active_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "list_active_trips"
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.8817,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.401
+    },
+    {
+      "id": "SFV4-020",
+      "sourceCaseId": "SFV3-020",
+      "difficultyLevel": 2,
+      "difficulty": "linked_lookup",
+      "workflowId": "SFV4-L2-W2",
+      "turnIndex": 5,
+      "historyUserTurns": 0,
+      "requestMessageCount": 1,
+      "category": "agent_action",
+      "question": "Tiếp tục trong cùng cuộc hội thoại. Hãy kiểm tra lại dữ liệu thật của tài khoản đang đăng nhập, giữ đúng phạm vi thời gian người dùng nêu và không suy đoán từ câu trả lời trước. Kiểm tra phiên lái hiện tại; nếu không có phiên ACTIVE thì không được chuẩn bị tạm dừng bất kỳ chuyến nào. Nêu mã đối tượng và trạng thái chính trong kết luận.",
+      "expectedAnswer": "Hiện không có phiên lái ACTIVE nên không chuẩn bị thao tác PAUSE cho chuyến nào.",
+      "actualAnswer": "Hiện không có phiên lái ACTIVE, vì vậy không chuẩn bị thao tác PAUSE cho bất kỳ chuyến nào.",
+      "expectedTools": [
+        "get_current_driving_session"
+      ],
+      "actualTools": [
+        "get_current_driving_session"
+      ],
+      "toolCalls": [
+        {
+          "name": "get_current_driving_session",
+          "arguments": {},
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "get_current_driving_session"
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.8817,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.241
+    },
+    {
+      "id": "SFV4-028",
+      "sourceCaseId": "SFV3-028",
+      "difficultyLevel": 3,
+      "difficulty": "context_and_guardrails",
+      "workflowId": "SFV4-L3-W2",
+      "turnIndex": 3,
+      "historyUserTurns": 0,
+      "requestMessageCount": 1,
+      "category": "agent_action",
+      "question": "Dựa trên các lượt hỏi đáp trước trong workflow nhưng phải xác minh lại bằng tool phù hợp. Phân biệt dữ liệu của tài khoản hiện tại với dữ liệu ngoài phạm vi; nếu yêu cầu mơ hồ thì làm rõ, nếu trái quyền thì từ chối, và không biến một đề nghị thành hành động đã thực hiện. Trả lời ngắn gọn nhưng nêu rõ bằng chứng quyết định. Đưa tôi đến màn hình an toàn lái xe. Giữ câu trả lời nhất quán với ngữ cảnh nhưng ưu tiên dữ liệu vừa kiểm tra.",
+      "expectedAnswer": "Đã mở màn hình an toàn lái xe.",
+      "actualAnswer": "Đã mở màn hình an toàn lái xe trên điện thoại.",
+      "expectedTools": [
+        "open_mobile_screen"
+      ],
+      "actualTools": [
+        "open_mobile_screen"
+      ],
+      "toolCalls": [
+        {
+          "name": "open_mobile_screen",
+          "arguments": {
+            "destination": "SAFETY",
+            "trip_id": null
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã tạo lệnh mở màn hình an toàn lái xe."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "open_mobile_screen"
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.8303,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.275
+    },
+    {
+      "id": "SFV4-030",
+      "sourceCaseId": "SFV3-030",
+      "difficultyLevel": 3,
+      "difficulty": "context_and_guardrails",
+      "workflowId": "SFV4-L3-W2",
+      "turnIndex": 5,
+      "historyUserTurns": 1,
+      "requestMessageCount": 3,
+      "category": "agent_data",
+      "question": "Dựa trên các lượt hỏi đáp trước trong workflow nhưng phải xác minh lại bằng tool phù hợp. Phân biệt dữ liệu của tài khoản hiện tại với dữ liệu ngoài phạm vi; nếu yêu cầu mơ hồ thì làm rõ, nếu trái quyền thì từ chối, và không biến một đề nghị thành hành động đã thực hiện. Trả lời ngắn gọn nhưng nêu rõ bằng chứng quyết định. Tổng hợp số chuyến của tôi theo trạng thái, không giới hạn ngày. Giữ câu trả lời nhất quán với ngữ cảnh nhưng ưu tiên dữ liệu vừa kiểm tra.",
+      "expectedAnswer": "Có tổng 11 chuyến: 6 COMPLETED và 5 ASSIGNED; hiện không có chuyến IN_PROGRESS.",
+      "actualAnswer": "Tổng cộng 11 chuyến: 6 COMPLETED, 5 ASSIGNED và 0 IN_PROGRESS; hiện không có chuyến IN_PROGRESS.",
+      "expectedTools": [
+        "list_all_trips"
+      ],
+      "actualTools": [
+        "list_all_trips"
+      ],
+      "toolCalls": [
+        {
+          "name": "list_all_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "list_all_trips"
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.8933,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.297
+    }
+  ]
+}

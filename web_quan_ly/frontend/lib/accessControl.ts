@@ -8,6 +8,7 @@ const DRIVER_VISIBLE_ROLES: UserRole[] = ["ADMIN", "FLEET_MANAGER", "DISPATCHER"
 
 const ROUTE_ACCESS: Record<string, UserRole[]> = {
   "/command-center": SAFETY_ROLES,
+  "/agent": SAFETY_ROLES,
   "/realtime-map": SAFETY_ROLES,
   "/dispatch": OPERATIONS_ROLES,
   "/trips": DRIVER_VISIBLE_ROLES,

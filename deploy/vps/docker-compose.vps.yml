@@ -1,0 +1,43 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/vps/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks: [safefleet]
+
+  backend:
+    image: ${IMAGE_REGISTRY_PREFIX:?IMAGE_REGISTRY_PREFIX is required}/backend:${IMAGE_TAG:?IMAGE_TAG is required}
+    pull_policy: always
+    volumes:
+      - evidence_data:/data/evidence
+      - ${FCM_CREDENTIALS_HOST_PATH:-/opt/safefleet/secrets/firebase-service-account.json}:/run/secrets/firebase-service-account.json:ro
+    environment:
+      FCM_CREDENTIALS_PATH: /run/secrets/firebase-service-account.json
+
+  frontend:
+    image: ${IMAGE_REGISTRY_PREFIX:?IMAGE_REGISTRY_PREFIX is required}/frontend:${IMAGE_TAG:?IMAGE_TAG is required}
+    pull_policy: always
+
+  ai-service:
+    image: ${IMAGE_REGISTRY_PREFIX:?IMAGE_REGISTRY_PREFIX is required}/ai:${IMAGE_TAG:?IMAGE_TAG is required}
+    pull_policy: always
+
+volumes:
+  caddy_data:
+  caddy_config:

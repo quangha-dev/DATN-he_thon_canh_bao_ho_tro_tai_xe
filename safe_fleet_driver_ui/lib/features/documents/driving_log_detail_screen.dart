@@ -47,63 +47,74 @@ class _DrivingLogDetailScreenState
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: context.sf.bg,
-    appBar: AppBar(title: const Text('Dữ liệu phiếu')),
-    body: FutureBuilder<DrivingLogEntry?>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final entry = snapshot.data;
-        if (entry == null) {
-          return const SfEmptyState(
-            icon: Icons.description_outlined,
-            title: 'Không tìm thấy phiếu',
-            message: 'Bản ghi có thể đã bị xoá khỏi thiết bị.',
-          );
-        }
-        return ListView(
-          padding: SfSpace.screen,
-          children: [
-            _header(entry),
-            const SizedBox(height: SfSpace.x20),
-            const SfSectionLabel('Nhật trình dạng Excel'),
-            const SizedBox(height: SfSpace.x8),
-            _ExcelLikeTable(entry),
-            const SizedBox(height: SfSpace.x20),
-            _missingFields(entry),
-            const SizedBox(height: SfSpace.x20),
-            OutlinedButton.icon(
-              onPressed: () => _edit(entry),
-              icon: const Icon(Icons.edit_outlined),
-              label: const Text('Sửa hoặc bổ sung dữ liệu'),
-            ),
-            const SizedBox(height: SfSpace.x12),
-            FilledButton.icon(
-              onPressed: () => Navigator.push<void>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => DocumentImageScreen(entry: entry),
-                ),
-              ),
-              icon: const Icon(Icons.receipt_long_outlined),
-              label: const Text('Xem phiếu đã chụp'),
-            ),
-            const SizedBox(height: SfSpace.x24),
-          ],
-        );
-      },
+    body: Column(
+      children: [
+        const SfGradientHeader(
+          title: 'Dữ liệu phiếu',
+          subtitle: 'Kiểm tra lại trước khi xuất Excel',
+        ),
+        Expanded(
+          child: FutureBuilder<DrivingLogEntry?>(
+            future: _future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final entry = snapshot.data;
+              if (entry == null) {
+                return const SfEmptyState(
+                  icon: Icons.description_rounded,
+                  title: 'Không tìm thấy phiếu',
+                  message: 'Bản ghi có thể đã bị xoá khỏi thiết bị.',
+                );
+              }
+              return ListView(
+                padding: SfSpace.screenSub,
+                children: [
+                  _header(entry),
+                  const SizedBox(height: SfSpace.x18),
+                  const SfSectionLabel('Nhật trình dạng Excel'),
+                  const SizedBox(height: SfSpace.x10),
+                  _ExcelLikeTable(entry),
+                  const SizedBox(height: SfSpace.x18),
+                  _missingFields(entry),
+                  const SizedBox(height: SfSpace.x18),
+                  OutlinedButton.icon(
+                    onPressed: () => _edit(entry),
+                    icon: const Icon(Icons.edit_rounded),
+                    label: const Text('Sửa hoặc bổ sung dữ liệu'),
+                  ),
+                  const SizedBox(height: SfSpace.x12),
+                  SfPrimaryAction(
+                    label: 'Xem phiếu đã chụp',
+                    icon: Icons.receipt_long_rounded,
+                    onPressed: () => Navigator.push<void>(
+                      context,
+                      SfSlideRoute<void>(
+                        builder: (_) => DocumentImageScreen(entry: entry),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: SfSpace.x24),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
     ),
   );
 
   Widget _header(DrivingLogEntry entry) {
     final p = context.sf;
     final date = entry.voucherDate;
-    final (color, label) = switch (entry.status) {
-      DrivingLogStatus.verified => (SfColors.success, 'Đã kiểm tra'),
-      DrivingLogStatus.exported => (p.accent, 'Đã xuất Excel'),
-      DrivingLogStatus.draft => (SfColors.amber, 'Bản nháp'),
-    };
+    final (color, label) = entry.isConfirmed
+        ? (SfColors.green700, 'Đã xác nhận')
+        : switch (entry.status) {
+            DrivingLogStatus.verified => (SfColors.green700, 'Đã kiểm tra'),
+            DrivingLogStatus.exported => (p.accent, 'Đã xuất Excel'),
+            DrivingLogStatus.draft => (SfColors.amber, 'Bản nháp'),
+          };
     return SfCard(
       child: Row(
         children: [
@@ -156,7 +167,7 @@ class _DrivingLogDetailScreenState
   Widget _missingFields(DrivingLogEntry entry) {
     final missing = entry.missingFields;
     final complete = missing.isEmpty;
-    final color = complete ? SfColors.success : SfColors.amber;
+    final color = complete ? SfColors.green700 : SfColors.amber;
     return SfCard(
       emphasis: complete ? SfStatus.good : SfStatus.warning,
       child: Column(

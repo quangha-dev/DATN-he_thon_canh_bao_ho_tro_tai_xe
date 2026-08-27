@@ -4,163 +4,168 @@ import 'package:flutter/material.dart';
 
 import '../design/tokens.dart';
 import 'sf_status.dart';
+import 'sf_surfaces.dart';
 
-/// Mức cảnh báo giờ lái liên tục, theo rule giờ lái của hệ thống
-/// (mặc định 180 / 210 / 230 / 240 phút).
-enum SfDrivingBand { normal, warning1, warning2, critical, overLimit }
+/// Mức cảnh báo giờ lái liên tục.
+///
+/// Ngưỡng theo bản thiết kế: dưới 180 phút an toàn, 180–229 phút cảnh báo,
+/// từ 230 phút là nghiêm trọng; giới hạn cứng 240 phút (4 giờ).
+enum SfDrivingBand { normal, warning, critical }
 
 extension SfDrivingBandLabel on SfDrivingBand {
-  String get label => switch (this) {
-    SfDrivingBand.normal => 'Trong ngưỡng',
-    SfDrivingBand.warning1 => 'Sắp tới hạn',
-    SfDrivingBand.warning2 => 'Cần chuẩn bị nghỉ',
-    SfDrivingBand.critical => 'Phải nghỉ ngay',
-    SfDrivingBand.overLimit => 'Đã quá giới hạn',
-  };
-
   SfStatus get status => switch (this) {
     SfDrivingBand.normal => SfStatus.good,
-    SfDrivingBand.warning1 => SfStatus.pending,
-    SfDrivingBand.warning2 => SfStatus.warning,
-    SfDrivingBand.critical || SfDrivingBand.overLimit => SfStatus.danger,
+    SfDrivingBand.warning => SfStatus.warning,
+    SfDrivingBand.critical => SfStatus.danger,
+  };
+
+  String get label => switch (this) {
+    SfDrivingBand.normal => 'Nhịp lái an toàn',
+    SfDrivingBand.warning => 'Sắp chạm giới hạn',
+    SfDrivingBand.critical => 'Phải nghỉ ngay',
+  };
+
+  IconData get icon => switch (this) {
+    SfDrivingBand.normal => Icons.coffee_rounded,
+    SfDrivingBand.warning => Icons.coffee_rounded,
+    SfDrivingBand.critical => Icons.warning_amber_rounded,
   };
 }
 
-/// Thanh giờ lái liên tục có vạch mốc.
+/// Thanh giờ lái liên tục có vạch mốc 3h / 3h30 / 4h.
 ///
 /// Đây là con số quyết định của một ca lái: tài xế cần biết còn bao lâu nữa
-/// thì bắt buộc phải nghỉ, đọc được bằng một cái liếc mắt.
+/// thì bắt buộc phải nghỉ, đọc được bằng một cái liếc mắt. Màu và câu khuyên
+/// đổi theo ngưỡng.
 class SfDrivingHoursBar extends StatelessWidget {
   const SfDrivingHoursBar({
     required this.continuousMinutes,
     super.key,
     this.maxMinutes = 240,
-    this.warning1Minutes = 180,
-    this.warning2Minutes = 210,
+    this.remindMinutes = 180,
+    this.warnMinutes = 210,
     this.criticalMinutes = 230,
     this.drive = false,
+    this.showAdvice = true,
   });
 
   final int continuousMinutes;
   final int maxMinutes;
-  final int warning1Minutes;
-  final int warning2Minutes;
+
+  /// 3h — nhắc nghỉ.
+  final int remindMinutes;
+
+  /// 3h30 — cảnh báo.
+  final int warnMinutes;
+
+  /// Ngưỡng nghiêm trọng.
   final int criticalMinutes;
 
   /// Cỡ chữ chế độ lái (sàn 18px).
   final bool drive;
 
+  /// Hiện khối lời khuyên bên dưới thanh.
+  final bool showAdvice;
+
   SfDrivingBand get band {
-    if (continuousMinutes >= maxMinutes) return SfDrivingBand.overLimit;
     if (continuousMinutes >= criticalMinutes) return SfDrivingBand.critical;
-    if (continuousMinutes >= warning2Minutes) return SfDrivingBand.warning2;
-    if (continuousMinutes >= warning1Minutes) return SfDrivingBand.warning1;
+    if (continuousMinutes >= remindMinutes) return SfDrivingBand.warning;
     return SfDrivingBand.normal;
   }
 
-  int get remainingMinutes =>
-      math.max(0, maxMinutes - continuousMinutes);
+  int get remainingMinutes => math.max(0, maxMinutes - continuousMinutes);
+
+  /// "2h52 / 4h"
+  String get readout {
+    final h = continuousMinutes ~/ 60;
+    final m = continuousMinutes % 60;
+    final limitH = maxMinutes ~/ 60;
+    return '${h}h${m.toString().padLeft(2, '0')} / ${limitH}h';
+  }
+
+  String get advice => switch (band) {
+    SfDrivingBand.normal =>
+      'Nhịp lái đang an toàn. Nghỉ 15 phút sau mỗi 3 giờ liên tục.',
+    SfDrivingBand.warning =>
+      'Còn $remainingMinutes phút là chạm giới hạn '
+          '${maxMinutes ~/ 60} giờ. Nên nghỉ 15 phút.',
+    SfDrivingBand.critical =>
+      'Đã vượt ngưỡng nghiêm trọng. Tấp vào lề và nghỉ ngay.',
+  };
 
   @override
   Widget build(BuildContext context) {
     final p = context.sf;
-    final ink = band.status.inkOf(p);
+    final status = band.status;
+    final ink = status.inkOf(p);
     final ratio = maxMinutes == 0
         ? 0.0
         : (continuousMinutes / maxMinutes).clamp(0.0, 1.0);
-    final metaStyle = SfType.meta.copyWith(
-      color: p.textSecondary,
-      fontSize: drive ? SfTouch.driveFontFloor : null,
-    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            Expanded(
+              child: Text(
+                'Giờ lái liên tục',
+                style: SfType.titleCardSm.copyWith(
+                  color: p.textPrimary,
+                  fontSize: drive ? SfTouch.driveFontFloor : null,
+                ),
+              ),
+            ),
             Text(
-              '$continuousMinutes',
-              style: (drive ? SfType.displayDrive : SfType.titleScreen)
-                  .copyWith(color: ink),
+              readout,
+              style: SfType.mono.copyWith(
+                color: ink,
+                fontWeight: FontWeight.w700,
+                fontSize: drive ? SfTouch.driveFontFloor : 14,
+              ),
             ),
-            const SizedBox(width: SfSpace.x4),
-            Padding(
-              padding: const EdgeInsets.only(bottom: SfSpace.x4),
-              child: Text('/ $maxMinutes phút', style: metaStyle),
-            ),
-            const Spacer(),
-            SfStatusPill(band.label, status: band.status, dense: true),
           ],
         ),
-        const SizedBox(height: SfSpace.x12),
-        LayoutBuilder(
-          builder: (context, constraints) => SizedBox(
-            height: 14,
-            child: Stack(
-              children: [
-                Container(
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: p.surfaceAlt,
-                    borderRadius: SfRadius.pillR,
-                  ),
-                ),
-                FractionallySizedBox(
-                  widthFactor: ratio,
-                  child: Container(
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: ink,
-                      borderRadius: SfRadius.pillR,
-                    ),
-                  ),
-                ),
-                for (final tick in [
-                  warning1Minutes,
-                  warning2Minutes,
-                  criticalMinutes,
-                ])
-                  if (maxMinutes > 0 && tick < maxMinutes)
-                    Positioned(
-                      left: constraints.maxWidth * (tick / maxMinutes) - 1,
-                      child: Container(
-                        width: 2,
-                        height: 14,
-                        color: p.isDark
-                            ? SfColors.darkBg
-                            : SfColors.surface,
-                      ),
-                    ),
-              ],
-            ),
+        const SizedBox(height: SfSpace.x10),
+        SfProgressBar(
+          value: ratio,
+          height: 12,
+          color: ink,
+          ticks: [
+            remindMinutes / maxMinutes,
+            warnMinutes / maxMinutes,
+            criticalMinutes / maxMinutes,
+          ],
+        ),
+        if (showAdvice) ...[
+          const SizedBox(height: SfSpace.x12),
+          SfInfoBox(
+            icon: band.icon,
+            text: advice,
+            status: status,
           ),
-        ),
-        const SizedBox(height: SfSpace.x8),
-        Text(
-          band == SfDrivingBand.overLimit
-              ? 'Đã lái quá $maxMinutes phút liên tục. Dừng nghỉ trước khi đi tiếp.'
-              : 'Còn $remainingMinutes phút trước khi bắt buộc nghỉ.',
-          style: metaStyle,
-        ),
+        ],
       ],
     );
   }
 }
 
-/// Vòng điểm an toàn 0–100.
+/// Vòng điểm an toàn 0–100 — số lớn ở giữa, nhãn VIẾT HOA bên dưới.
 ///
-/// Dưới 50 điểm hệ thống chuyển tài xế sang nhóm rủi ro cao, nên ba dải màu
-/// bám đúng ngưỡng nghiệp vụ: >= 80 tốt, >= 50 cần chú ý, < 50 nguy hiểm.
+/// Vẽ bằng cung tròn dày (tương đương `conic-gradient` của bản thiết kế).
 class SfScoreRing extends StatelessWidget {
   const SfScoreRing({
     required this.score,
     super.key,
     this.size = 92,
-    this.caption = 'điểm an toàn',
+    this.caption = 'ĐIỂM',
     this.max = 100,
     this.invert = false,
     this.decimals = 0,
+    this.strokeWidth,
+    this.color,
+    this.trackColor,
+    this.onDark = false,
   });
 
   final num score;
@@ -174,6 +179,10 @@ class SfScoreRing extends StatelessWidget {
   final bool invert;
 
   final int decimals;
+  final double? strokeWidth;
+  final Color? color;
+  final Color? trackColor;
+  final bool onDark;
 
   /// Ngưỡng bám theo rule nghiệp vụ: dưới 50 điểm tài xế bị chuyển sang nhóm
   /// rủi ro cao.
@@ -190,7 +199,17 @@ class SfScoreRing extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.sf;
     final status = statusOf(score, max: max, invert: invert);
-    final ink = status.inkOf(p);
+    final ink = color ?? (onDark ? SfColors.green400 : status.inkOf(p));
+    final track =
+        trackColor ??
+        (onDark
+            ? SfColors.onAccent.withValues(alpha: 0.18)
+            : (p.isDark ? p.surfaceAlt : SfColors.divider));
+    final textInk = onDark ? SfColors.onAccent : p.textPrimary;
+    final captionInk = onDark
+        ? SfColors.onAccent.withValues(alpha: 0.72)
+        : p.textMuted;
+
     return SizedBox(
       width: size,
       height: size,
@@ -202,9 +221,9 @@ class SfScoreRing extends StatelessWidget {
             height: size,
             child: CircularProgressIndicator(
               value: max == 0 ? 0 : (score / max).clamp(0.0, 1.0).toDouble(),
-              strokeWidth: 8,
+              strokeWidth: strokeWidth ?? size * 0.115,
               strokeCap: StrokeCap.round,
-              backgroundColor: p.surfaceAlt,
+              backgroundColor: track,
               valueColor: AlwaysStoppedAnimation<Color>(ink),
             ),
           ),
@@ -213,13 +232,20 @@ class SfScoreRing extends StatelessWidget {
             children: [
               Text(
                 score.toStringAsFixed(decimals),
-                style: SfType.titleScreen.copyWith(color: p.textPrimary),
+                style: SfType.stat.copyWith(
+                  color: textInk,
+                  fontSize: size * 0.27,
+                ),
               ),
-              Text(
-                caption,
-                textAlign: TextAlign.center,
-                style: SfType.label.copyWith(color: p.textMuted),
-              ),
+              if (caption.isNotEmpty)
+                Text(
+                  caption.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: SfType.chip.copyWith(
+                    color: captionInk,
+                    fontSize: math.max(8.0, size * 0.105),
+                  ),
+                ),
             ],
           ),
         ],

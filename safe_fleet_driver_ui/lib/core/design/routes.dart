@@ -37,7 +37,7 @@ class SfSlideRoute<T> extends PageRouteBuilder<T> {
                 animation: leave,
                 builder: (context, inner) => ColorFiltered(
                   colorFilter: ColorFilter.mode(
-                    SfColors.navy.withValues(alpha: 0.12 * leave.value),
+                    SfColors.textPrimary.withValues(alpha: 0.12 * leave.value),
                     BlendMode.srcATop,
                   ),
                   child: inner,

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.safefleet.account.controller.AccountController;
 import com.safefleet.account.service.AccountService;
+import com.safefleet.agent.ManagementAgentController;
 import com.safefleet.auth.controller.AuthController;
 import com.safefleet.auth.service.AuthService;
 import com.safefleet.common.exception.GlobalExceptionHandler;
@@ -104,7 +105,8 @@ class ExtendedApiControllerSmokeTest {
                 new EvidenceController(evidenceService),
                 new WarehouseIssueController(warehouseIssueService),
                 new DocumentPlateReviewController(documentPlateReviewService),
-                new AgentAiConfigurationController(aiGateway)
+                new AgentAiConfigurationController(aiGateway),
+                new ManagementAgentController(aiGateway)
         )
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
@@ -221,6 +223,10 @@ class ExtendedApiControllerSmokeTest {
         expectOk(json(post("/api/v1/mobile/agent/chat")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer test-token"), """
                 {"messages":[{"role":"user","content":"Tình trạng chuyến đi"}]}
+                """));
+        expectOk(json(post("/api/v1/management/agent/chat")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer manager-token"), """
+                {"messages":[{"role":"user","content":"Báo cáo chuyến trong tháng"}]}
                 """));
         expectOk(get("/api/v1/mobile/locations/autocomplete").param("query", "My Dinh").param("limit", "5"));
         expectOk(json(post("/api/v1/mobile/navigation/routes"), """

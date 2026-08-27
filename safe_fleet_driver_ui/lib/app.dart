@@ -6,6 +6,7 @@ import 'core/design/tokens.dart';
 import 'core/network/api_client.dart';
 import 'core/network/driver_repository.dart';
 import 'core/ai/cabin_safety_provider.dart';
+import 'core/notifications/push_registration_service.dart';
 import 'core/notifications/trip_assignment_notification_monitor.dart';
 import 'core/storage/local_database.dart';
 import 'core/storage/sync_queue.dart';
@@ -75,6 +76,13 @@ final tripAssignmentNotificationMonitorProvider =
       ref.onDispose(monitor.dispose);
       return monitor;
     });
+final pushRegistrationServiceProvider = Provider<PushRegistrationService>((
+  ref,
+) {
+  final service = PushRegistrationService(ref.read(apiClientProvider));
+  ref.onDispose(service.dispose);
+  return service;
+});
 
 enum SessionStatus { checking, signedOut, signedIn }
 
@@ -107,6 +115,7 @@ class SessionController extends Notifier<SessionStatus> {
     if (signedIn) {
       await ref.read(documentOcrSyncQueueProvider).start();
       await ref.read(tripAssignmentNotificationMonitorProvider).start();
+      await ref.read(pushRegistrationServiceProvider).start();
     }
   }
 
@@ -114,6 +123,7 @@ class SessionController extends Notifier<SessionStatus> {
     await ref.read(apiClientProvider).login(account, password);
     await ref.read(documentOcrSyncQueueProvider).start();
     await ref.read(tripAssignmentNotificationMonitorProvider).start();
+    await ref.read(pushRegistrationServiceProvider).start();
     state = SessionStatus.signedIn;
   }
 
@@ -121,6 +131,7 @@ class SessionController extends Notifier<SessionStatus> {
     await ref.read(cabinSafetyProvider.notifier).stop();
     await ref.read(documentOcrSyncQueueProvider).stop();
     await ref.read(tripAssignmentNotificationMonitorProvider).stop();
+    await ref.read(pushRegistrationServiceProvider).stop(unregister: true);
     await ref.read(apiClientProvider).logout();
     state = SessionStatus.signedOut;
   }
@@ -216,7 +227,7 @@ class _GlobalCabinIndicator extends StatelessWidget {
         boxShadow: SfShadow.floating,
       ),
       child: Material(
-        color: active ? SfColors.teal : SfColors.amber,
+        color: active ? SfColors.green700 : SfColors.amber,
         shape: const StadiumBorder(),
         child: InkWell(
           customBorder: const StadiumBorder(),
@@ -258,7 +269,7 @@ class _SplashScreen extends StatelessWidget {
           const SizedBox(height: SfSpace.x20),
           Text(
             'SAFEFLEET',
-            style: SfType.titleScreen.copyWith(
+            style: SfType.titleSub.copyWith(
               color: context.sf.textPrimary,
               letterSpacing: 2,
             ),
@@ -272,22 +283,32 @@ class _SplashScreen extends StatelessWidget {
 }
 
 class BrandMark extends _BrandMark {
-  const BrandMark({super.key, super.size});
+  const BrandMark({super.key, super.size, super.onHero});
 }
 
+/// Logo khiên bo 18px. Trên nền xanh dùng nền trắng 16%, icon trắng; trên nền
+/// sáng thì ngược lại.
 class _BrandMark extends StatelessWidget {
-  const _BrandMark({super.key, this.size = 56});
+  const _BrandMark({super.key, this.size = 56, this.onHero = false});
 
   final double size;
+  final bool onHero;
 
   @override
   Widget build(BuildContext context) => Container(
     width: size,
     height: size,
+    alignment: Alignment.center,
     decoration: BoxDecoration(
-      color: SfColors.navy,
-      borderRadius: BorderRadius.circular(size * .28),
+      color: onHero
+          ? SfColors.onAccent.withValues(alpha: 0.16)
+          : SfColors.green700,
+      borderRadius: BorderRadius.circular(size * .32),
     ),
-    child: Icon(Icons.route_rounded, size: size * .54, color: SfColors.mint),
+    child: Icon(
+      Icons.shield_rounded,
+      size: size * .54,
+      color: onHero ? SfColors.onAccent : SfColors.green300,
+    ),
   );
 }

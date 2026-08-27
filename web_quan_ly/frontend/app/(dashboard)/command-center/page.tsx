@@ -272,7 +272,7 @@ export default function CommandCenterPage() {
       {/* ================= Tầng trên: dải nhấn + việc cần xử lý ================= */}
       <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
         {/* ---------- Dải nhấn tối: tổng quan đội xe ---------- */}
-        <HeroPanel>
+        <HeroPanel className="xl:h-[430px]">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div
@@ -335,7 +335,7 @@ export default function CommandCenterPage() {
         </HeroPanel>
 
         {/* ---------- Việc cần xử lý ngay ---------- */}
-        <div className="sf-surface flex flex-col p-6">
+        <div className="sf-surface flex flex-col p-6 xl:h-[430px]">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <div className="text-[15.5px] font-bold tracking-[-0.01em] text-sf-text">
@@ -353,7 +353,7 @@ export default function CommandCenterPage() {
             </span>
           </div>
 
-          <div className="flex flex-1 flex-col gap-2.5">
+          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
             {isLoading && priorityItems.length === 0 ? (
               <>
                 <Skeleton className="h-28 w-full" />

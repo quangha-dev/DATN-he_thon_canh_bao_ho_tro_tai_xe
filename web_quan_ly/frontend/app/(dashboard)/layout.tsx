@@ -13,6 +13,7 @@ import { ShieldAlert } from "lucide-react";
 /* Nhãn nhóm + tên trang hiển thị ở đầu trang — khớp đúng nhóm menu bên trái */
 const PAGE_META: Record<string, { group: string; title: string }> = {
   "/command-center": { group: "Điều hành", title: "Trung tâm điều hành" },
+  "/agent": { group: "Điều hành", title: "Agent quản lý" },
   "/realtime-map": { group: "Điều hành", title: "Bản đồ realtime" },
   "/drivers": { group: "Quản lý", title: "Quản lý tài xế" },
   "/accounts": { group: "Quản lý", title: "Quản lý tài khoản" },

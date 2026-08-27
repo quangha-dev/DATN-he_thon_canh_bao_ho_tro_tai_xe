@@ -77,6 +77,16 @@ class SyncQueue {
     return eventId;
   }
 
+  Future<String> enqueueFloodHazard(Map<String, dynamic> payload) async {
+    final eventId = payload['clientEventId']?.toString() ?? _uuid.v4();
+    await database.enqueue(
+      eventId: eventId,
+      type: 'FLOOD_HAZARD',
+      payload: {...payload, 'clientEventId': eventId},
+    );
+    return eventId;
+  }
+
   void start() {
     _subscription ??= Connectivity().onConnectivityChanged.listen((results) {
       if (!results.contains(ConnectivityResult.none)) {
@@ -104,6 +114,7 @@ class SyncQueue {
             'SOS' => '/mobile/incidents/sos',
             'SAFETY_CRITICAL' || 'SAFETY_HIGH' => '/mobile/safety-events',
             'FLOOD_REPORT' => '/mobile/flood-reports/quick',
+            'FLOOD_HAZARD' => '/flood-reports/hazards',
             'TRIP_WORKFLOW' => payload['path']!.toString(),
             _ => throw StateError('Loại đồng bộ không được hỗ trợ: $type'),
           };

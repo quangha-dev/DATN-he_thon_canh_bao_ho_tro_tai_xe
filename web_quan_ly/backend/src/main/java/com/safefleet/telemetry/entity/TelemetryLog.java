@@ -55,9 +55,15 @@ public class TelemetryLog {
     @Column(name = "battery_level")
     private Integer batteryLevel;
 
+    @Column(name = "gps_accuracy_meters")
+    private Double gpsAccuracyMeters;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "gps_status", nullable = false, length = 30)
     private GpsStatus gpsStatus = GpsStatus.GOOD;
+
+    @Column(name = "position_accepted", nullable = false)
+    private boolean positionAccepted = true;
 
     @Column(name = "client_event_id", length = 100)
     private String clientEventId;

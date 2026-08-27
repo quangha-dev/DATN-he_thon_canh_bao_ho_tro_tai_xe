@@ -70,18 +70,17 @@ Map<String, dynamic> tripDispatchInfo(Object? raw) {
 Map<String, dynamic> normalizedWarehouseIssueInfo(Object? raw) {
   if (raw is! Map) return const {};
   final document = Map<String, dynamic>.from(raw);
-  final items = (document['items'] as List? ?? const [])
-      .whereType<Map>()
-      .map((rawItem) {
-        final item = Map<String, dynamic>.from(rawItem);
-        return <String, dynamic>{
-          ...item,
-          'quantityIssued': item['issuedQuantity'],
-          'quantityReturned': item['returnedQuantity'],
-          'confirmation': item['confirmationNote'] ?? item['conditionNote'],
-        };
-      })
-      .toList();
+  final items = (document['items'] as List? ?? const []).whereType<Map>().map((
+    rawItem,
+  ) {
+    final item = Map<String, dynamic>.from(rawItem);
+    return <String, dynamic>{
+      ...item,
+      'quantityIssued': item['issuedQuantity'],
+      'quantityReturned': item['returnedQuantity'],
+      'confirmation': item['confirmationNote'] ?? item['conditionNote'],
+    };
+  }).toList();
   return <String, dynamic>{
     'issueNumber': document['issueNumber'],
     'issueDate': document['issueDate'],
@@ -114,6 +113,10 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _reload();
+  }
+
+  void _reload() {
     _future = ref.read(driverRepositoryProvider).trip(widget.tripId);
   }
 
@@ -196,9 +199,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                 : 'Tài xế từ chối chuyến trên ứng dụng',
           );
       if (!mounted) return;
-      setState(() {
-        _future = ref.read(driverRepositoryProvider).trip(widget.tripId);
-      });
+      setState(_reload);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(accept ? 'Đã nhận chuyến' : 'Đã từ chối chuyến'),
@@ -212,147 +213,143 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: context.sf.bg,
-    appBar: AppBar(title: const Text('Chi tiết chuyến')),
-    body: FutureBuilder<Map<String, dynamic>>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return ListView(
-            padding: const EdgeInsets.all(SfSpace.x16),
-            children: [
-              SfSkeleton.card(lines: 2),
-              const SizedBox(height: SfSpace.x12),
-              SfSkeleton.card(lines: 4),
-            ],
-          );
-        }
-        if (snapshot.hasError) {
-          return SfEmptyState(
-            icon: Icons.error_outline_rounded,
-            title: 'Không tải được chuyến',
-            message:
-                '${snapshot.error}\nQuay lại danh sách rồi mở lại chuyến này.',
-          );
-        }
-        return _body(snapshot.requireData);
-      },
-    ),
-    bottomNavigationBar: FutureBuilder<Map<String, dynamic>>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
-        return _actionBar(snapshot.requireData);
-      },
-    ),
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: _future,
+    builder: (context, snapshot) {
+      final trip = snapshot.data ?? const <String, dynamic>{};
+      final loading = snapshot.connectionState != ConnectionState.done;
+
+      return SfSubScreen(
+        title: loading
+            ? 'Chi tiết chuyến'
+            : trip['tripCode']?.toString() ?? 'Chuyến #${widget.tripId}',
+        subtitle: loading
+            ? null
+            : trip['vehiclePlateNumber']?.toString() ?? 'Chưa gắn biển số',
+        trailing: loading
+            ? null
+            : SfStatusPill.onHero(
+                _statusLabel(
+                  trip['status']?.toString().toUpperCase() ?? 'ASSIGNED',
+                ),
+              ),
+        headerBottom: loading ? null : _headerStats(trip),
+        bottomBar: loading || snapshot.hasError ? null : _actionBar(trip),
+        child: loading
+            ? Column(
+                children: [
+                  SfSkeleton.card(lines: 2),
+                  const SizedBox(height: SfSpace.x12),
+                  SfSkeleton.card(lines: 4),
+                ],
+              )
+            : snapshot.hasError
+            ? SfEmptyState(
+                icon: Icons.error_outline_rounded,
+                title: 'Không tải được chuyến',
+                message:
+                    '${snapshot.error}\n'
+                    'Quay lại danh sách rồi mở lại chuyến này.',
+              )
+            : _body(trip),
+      );
+    },
   );
 
+  /// Ba ô số trong header gradient: quãng đường, thời gian dự kiến, rủi ro.
+  Widget _headerStats(Map<String, dynamic> trip) {
+    final risk = trip['riskLevel']?.toString() ?? 'LOW';
+    final distance = (trip['distanceKm'] as num?)?.toDouble();
+    return Row(
+      children: [
+        Expanded(
+          child: _headerStat(
+            distance == null ? '--' : '${distance.toStringAsFixed(1)} km',
+            'Quãng đường',
+          ),
+        ),
+        Expanded(child: _headerStat(_plannedDuration(trip), 'Dự kiến')),
+        Expanded(
+          child: _headerStat(
+            _riskLabel(risk),
+            'Rủi ro',
+            valueColor: _riskInkOnHero(risk),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _headerStat(String value, String label, {Color? valueColor}) =>
+      SfStatCell(
+        value: value,
+        label: label,
+        valueColor: valueColor ?? SfColors.onAccent,
+        labelColor: SfColors.green300,
+      );
+
   Widget _body(Map<String, dynamic> trip) {
-    final p = context.sf;
     final status = trip['status']?.toString().toUpperCase() ?? 'ASSIGNED';
     final normalizedInfo = normalizedWarehouseIssueInfo(trip['warehouseIssue']);
     final dispatchInfo = normalizedInfo.isNotEmpty
         ? normalizedInfo
         : tripDispatchInfo(trip['plannedRoute']);
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        SfSpace.x16,
-        SfSpace.x8,
-        SfSpace.x16,
-        SfSpace.x24,
+    final hero = Hero(
+      tag: 'trip-${widget.tripId}',
+      child: const Material(
+        color: Colors.transparent,
+        child: SizedBox.shrink(),
       ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Hero(
-                    tag: 'trip-${widget.tripId}',
-                    child: Material(
-                      color: Colors.transparent,
-                      child: Text(
-                        trip['tripCode']?.toString() ??
-                            'Chuyến #${widget.tripId}',
-                        style: SfType.titleScreen.copyWith(
-                          color: p.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: SfSpace.x4),
-                  Text(
-                    trip['vehiclePlateNumber']?.toString() ??
-                        'Chưa gắn biển số',
-                    style: SfType.mono.copyWith(color: p.textSecondary),
-                  ),
-                ],
+        hero,
+        const SfSectionLabel('Lộ trình'),
+        const SizedBox(height: SfSpace.x10),
+        SfCard(child: SfTimeline(entries: _routeEntries(trip, status))),
+        if (_checklistRemaining(trip) > 0 &&
+            status != 'COMPLETED' &&
+            status != 'CANCELLED' &&
+            status != 'REJECTED') ...[
+          const SizedBox(height: SfSpace.x14),
+          SfCard(
+            onTap: () => _openChecklist(trip),
+            emphasis: SfStatus.warning,
+            tinted: true,
+            borderWidth: 1,
+            padding: const EdgeInsets.all(SfSpace.x14),
+            child: SfListRow(
+              padding: EdgeInsets.zero,
+              leading: const SfIconTile(
+                icon: Icons.fact_check_rounded,
+                size: 38,
+                background: SfColors.warningBg,
+                foreground: SfColors.warning,
               ),
+              title: 'Checklist trước chuyến',
+              subtitle: 'Còn ${_checklistRemaining(trip)} mục chưa xác nhận',
+              titleColor: SfColors.warningInk,
+              subtitleColor: SfColors.warning,
+              showChevron: true,
             ),
-            SfStatusPill(_statusLabel(status), status: _statusOf(status)),
-          ],
-        ),
-        const SizedBox(height: SfSpace.x20),
-        SfCard(
-          child: SfTimeline(
-            entries: [
-              SfTimelineEntry(
-                title: trip['startLocation']?.toString() ?? '--',
-                meta: 'Khởi hành ${_time(trip['plannedStartTime'])}',
-                status: SfStatus.good,
-                done: status != 'ASSIGNED' && status != 'ACCEPTED',
-              ),
-              SfTimelineEntry(
-                title: trip['endLocation']?.toString() ?? '--',
-                meta: 'Dự kiến đến ${_time(trip['estimatedEndTime'])}',
-                done: status == 'COMPLETED',
-              ),
-            ],
           ),
-        ),
-        const SizedBox(height: SfSpace.x12),
-        SfCard(
-          child: Row(
-            children: [
-              Expanded(
-                child: SfMetric(
-                  label: 'Khởi hành',
-                  value: _time(trip['plannedStartTime']),
-                ),
-              ),
-              Expanded(
-                child: SfMetric(
-                  label: 'Dự kiến đến',
-                  value: _time(trip['estimatedEndTime']),
-                ),
-              ),
-              Expanded(
-                child: SfMetric(
-                  label: 'Rủi ro',
-                  value: _riskLabel(trip['riskLevel']?.toString() ?? 'LOW'),
-                  valueColor: _riskColor(
-                    context,
-                    trip['riskLevel']?.toString() ?? 'LOW',
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
+        const SizedBox(height: SfSpace.x18),
+        const SfSectionLabel('Hàng hoá & phương tiện'),
+        const SizedBox(height: SfSpace.x10),
+        _cargoGrid(trip),
         if (dispatchInfo.isNotEmpty) ...[
-          const SizedBox(height: SfSpace.x24),
+          const SizedBox(height: SfSpace.x18),
           const SfSectionLabel('Chứng từ điều phối'),
-          const SizedBox(height: SfSpace.x8),
+          const SizedBox(height: SfSpace.x10),
           _dispatchCard(dispatchInfo),
         ],
         if (status == 'COMPLETED' ||
             status == 'CANCELLED' ||
             status == 'REJECTED') ...[
-          const SizedBox(height: SfSpace.x20),
+          const SizedBox(height: SfSpace.x18),
           _TerminalTripNotice(
             icon: status == 'COMPLETED'
                 ? Icons.task_alt_rounded
@@ -366,7 +363,8 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                 ? 'Hành trình đã lưu vào lịch sử hôm nay.'
                 : status == 'REJECTED'
                 ? 'Điều phối đã nhận được phản hồi và có thể giao chuyến khác.'
-                : 'Chuyến bị huỷ không thể bắt đầu lại. Liên hệ điều phối nếu cần chuyến thay thế.',
+                : 'Chuyến bị huỷ không thể bắt đầu lại. '
+                      'Liên hệ điều phối nếu cần chuyến thay thế.',
             status: status == 'COMPLETED' ? SfStatus.good : SfStatus.warning,
           ),
         ],
@@ -374,7 +372,100 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     );
   }
 
-  // ---- Thanh hành động cố định dưới đáy ----
+  /// Mốc lộ trình; điểm ngập trên tuyến chen vào giữa dưới dạng mốc đỏ.
+  List<SfTimelineEntry> _routeEntries(
+    Map<String, dynamic> trip,
+    String status,
+  ) {
+    final started = status != 'ASSIGNED' && status != 'ACCEPTED';
+    final floods = (trip['floodPointCount'] as num?)?.toInt() ?? 0;
+    return [
+      SfTimelineEntry(
+        title: trip['startLocation']?.toString() ?? '--',
+        time: _time(trip['plannedStartTime']),
+        subtitle: started ? 'đã rời kho' : 'chưa xuất phát',
+        color: SfColors.green700,
+      ),
+      if (floods > 0)
+        SfTimelineEntry(
+          title: 'Cảnh báo: $floods điểm ngập trên tuyến',
+          subtitle: 'Trợ lý sẽ gợi ý đường vòng khi tới gần',
+          color: SfColors.danger,
+          icon: Icons.water_drop_rounded,
+        ),
+      SfTimelineEntry(
+        title: trip['endLocation']?.toString() ?? '--',
+        time: 'Dự kiến ${_time(trip['estimatedEndTime'])}',
+        subtitle: trip['contactName']?.toString(),
+        color: SfColors.green700,
+        isSquare: true,
+      ),
+    ];
+  }
+
+  /// Grid 2×2: biển số, loại hàng, khối lượng, số phiếu.
+  Widget _cargoGrid(Map<String, dynamic> trip) {
+    final p = context.sf;
+    final cells = <(String, String)>[
+      ('Biển số', trip['vehiclePlateNumber']?.toString() ?? '--'),
+      ('Loại hàng', trip['cargoType']?.toString() ?? '--'),
+      (
+        'Khối lượng',
+        trip['cargoWeightTon'] == null ? '--' : '${trip['cargoWeightTon']} tấn',
+      ),
+      ('Số phiếu', '${(trip['documentCount'] as num?)?.toInt() ?? 0} phiếu'),
+    ];
+    return SfCard(
+      child: Column(
+        children: [
+          for (var row = 0; row < 2; row++) ...[
+            if (row > 0) const SizedBox(height: SfSpace.x16),
+            Row(
+              children: [
+                for (var col = 0; col < 2; col++)
+                  Expanded(
+                    child: SfStatCell(
+                      value: cells[row * 2 + col].$2,
+                      label: cells[row * 2 + col].$1,
+                      valueStyle: SfType.titleCardSm,
+                      labelColor: p.textMuted,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  int _checklistRemaining(Map<String, dynamic> trip) {
+    if (trip['checklistCompleted'] == true) return 0;
+    final remaining = (trip['checklistRemaining'] as num?)?.toInt();
+    return remaining ?? 0;
+  }
+
+  void _openChecklist(Map<String, dynamic> trip) => Navigator.push<bool>(
+    context,
+    SfSlideRoute<bool>(builder: (_) => ChecklistScreen(tripId: widget.tripId)),
+  ).then((_) => setState(_reload));
+
+  /// "2h00" — khoảng cách giữa giờ khởi hành và giờ đến dự kiến.
+  String _plannedDuration(Map<String, dynamic> trip) {
+    final start = DateTime.tryParse(trip['plannedStartTime']?.toString() ?? '');
+    final end = DateTime.tryParse(trip['estimatedEndTime']?.toString() ?? '');
+    if (start == null || end == null || !end.isAfter(start)) return '--';
+    final minutes = end.difference(start).inMinutes;
+    return '${minutes ~/ 60}h${(minutes % 60).toString().padLeft(2, '0')}';
+  }
+
+  Color _riskInkOnHero(String risk) => switch (risk.toUpperCase()) {
+    'CRITICAL' || 'HIGH' => SfColors.amber,
+    'MEDIUM' => SfColors.green300,
+    _ => SfColors.onAccent,
+  };
+
+  // ---- Thanh hành động dính đáy ----
 
   Widget _actionBar(Map<String, dynamic> trip) {
     final status = trip['status']?.toString().toUpperCase() ?? 'ASSIGNED';
@@ -384,69 +475,56 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
       return const SizedBox.shrink();
     }
     if (status == 'ASSIGNED') {
-      return Container(
-        decoration: BoxDecoration(
-          color: context.sf.surface,
-          border: Border(top: BorderSide(color: context.sf.border)),
-        ),
-        child: SafeArea(
-          minimum: const EdgeInsets.fromLTRB(
-            SfSpace.x16,
-            SfSpace.x12,
-            SfSpace.x16,
-            SfSpace.x12,
+      return Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _busy
+                  ? null
+                  : () => _respondToAssignment(accept: false),
+              icon: const Icon(Icons.close_rounded),
+              label: const Text('Từ chối'),
+            ),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () => _respondToAssignment(accept: false),
-                  icon: const Icon(Icons.close_rounded),
-                  label: const Text('Từ chối'),
-                ),
-              ),
-              const SizedBox(width: SfSpace.x12),
-              Expanded(
-                child: SfPrimaryAction(
-                  label: _busy ? 'Đang xử lý' : 'Nhận chuyến',
-                  icon: Icons.check_rounded,
-                  busy: _busy,
-                  onPressed: () => _respondToAssignment(accept: true),
-                ),
-              ),
-            ],
+          const SizedBox(width: SfSpace.x12),
+          Expanded(
+            child: SfPrimaryAction(
+              label: _busy ? 'Đang xử lý' : 'Nhận chuyến',
+              icon: Icons.check_rounded,
+              busy: _busy,
+              onPressed: () => _respondToAssignment(accept: true),
+            ),
           ),
-        ),
+        ],
       );
     }
     final running = status == 'IN_PROGRESS' || status == 'RESTING';
-    return Container(
-      decoration: BoxDecoration(
-        color: context.sf.surface,
-        border: Border(top: BorderSide(color: context.sf.border)),
-      ),
-      child: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(
-          SfSpace.x16,
-          SfSpace.x12,
-          SfSpace.x16,
-          SfSpace.x12,
+    final phone = trip['contactPhone']?.toString();
+
+    return Row(
+      children: [
+        SfIconButton(
+          icon: Icons.call_rounded,
+          size: SfTouch.primaryHeight,
+          tooltip: phone == null || phone.isEmpty
+              ? 'Chưa có số liên hệ'
+              : 'Gọi $phone',
+          onTap: phone == null || phone.isEmpty ? null : () {},
         ),
-        child: SfPrimaryAction(
-          label: running
-              ? 'Tiếp tục chế độ lái'
-              : _busy
-              ? 'Đang bắt đầu chuyến'
-              : 'Kiểm tra xe và khởi hành',
-          icon: running
-              ? Icons.navigation_rounded
-              : Icons.fact_check_outlined,
-          busy: _busy,
-          onPressed: running ? () => _continue(trip) : () => _start(trip),
+        const SizedBox(width: SfSpace.x12),
+        Expanded(
+          child: SfPrimaryAction(
+            label: running
+                ? 'Vào chế độ lái'
+                : _busy
+                ? 'Đang bắt đầu chuyến'
+                : 'Kiểm tra xe và khởi hành',
+            icon: running ? Icons.navigation_rounded : Icons.fact_check_rounded,
+            busy: _busy,
+            onPressed: running ? () => _continue(trip) : () => _start(trip),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -461,7 +539,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.inventory_2_outlined, color: SfColors.navy500),
+              const Icon(Icons.inventory_2_outlined, color: SfColors.info),
               const SizedBox(width: SfSpace.x12),
               Expanded(
                 child: Column(
@@ -580,23 +658,19 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                       height: 24,
                       alignment: Alignment.center,
                       decoration: const BoxDecoration(
-                        color: SfColors.navy500,
+                        color: SfColors.info,
                         shape: BoxShape.circle,
                       ),
                       child: Text(
                         '${entry.$1 + 1}',
-                        style: SfType.label.copyWith(
-                          color: SfColors.onAccent,
-                        ),
+                        style: SfType.label.copyWith(color: SfColors.onAccent),
                       ),
                     ),
                     const SizedBox(width: SfSpace.x8),
                     Expanded(
                       child: Text(
                         item['description']?.toString() ?? '--',
-                        style: SfType.titleCard.copyWith(
-                          color: p.textPrimary,
-                        ),
+                        style: SfType.titleCard.copyWith(color: p.textPrimary),
                       ),
                     ),
                   ],
@@ -650,26 +724,11 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
-  Color _riskColor(BuildContext context, String risk) =>
-      switch (risk.toUpperCase()) {
-        'CRITICAL' || 'HIGH' => SfColors.danger,
-        'MEDIUM' => SfColors.amber,
-        _ => SfColors.success,
-      };
-
   String _riskLabel(String value) => switch (value.toUpperCase()) {
     'CRITICAL' => 'Rất cao',
     'HIGH' => 'Cao',
     'MEDIUM' => 'Vừa',
     _ => 'Thấp',
-  };
-
-  SfStatus _statusOf(String status) => switch (status) {
-    'IN_PROGRESS' || 'COMPLETED' => SfStatus.good,
-    'RESTING' => SfStatus.pending,
-    'DELAYED' || 'CANCELLED' => SfStatus.warning,
-    'INCIDENT' => SfStatus.danger,
-    _ => SfStatus.pending,
   };
 
   String _statusLabel(String status) => switch (status) {

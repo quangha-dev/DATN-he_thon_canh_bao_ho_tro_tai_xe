@@ -52,6 +52,12 @@ app:
   location:
     photon-url: ${PHOTON_URL:https://photon.komoot.io/api/}
     osrm-url: ${OSRM_URL:https://router.project-osrm.org/route/v1/driving}
+    valhalla-url: ${VALHALLA_URL:}
+    valhalla-costing: ${VALHALLA_COSTING:truck}
+    allow-deterministic-fallback: ${ALLOW_DETERMINISTIC_ROUTING_FALLBACK:false}
+  google-maps:
+    server-api-key: ${GOOGLE_MAPS_SERVER_API_KEY:}
+    places-text-search-url: ${GOOGLE_PLACES_TEXT_SEARCH_URL:https://places.googleapis.com/v1/places:searchText}
   safety:
     cooldown-seconds: ${SAFETY_EVENT_COOLDOWN_SECONDS:30}
   sos:
@@ -67,7 +73,11 @@ app:
       bucket: ${MINIO_BUCKET:safefleet-evidence}
   push:
     fcm-enabled: ${FCM_ENABLED:false}
+    credentials-path: ${FCM_CREDENTIALS_PATH:}
     dispatch-interval-ms: ${PUSH_DISPATCH_INTERVAL_MS:30000}
+    max-attempts: ${PUSH_MAX_ATTEMPTS:6}
+  openapi:
+    public-enabled: ${OPENAPI_PUBLIC_ENABLED:false}
   ai-service:
     enabled: ${AI_SERVICE_ENABLED:false}
     ocr-enabled: ${OCR_SERVER_ENABLED:true}
@@ -82,9 +92,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
       show-details: never
+logging:
+  pattern:
+    level: "%5p [requestId:%X{requestId:-none}]"

@@ -152,7 +152,9 @@ export default function Header({ group, title, onMenuClick }: HeaderProps) {
           }
         >
           <StatusDot tone={connected ? "success" : "neutral"} pulse={connected} />
-          <span className="text-sf-text-muted">{connected ? "Realtime" : "Đang kết nối"}</span>
+          <span className="text-sf-text-muted">
+            {connected ? "Realtime" : realtimeStatus === "connecting" ? "Đang kết nối" : "Mất kết nối"}
+          </span>
         </span>
 
         {/* ===== Ô tìm nhanh ===== */}

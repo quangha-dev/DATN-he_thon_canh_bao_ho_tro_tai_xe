@@ -126,6 +126,8 @@ _TRIP_SCOPE_SIGNALS = (
     + (
         "tat ca",
         "toan bo",
+        "khong gioi han ngay",
+        "theo trang thai",
         "moi chuyen",
         "da di",
         "da chay",

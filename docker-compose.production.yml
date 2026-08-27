@@ -1,0 +1,45 @@
+services:
+  postgres:
+    ports: !reset []
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  minio:
+    ports: !reset []
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  minio-init:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  ai-service:
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  backend:
+    ports: !override
+      - "${PRODUCTION_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8080}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  frontend:
+    ports: !override
+      - "${PRODUCTION_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-3000}:3000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]

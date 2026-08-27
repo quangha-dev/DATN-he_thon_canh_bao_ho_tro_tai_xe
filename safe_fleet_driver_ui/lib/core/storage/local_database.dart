@@ -8,24 +8,45 @@ class LocalDatabase {
 
   final String databaseName;
   Database? _database;
+  Future<Database>? _opening;
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await openDatabase(
-      join(await getDatabasesPath(), databaseName),
-      version: 3,
-      onCreate: (db, _) async {
-        await _createBaseTables(db);
-        await _createDrivingLogTables(db);
-        await _createDocumentOcrQueueTables(db);
-      },
-      onUpgrade: (db, oldVersion, _) async {
-        if (oldVersion < 2) await _createDrivingLogTables(db);
-        if (oldVersion < 3) await _createDocumentOcrQueueTables(db);
-      },
-    );
-    return _database!;
+    final current = _database;
+    if (current != null && current.isOpen) return current;
+    _database = null;
+
+    final pending = _opening;
+    if (pending != null) return pending;
+    final opening = _open();
+    _opening = opening;
+    try {
+      final opened = await opening;
+      _database = opened;
+      return opened;
+    } finally {
+      _opening = null;
+    }
   }
+
+  Future<Database> _open() async => openDatabase(
+    join(await getDatabasesPath(), databaseName),
+    // WorkManager uses a second Flutter isolate. It must own a separate
+    // connection; otherwise disposing its ProviderContainer can close the
+    // UI isolate's cached sqflite handle for the same path.
+    singleInstance: false,
+    version: 4,
+    onCreate: (db, _) async {
+      await _createBaseTables(db);
+      await _createDrivingLogTables(db);
+      await _createDocumentOcrQueueTables(db);
+      await _ensureDrivingLogConfirmationColumns(db);
+    },
+    onUpgrade: (db, oldVersion, _) async {
+      if (oldVersion < 2) await _createDrivingLogTables(db);
+      if (oldVersion < 3) await _createDocumentOcrQueueTables(db);
+      if (oldVersion < 4) await _ensureDrivingLogConfirmationColumns(db);
+    },
+  );
 
   Future<void> _createBaseTables(Database db) async {
     await db.execute('''
@@ -74,7 +95,9 @@ class LocalDatabase {
         voucher_number TEXT NOT NULL DEFAULT '',
         status TEXT NOT NULL DEFAULT 'DRAFT',
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        confirmation_id TEXT,
+        confirmed_at TEXT
       )
     ''');
     await db.execute('''
@@ -84,6 +107,26 @@ class LocalDatabase {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_driving_log_status
       ON driving_log_entries(status)
+    ''');
+  }
+
+  Future<void> _ensureDrivingLogConfirmationColumns(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(driving_log_entries)');
+    final names = columns.map((row) => row['name']?.toString()).toSet();
+    if (!names.contains('confirmation_id')) {
+      await db.execute(
+        'ALTER TABLE driving_log_entries ADD COLUMN confirmation_id TEXT',
+      );
+    }
+    if (!names.contains('confirmed_at')) {
+      await db.execute(
+        'ALTER TABLE driving_log_entries ADD COLUMN confirmed_at TEXT',
+      );
+    }
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_driving_log_confirmation_id
+      ON driving_log_entries(confirmation_id)
+      WHERE confirmation_id IS NOT NULL
     ''');
   }
 
@@ -135,6 +178,7 @@ class LocalDatabase {
         WHEN 'SAFETY_HIGH' THEN 2
         WHEN 'TRIP_WORKFLOW' THEN 3
         WHEN 'FLOOD_REPORT' THEN 4
+        WHEN 'FLOOD_HAZARD' THEN 4
         WHEN 'TELEMETRY' THEN 5
         ELSE 6
       END, id
@@ -188,6 +232,15 @@ class LocalDatabase {
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+  Future<void> remove(String key) async {
+    final db = await database;
+    await db.delete(
+      'cached_documents',
+      where: 'cache_key = ?',
+      whereArgs: [key],
+    );
+  }
+
   Future<T?> cached<T>(String key) async {
     final db = await database;
     final rows = await db.query(
@@ -201,7 +254,16 @@ class LocalDatabase {
   }
 
   Future<void> close() async {
-    await _database?.close();
+    final opening = _opening;
+    if (opening != null) {
+      try {
+        await opening;
+      } catch (_) {
+        // Opening already failed; there is no connection left to close.
+      }
+    }
+    final current = _database;
     _database = null;
+    if (current != null && current.isOpen) await current.close();
   }
 }

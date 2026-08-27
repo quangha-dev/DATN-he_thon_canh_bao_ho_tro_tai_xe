@@ -80,6 +80,14 @@ export default function IncidentsPage() {
   const [selectedIncidentId, setSelectedIncidentId] = useState("");
   const [busy, setBusy] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  useEffect(() => {
+    const updateClock = () => setCurrentTime(Date.now());
+    updateClock();
+    const timer = window.setInterval(updateClock, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,9 +192,9 @@ export default function IncidentsPage() {
        sự cố đang mở/quá hạn — phản ánh đúng thời gian đang chờ được xử lý,
        thay vì thời lượng xử lý đã hoàn tất (không có dữ liệu để tính chính xác). */
     const avgWaitMinutes =
-      open.length > 0
+      open.length > 0 && currentTime > 0
         ? Math.round(
-            open.reduce((sum, i) => sum + (Date.now() - new Date(i.timestamp).getTime()) / 60000, 0) /
+            open.reduce((sum, i) => sum + (currentTime - new Date(i.timestamp).getTime()) / 60000, 0) /
               open.length
           )
         : null;
@@ -196,7 +204,7 @@ export default function IncidentsPage() {
       resolvedToday: incidents.filter((i) => i.status === "resolved" && isToday(i.timestamp)).length,
       avgWaitMinutes,
     };
-  }, [incidents]);
+  }, [incidents, currentTime]);
 
   /* Chip lọc theo đúng bốn trạng thái thật của backend (bản thiết kế bỏ sót
      "overdue") — chỉ hiện trạng thái thực sự có dữ liệu, "Tất cả" đứng đầu. */

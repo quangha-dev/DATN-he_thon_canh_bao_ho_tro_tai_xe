@@ -4,8 +4,10 @@ import com.safefleet.account.entity.UserAccount;
 import com.safefleet.common.domain.BaseEntity;
 import com.safefleet.driver.entity.Driver;
 import com.safefleet.flood.enums.FloodSeverity;
+import com.safefleet.flood.enums.FloodGeometryType;
 import com.safefleet.flood.enums.FloodSource;
 import com.safefleet.flood.enums.FloodStatus;
+import com.safefleet.flood.enums.RoadHazardType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -35,6 +37,10 @@ public class FloodReport extends BaseEntity {
     private String address;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "hazard_type", nullable = false, length = 30)
+    private RoadHazardType hazardType = RoadHazardType.FLOOD;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private FloodSeverity severity;
 
@@ -51,6 +57,16 @@ public class FloodReport extends BaseEntity {
 
     @Column(name = "client_event_id", length = 100)
     private String clientEventId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "geometry_type", nullable = false, length = 20)
+    private FloodGeometryType geometryType = FloodGeometryType.POINT;
+
+    @Column(name = "geometry_json", columnDefinition = "TEXT")
+    private String geometryJson;
+
+    @Column(name = "radius_meters", nullable = false)
+    private Double radiusMeters = 120.0;
 
     @Column(name = "received_at", nullable = false, updatable = false)
     private LocalDateTime receivedAt = LocalDateTime.now();

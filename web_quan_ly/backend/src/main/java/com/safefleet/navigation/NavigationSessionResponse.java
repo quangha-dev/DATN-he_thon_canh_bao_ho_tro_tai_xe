@@ -16,6 +16,7 @@ public record NavigationSessionResponse(
         Boolean safe,
         Integer selectedRouteIndex,
         List<NavigationRouteCandidateResponse> routes,
+        List<NavigationHazardResponse> hazards,
         LocalDateTime startedAt,
         LocalDateTime updatedAt
 ) {

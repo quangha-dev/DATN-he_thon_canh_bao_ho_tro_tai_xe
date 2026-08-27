@@ -47,6 +47,11 @@ class _DriverShellState extends ConsumerState<DriverShell>
       ref.read(syncQueueProvider),
     );
     unawaited(_locationTracker.start());
+    // Trợ lý phải gọi được ngay khi mở app, không đợi vào chuyến. Lựa chọn của
+    // tài xế được nhớ lại giữa các lần mở máy.
+    unawaited(
+      ref.read(agentConversationProvider.notifier).restoreWakePreference(),
+    );
   }
 
   @override
@@ -60,7 +65,8 @@ class _DriverShellState extends ConsumerState<DriverShell>
   Widget _page(int index) => switch (index) {
     0 => const HomeScreen(),
     1 => const RoutePlannerScreen(),
-    2 => const AgentChatScreen(),
+    // Trợ lý là tab: nút đóng quay về Nhà chứ không pop navigator.
+    2 => AgentChatScreen(onClose: () => _selectPage(0)),
     3 => const MonthlyInsightsScreen(),
     _ => const ProfileScreen(),
   };
@@ -209,14 +215,15 @@ class _DriverShellState extends ConsumerState<DriverShell>
             ),
         ],
       ),
-      bottomNavigationBar: _isCritical
+      // Dock ẩn khi có cảnh báo cấp 2 và khi đang ở màn Trợ lý (nền tối).
+      bottomNavigationBar: _isCritical || _index == 2
           ? null
           : SafeArea(
               minimum: const EdgeInsets.fromLTRB(
                 SfSpace.x12,
                 0,
                 SfSpace.x12,
-                SfSpace.x8,
+                SfSpace.x10,
               ),
               child: _FloatingDock(index: _index, onSelected: _selectPage),
             ),
@@ -265,12 +272,12 @@ class _VoiceOverlay extends StatelessWidget {
               const Spacer(),
               Text(
                 'SafeFleet đang lắng nghe',
-                style: SfType.titleScreen.copyWith(
+                style: SfType.titleSub.copyWith(
                   color: SfColors.darkTextPrimary,
                 ),
               ),
               const SizedBox(height: SfSpace.x20),
-              const _Waveform(),
+              const SfWaveform(bars: 9, height: 42, barWidth: 5),
               const SizedBox(height: SfSpace.x20),
               Text(
                 state.transcript.isEmpty
@@ -321,32 +328,9 @@ class _VoiceOverlay extends StatelessWidget {
   }
 }
 
-class _Waveform extends StatelessWidget {
-  const _Waveform();
-
-  @override
-  Widget build(BuildContext context) {
-    const heights = [18.0, 34.0, 54.0, 28.0, 66.0, 42.0, 58.0, 24.0, 38.0];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: heights
-          .map(
-            (height) => Container(
-              width: 6,
-              height: height,
-              margin: const EdgeInsets.symmetric(horizontal: SfSpace.x4),
-              decoration: const BoxDecoration(
-                color: SfColors.mint,
-                borderRadius: SfRadius.pillR,
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-}
-
+/// Dock nổi: cao 74, bo 26, kính mờ 12px, gạch chỉ báo 28×3 trượt.
+///
+/// 5 ô: NHÀ · BẢN ĐỒ · nút mic tròn 50px ở giữa · THÁNG · HỒ SƠ.
 class _FloatingDock extends StatelessWidget {
   const _FloatingDock({required this.index, required this.onSelected});
 
@@ -361,41 +345,52 @@ class _FloatingDock extends StatelessWidget {
     return DecoratedBox(
       decoration: const BoxDecoration(
         borderRadius: SfRadius.dockR,
-        boxShadow: SfShadow.floating,
+        boxShadow: SfShadow.dock,
       ),
-      child: Material(
-        color: p.surface,
-        borderRadius: SfRadius.dockR,
-        clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          height: 76,
-          child: Stack(
-            children: [
-              // Gạch chỉ báo trượt ngang tới tab đang chọn.
-              AnimatedAlign(
-                alignment: Alignment(index / (_count - 1) * 2 - 1, -1),
-                duration: SfMotion.of(context, SfMotion.dTab),
-                curve: SfMotion.curveOf(context, SfMotion.standard),
-                child: Container(
-                  width: 28,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: p.accent,
-                    borderRadius: SfRadius.pillR,
-                  ),
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _item(context, 0, Icons.grid_view_rounded, 'Nhà'),
-                  _item(context, 1, Icons.map_outlined, 'Bản đồ'),
-                  _agentItem(context),
-                  _item(context, 3, Icons.insights_outlined, 'Tháng'),
-                  _item(context, 4, Icons.person_outline_rounded, 'Hồ sơ'),
-                ],
-              ),
-            ],
+      child: SfBlur(
+        child: Material(
+          color: p.surface.withValues(alpha: 0.92),
+          child: SizedBox(
+            height: SfTouch.dock,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final slot = constraints.maxWidth / _count;
+                return Stack(
+                  children: [
+                    // Gạch chỉ báo trượt ngang tới tab đang chọn.
+                    AnimatedPositioned(
+                      duration: SfMotion.of(
+                        context,
+                        const Duration(milliseconds: 280),
+                      ),
+                      curve: SfMotion.curveOf(
+                        context,
+                        const Cubic(0.2, 0, 0, 1),
+                      ),
+                      left: slot * index + (slot - 28) / 2,
+                      top: 0,
+                      child: Container(
+                        width: 28,
+                        height: 3,
+                        decoration: const BoxDecoration(
+                          color: SfColors.green700,
+                          borderRadius: SfRadius.pillR,
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        _item(context, 0, Icons.home_rounded, 'NHÀ'),
+                        _item(context, 1, Icons.map_rounded, 'BẢN ĐỒ'),
+                        _agentItem(context),
+                        _item(context, 3, Icons.bar_chart_rounded, 'THÁNG'),
+                        _item(context, 4, Icons.person_rounded, 'HỒ SƠ'),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -408,12 +403,10 @@ class _FloatingDock extends StatelessWidget {
     IconData icon,
     String label,
   ) {
-    final p = context.sf;
     final selected = index == value;
-    final ink = selected ? p.accent : p.textSecondary;
+    final ink = selected ? SfColors.green700 : SfColors.textDisabled;
     return Expanded(
       child: InkWell(
-        borderRadius: SfRadius.controlR,
         onTap: () => onSelected(value),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -425,16 +418,11 @@ class _FloatingDock extends StatelessWidget {
                 const Duration(milliseconds: 180),
               ),
               curve: SfMotion.curveOf(context, SfMotion.standard),
-              builder: (context, color, _) => Icon(icon, color: color ?? ink),
+              builder: (context, color, _) =>
+                  Icon(icon, size: 23, color: color ?? ink),
             ),
-            const SizedBox(height: SfSpace.x4),
-            Text(
-              label,
-              style: SfType.label.copyWith(
-                color: ink,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              ),
-            ),
+            const SizedBox(height: 5),
+            Text(label, style: SfType.tabLabel.copyWith(color: ink)),
           ],
         ),
       ),
@@ -443,22 +431,19 @@ class _FloatingDock extends StatelessWidget {
 
   Widget _agentItem(BuildContext context) => Expanded(
     child: InkWell(
-      borderRadius: SfRadius.controlR,
       onTap: () => onSelected(2),
       child: Center(
         child: Container(
-          width: SfTouch.min,
-          height: SfTouch.min,
+          width: SfTouch.micDock,
+          height: SfTouch.micDock,
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [SfColors.teal, SfColors.mint],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            gradient: SfGradients.mic,
             shape: BoxShape.circle,
+            boxShadow: SfShadow.card,
           ),
           child: const Icon(
-            Icons.graphic_eq_rounded,
+            Icons.mic_rounded,
+            size: 24,
             color: SfColors.onAccent,
           ),
         ),

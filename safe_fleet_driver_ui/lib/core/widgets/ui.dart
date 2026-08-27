@@ -15,6 +15,7 @@ export 'sf_card.dart';
 export 'sf_gauge.dart';
 export 'sf_scaffold.dart';
 export 'sf_status.dart';
+export 'sf_surfaces.dart';
 export 'sf_trip_card.dart';
 
 /// Cửa vào thư viện giao diện SafeFleet.

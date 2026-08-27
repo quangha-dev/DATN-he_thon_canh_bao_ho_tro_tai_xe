@@ -9,6 +9,7 @@ public record NavigationEventResponse(
         Boolean offRoute,
         Integer offRouteDurationSeconds,
         Boolean rerouteRequired,
-        LocalDateTime occurredAt
+        LocalDateTime occurredAt,
+        NavigationHazardAheadResponse hazardAhead
 ) {
 }

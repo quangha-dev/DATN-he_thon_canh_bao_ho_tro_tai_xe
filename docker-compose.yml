@@ -2,7 +2,7 @@ name: safefleet
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: Asia/Ho_Chi_Minh
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -33,14 +33,19 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-1440}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-15}
       JWT_REFRESH_EXPIRATION_DAYS: ${JWT_REFRESH_EXPIRATION_DAYS:-30}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       SEED_ENABLED: ${SEED_ENABLED:-false}
       HANOI_DEMO_DATA_ENABLED: ${HANOI_DEMO_DATA_ENABLED:-false}
       PHOTON_URL: ${PHOTON_URL}
       OSRM_URL: ${OSRM_URL}
+      VALHALLA_URL: ${VALHALLA_URL:-}
+      VALHALLA_COSTING: ${VALHALLA_COSTING:-truck}
+      ALLOW_DETERMINISTIC_ROUTING_FALLBACK: "false"
+      GOOGLE_MAPS_SERVER_API_KEY: ${GOOGLE_MAPS_SERVER_API_KEY:-}
       APP_LOG_LEVEL: ${APP_LOG_LEVEL:-INFO}
+      OPENAPI_PUBLIC_ENABLED: ${OPENAPI_PUBLIC_ENABLED:-false}
       EVIDENCE_STORAGE_PROVIDER: ${EVIDENCE_STORAGE_PROVIDER:-minio}
       EVIDENCE_STORAGE_PATH: /data/evidence
       EVIDENCE_MAX_SIZE_BYTES: ${EVIDENCE_MAX_SIZE_BYTES:-8388608}
@@ -51,11 +56,13 @@ services:
       SAFETY_EVENT_COOLDOWN_SECONDS: ${SAFETY_EVENT_COOLDOWN_SECONDS:-30}
       SOS_COOLDOWN_SECONDS: ${SOS_COOLDOWN_SECONDS:-30}
       FCM_ENABLED: ${FCM_ENABLED:-false}
+      FCM_CREDENTIALS_PATH: ${FCM_CREDENTIALS_PATH:-}
       PUSH_DISPATCH_INTERVAL_MS: ${PUSH_DISPATCH_INTERVAL_MS:-30000}
+      PUSH_MAX_ATTEMPTS: ${PUSH_MAX_ATTEMPTS:-6}
       AI_SERVICE_ENABLED: ${AI_SERVICE_ENABLED:-true}
       OCR_SERVER_ENABLED: ${OCR_SERVER_ENABLED:-true}
       AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8000}
-      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-${JWT_SECRET}}
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-}
       TZ: Asia/Ho_Chi_Minh
     ports:
       - "${BACKEND_PORT:-8080}:8080"
@@ -81,6 +88,7 @@ services:
       context: ./web_quan_ly/frontend
       args:
         BACKEND_INTERNAL_URL: http://backend:8080
+        NEXT_PUBLIC_MAP_TILE_URL: ${NEXT_PUBLIC_MAP_TILE_URL:-https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png}
     restart: unless-stopped
     environment:
       BACKEND_INTERNAL_URL: http://backend:8080
@@ -104,8 +112,8 @@ services:
       dockerfile: safefleet_ai/Dockerfile
     restart: unless-stopped
     environment:
-      AGENT_ENCRYPTION_SECRET: ${AGENT_ENCRYPTION_SECRET:-${JWT_SECRET}}
-      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-${JWT_SECRET}}
+      AGENT_ENCRYPTION_SECRET: ${AGENT_ENCRYPTION_SECRET:-}
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_ENABLED: ${OPENAI_ENABLED:-false}
       AGENT_MAX_STEPS: ${AGENT_MAX_STEPS:-6}
@@ -115,6 +123,16 @@ services:
       OCR_MODEL_DIR: /app/ocr_models
       TESSERACT_CMD: /usr/bin/tesseract
       OCR_MAX_UPLOAD_BYTES: ${OCR_MAX_UPLOAD_BYTES:-10485760}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      RAG_ENABLED: ${RAG_ENABLED:-true}
+      RAG_CORPUS_PATH: /app/knowledge
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-intfloat/multilingual-e5-small}
+      RAG_MODEL_CACHE: /models/sentence-transformers
+      MCP_TIMEOUT_SECONDS: ${MCP_TIMEOUT_SECONDS:-60}
       TZ: Asia/Ho_Chi_Minh
     expose:
       - "8000"
@@ -122,6 +140,9 @@ services:
       - ai_models:/models
       - ai_data:/data
       - ./safefleet_ai/models/safefleet_temporal_rules.json:/models/safefleet_temporal_rules.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 15s
@@ -138,8 +159,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${MINIO_PORT:-9000}:9000"
+      - "${INFRA_BIND_ADDRESS:-127.0.0.1}:${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio_data:/data
     healthcheck:

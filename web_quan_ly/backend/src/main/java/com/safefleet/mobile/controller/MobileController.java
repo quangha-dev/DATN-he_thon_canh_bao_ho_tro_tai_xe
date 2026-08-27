@@ -334,13 +334,13 @@ public class MobileController {
         return ApiResponse.ok("Điểm ngập đã được ghi nhận", mobileAppService.createFloodReport(request));
     }
 
-    @Operation(summary = "Submit quick flood report using current driver")
+    @Operation(summary = "Submit quick flood or traffic-jam report using current driver")
     @PostMapping("/flood-reports/quick")
     public ApiResponse<FloodReportResponse> quickFloodReport(@Valid @RequestBody MobileQuickFloodReportRequest request) {
-        return ApiResponse.ok("Điểm ngập đã được ghi nhận", mobileAppService.quickFloodReport(request));
+        return ApiResponse.ok("Tình trạng đường đã được ghi nhận", mobileAppService.quickFloodReport(request));
     }
 
-    @Operation(summary = "Get nearby active flood points")
+    @Operation(summary = "Get nearby active flood and traffic-jam points")
     @GetMapping("/flood-points/nearby")
     public ApiResponse<List<FloodReportResponse>> nearbyFloodPoints(
             @RequestParam @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") Double lat,

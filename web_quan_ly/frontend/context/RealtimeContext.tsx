@@ -41,8 +41,14 @@ function websocketUrl() {
   const configured = process.env.NEXT_PUBLIC_WS_URL?.trim();
   if (configured) return configured;
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const backendPort = process.env.NEXT_PUBLIC_BACKEND_PORT || "8080";
-  return `${protocol}//${window.location.hostname}:${backendPort}/ws-native`;
+  const isLocalDevelopment = ["localhost", "127.0.0.1"].includes(
+    window.location.hostname
+  );
+  if (isLocalDevelopment && window.location.port !== "8080") {
+    const backendPort = process.env.NEXT_PUBLIC_BACKEND_PORT || "8080";
+    return `${protocol}//${window.location.hostname}:${backendPort}/ws-native`;
+  }
+  return `${protocol}//${window.location.host}/ws-native`;
 }
 
 function stompFrame(command: string, headers: Record<string, string> = {}, body = "") {

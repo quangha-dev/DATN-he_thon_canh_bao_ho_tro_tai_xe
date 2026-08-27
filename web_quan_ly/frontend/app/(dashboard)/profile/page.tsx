@@ -146,8 +146,7 @@ export default function ProfilePage() {
               style={{ color: "var(--sf-primary)" }}
             />
             <span className="text-[12px] leading-[1.55] text-sf-text-secondary">
-              Phiên làm việc được bảo vệ bằng JWT và tự đăng xuất sau 8 giờ không hoạt động để bảo
-              vệ tài khoản.
+              Phiên làm việc dùng JWT ngắn hạn và cơ chế làm mới an toàn để bảo vệ tài khoản.
             </span>
           </div>
         </div>

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../design/tokens.dart';
 import 'sf_card.dart';
 import 'sf_status.dart';
+import 'sf_surfaces.dart';
 
 /// Một ô số liệu nhỏ trong hàng dưới của thẻ chuyến.
 class SfTripMetric {
@@ -15,8 +16,8 @@ class SfTripMetric {
 
 /// Thẻ chuyến — nền tảng cho mọi danh sách chuyến.
 ///
-/// Thứ tự đọc: mã chuyến (mono) + trạng thái bên phải → tuyến đường (to nhất)
-/// → tài xế / biển số → hàng 2–3 số liệu.
+/// Thứ tự đọc: hàng chip trạng thái + mã chuyến → tuyến đường (to nhất) →
+/// dòng mô tả hàng hoá / quãng đường → giờ đi–đến → thanh tiến độ.
 class SfTripCard extends StatelessWidget {
   const SfTripCard({
     required this.code,
@@ -25,12 +26,16 @@ class SfTripCard extends StatelessWidget {
     super.key,
     this.status = SfStatus.pending,
     this.statusLabel,
-    this.driver,
-    this.plate,
+    this.riskLabel,
+    this.summary,
+    this.departAt,
+    this.arriveAt,
+    this.progress,
     this.metrics = const [],
     this.onTap,
     this.heroTag,
     this.emphasized = false,
+    this.footer,
   });
 
   final String code;
@@ -38,16 +43,29 @@ class SfTripCard extends StatelessWidget {
   final String destination;
   final SfStatus status;
   final String? statusLabel;
-  final String? driver;
-  final String? plate;
+
+  /// Nhãn rủi ro nền hổ phách — "RỦI RO CAO".
+  final String? riskLabel;
+
+  /// "32,5 km · hàng lạnh · 2 điểm ngập trên tuyến"
+  final String? summary;
+
+  final String? departAt;
+  final String? arriveAt;
+
+  /// 0..1 — chỉ hiện với chuyến đang chạy.
+  final double? progress;
+
   final List<SfTripMetric> metrics;
   final VoidCallback? onTap;
 
   /// Thẻ đang chạy dùng Hero để giãn ra toàn màn khi mở chi tiết.
   final Object? heroTag;
 
-  /// Chuyến đang chạy: viền + dải màu trạng thái trên đỉnh.
+  /// Chuyến đang chạy: viền màu trạng thái 1.5px.
   final bool emphasized;
+
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +73,7 @@ class SfTripCard extends StatelessWidget {
     final codeText = Text(
       code,
       style: SfType.mono.copyWith(
-        color: p.textSecondary,
+        color: p.textMuted,
         fontWeight: FontWeight.w600,
       ),
     );
@@ -63,40 +81,67 @@ class SfTripCard extends StatelessWidget {
     return SfCard(
       onTap: onTap,
       emphasis: emphasized ? status : null,
+      borderColor: emphasized ? SfColors.green700 : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(
-                child: heroTag == null
-                    ? codeText
-                    : Hero(
-                        tag: heroTag!,
-                        child: Material(
-                          color: Colors.transparent,
-                          child: codeText,
-                        ),
-                      ),
-              ),
               SfStatusPill(
                 statusLabel ?? _defaultLabel(status),
                 status: status,
-                dense: true,
               ),
+              if (riskLabel != null) ...[
+                const SizedBox(width: SfSpace.x8),
+                SfStatusPill.amber(riskLabel!),
+              ],
+              const Spacer(),
+              heroTag == null
+                  ? codeText
+                  : Hero(
+                      tag: heroTag!,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: codeText,
+                      ),
+                    ),
             ],
           ),
           const SizedBox(height: SfSpace.x12),
           _RouteLine(origin: origin, destination: destination),
-          if (driver != null || plate != null) ...[
+          if (summary != null && summary!.isNotEmpty) ...[
             const SizedBox(height: SfSpace.x8),
             Text(
-              [
-                ?driver,
-                ?plate,
-              ].join(' · '),
-              style: SfType.meta.copyWith(color: p.textSecondary),
+              summary!,
+              style: SfType.caption.copyWith(color: p.textMuted),
             ),
+          ],
+          if (departAt != null || arriveAt != null) ...[
+            const SizedBox(height: SfSpace.x12),
+            Row(
+              children: [
+                Icon(
+                  Icons.schedule_rounded,
+                  size: 15,
+                  color: p.textMuted,
+                ),
+                const SizedBox(width: SfSpace.x4 + 2),
+                Text(
+                  [
+                    ?departAt,
+                    ?arriveAt,
+                  ].join('  →  '),
+                  style: SfType.mono.copyWith(
+                    color: p.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (progress != null) ...[
+            const SizedBox(height: SfSpace.x12),
+            SfProgressBar(value: progress!, color: SfColors.green700),
           ],
           if (metrics.isNotEmpty) ...[
             const SizedBox(height: SfSpace.x16),
@@ -139,14 +184,18 @@ class SfTripCard extends StatelessWidget {
               ],
             ),
           ],
+          if (footer != null) ...[
+            const SizedBox(height: SfSpace.x14),
+            footer!,
+          ],
         ],
       ),
     );
   }
 
   static String _defaultLabel(SfStatus status) => switch (status) {
-    SfStatus.good => 'Hoàn thành',
-    SfStatus.pending => 'Chờ',
+    SfStatus.good => 'Đã xong',
+    SfStatus.pending => 'Chờ đi',
     SfStatus.warning => 'Cần chú ý',
     SfStatus.danger => 'Sự cố',
   };
@@ -162,126 +211,32 @@ class _RouteLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.sf;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Expanded(
+        Flexible(
           child: Text(
             origin,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: SfType.titleCard.copyWith(color: p.textPrimary),
           ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: SfSpace.x8),
-          child: Icon(Icons.arrow_forward_rounded, size: 18, color: p.accent),
+          child: Icon(
+            Icons.arrow_forward_rounded,
+            size: 18,
+            color: SfColors.green700,
+          ),
         ),
-        Expanded(
+        Flexible(
           child: Text(
             destination,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: SfType.titleCard.copyWith(color: p.textPrimary),
           ),
         ),
-      ],
-    );
-  }
-}
-
-/// Một mốc trên dòng thời gian.
-class SfTimelineEntry {
-  const SfTimelineEntry({
-    required this.title,
-    this.meta,
-    this.status = SfStatus.pending,
-    this.done = false,
-  });
-
-  final String title;
-  final String? meta;
-  final SfStatus status;
-  final bool done;
-}
-
-/// Chấm + đường nối: mốc chuyến, log cảnh báo, timeline sự cố.
-class SfTimeline extends StatelessWidget {
-  const SfTimeline({required this.entries, super.key});
-
-  final List<SfTimelineEntry> entries;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.sf;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < entries.length; i++)
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      margin: const EdgeInsets.only(top: SfSpace.x4),
-                      decoration: BoxDecoration(
-                        color: entries[i].done
-                            ? entries[i].status.inkOf(p)
-                            : p.surface,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: entries[i].status.inkOf(p),
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                    if (i != entries.length - 1)
-                      Expanded(
-                        child: Container(
-                          width: 2,
-                          color: p.border,
-                          margin: const EdgeInsets.symmetric(
-                            vertical: SfSpace.x4,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: SfSpace.x12),
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      bottom: i == entries.length - 1 ? 0 : SfSpace.x16,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entries[i].title,
-                          style: SfType.body.copyWith(
-                            color: p.textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (entries[i].meta != null) ...[
-                          const SizedBox(height: SfSpace.x4),
-                          Text(
-                            entries[i].meta!,
-                            style: SfType.meta.copyWith(
-                              color: p.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
       ],
     );
   }

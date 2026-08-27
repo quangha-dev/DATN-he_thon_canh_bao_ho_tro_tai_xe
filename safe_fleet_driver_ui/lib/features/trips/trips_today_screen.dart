@@ -7,7 +7,7 @@ import 'trip_detail_screen.dart';
 
 enum TripDayBucket { upcoming, active, completed, cancelled }
 
-enum _TripFilter { all, upcoming, active, completed }
+enum _TripFilter { all, active, upcoming, completed }
 
 TripDayBucket tripDayBucket(Object? rawStatus) {
   return switch (rawStatus?.toString().toUpperCase()) {
@@ -18,6 +18,7 @@ TripDayBucket tripDayBucket(Object? rawStatus) {
   };
 }
 
+/// Chuyến của tôi — danh sách chuyến trong ngày, nhóm theo trạng thái.
 class TripsTodayScreen extends ConsumerStatefulWidget {
   const TripsTodayScreen({super.key});
 
@@ -51,441 +52,226 @@ class _TripsTodayScreenState extends ConsumerState<TripsTodayScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final p = context.sf;
-    return Scaffold(
-      backgroundColor: p.bg,
-      appBar: AppBar(
-        title: const Text('Lịch trình hôm nay'),
-        actions: [
-          IconButton(
-            onPressed: _refresh,
-            tooltip: 'Tải lại lịch trình',
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-          const SizedBox(width: SfSpace.x4),
-        ],
-      ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return ListView(
-              padding: const EdgeInsets.all(SfSpace.x16),
+  Widget build(BuildContext context) => SfSubScreen(
+    title: 'Chuyến của tôi',
+    subtitle: 'Lịch trình hôm nay',
+    scrollable: false,
+    padding: EdgeInsets.zero,
+    trailing: SfIconButton(
+      icon: Icons.filter_list_rounded,
+      onHero: true,
+      tooltip: 'Tải lại lịch trình',
+      onTap: _refresh,
+    ),
+    child: FutureBuilder<List<Map<String, dynamic>>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return ListView(
+            padding: SfSpace.screenSub,
+            children: [
+              SfSkeleton.card(lines: 4),
+              const SizedBox(height: SfSpace.x12),
+              SfSkeleton.card(lines: 4),
+            ],
+          );
+        }
+        if (snapshot.hasError) {
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                const SfSkeleton(height: 148, radius: SfRadius.card),
-                const SizedBox(height: SfSpace.x20),
-                SfSkeleton.card(lines: 4),
-                const SizedBox(height: SfSpace.x12),
-                SfSkeleton.card(lines: 4),
+                SizedBox(height: MediaQuery.sizeOf(context).height * .15),
+                SfEmptyState(
+                  icon: Icons.cloud_off_rounded,
+                  title: 'Không tải được lịch trình',
+                  message:
+                      '${snapshot.error}\nKéo xuống để thử lại. '
+                      'Chuyến đã tải trước đó vẫn xem được.',
+                ),
               ],
-            );
-          }
-          if (snapshot.hasError) {
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  SizedBox(height: MediaQuery.sizeOf(context).height * .2),
-                  SfEmptyState(
-                    icon: Icons.cloud_off_rounded,
-                    title: 'Không tải được lịch trình',
-                    message:
-                        '${snapshot.error}\nKéo xuống để thử lại. Chuyến đã tải trước đó vẫn xem được.',
-                  ),
-                ],
-              ),
-            );
-          }
-          return _content(snapshot.data ?? const []);
-        },
-      ),
-    );
-  }
+            ),
+          );
+        }
+        return _content(snapshot.data ?? const []);
+      },
+    ),
+  );
 
   Widget _content(List<Map<String, dynamic>> trips) {
     final upcoming = _withBucket(trips, TripDayBucket.upcoming);
     final active = _withBucket(trips, TripDayBucket.active);
     final completed = _withBucket(trips, TripDayBucket.completed);
-    final visible = switch (_filter) {
-      _TripFilter.all => trips,
-      _TripFilter.upcoming => upcoming,
-      _TripFilter.active => active,
-      _TripFilter.completed => completed,
+    final counts = {
+      _TripFilter.all: trips.length,
+      _TripFilter.active: active.length,
+      _TripFilter.upcoming: upcoming.length,
+      _TripFilter.completed: completed.length,
     };
-    final sorted = [...visible]
-      ..sort((a, b) {
-        final left = DateTime.tryParse(a['plannedStartTime']?.toString() ?? '');
-        final right = DateTime.tryParse(b['plannedStartTime']?.toString() ?? '');
-        if (left == null || right == null) return 0;
-        return left.compareTo(right);
-      });
+
+    final showActive =
+        _filter == _TripFilter.all || _filter == _TripFilter.active;
+    final showUpcoming =
+        _filter == _TripFilter.all || _filter == _TripFilter.upcoming;
+    final showCompleted =
+        _filter == _TripFilter.all || _filter == _TripFilter.completed;
+
+    final visible = [
+      if (showActive) ...active,
+      if (showUpcoming) ...upcoming,
+      if (showCompleted) ...completed,
+    ];
 
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          SfSpace.x16,
-          SfSpace.x8,
-          SfSpace.x16,
-          SfSpace.x40 + SfSpace.x40,
-        ),
+        padding: SfSpace.screenSub,
         children: [
-          _DayOverview(
-            total: trips.length,
-            upcoming: upcoming.length,
-            active: active.length,
-            completed: completed.length,
-          ),
-          const SizedBox(height: SfSpace.x20),
-          _FilterBar(
-            value: _filter,
-            counts: {
-              _TripFilter.all: trips.length,
-              _TripFilter.upcoming: upcoming.length,
-              _TripFilter.active: active.length,
-              _TripFilter.completed: completed.length,
-            },
-            onChanged: (value) => setState(() => _filter = value),
-          ),
-          const SizedBox(height: SfSpace.x20),
-          if (sorted.isEmpty)
+          _filterBar(counts),
+          const SizedBox(height: SfSpace.x16),
+          if (visible.isEmpty)
             SfEmptyState(
-              icon: _filterIcon(_filter),
+              icon: Icons.event_busy_rounded,
               title: _filter == _TripFilter.all
                   ? 'Hôm nay chưa có chuyến'
                   : 'Không có chuyến ở bộ lọc này',
               message: _filter == _TripFilter.all
                   ? 'Chuyến do điều phối giao sẽ tự hiện ở đây.'
                   : 'Chọn bộ lọc khác hoặc kéo xuống để cập nhật.',
-            )
-          else
-            // Trục thời gian dọc: tài xế đọc cả ngày theo thứ tự giờ chạy,
-            // không phải theo nhóm trạng thái.
-            for (var i = 0; i < sorted.length; i++)
-              _ScheduleRow(
-                trip: sorted[i],
-                isLast: i == sorted.length - 1,
-                onTap: () => _openTrip(sorted[i]),
-              ),
+            ),
+          if (showActive)
+            for (final trip in _sorted(active)) ...[
+              _tripCard(trip, emphasized: true),
+              const SizedBox(height: SfSpace.x12),
+            ],
+          if (showUpcoming)
+            for (final trip in _sorted(upcoming)) ...[
+              _tripCard(trip),
+              const SizedBox(height: SfSpace.x12),
+            ],
+          if (showCompleted && completed.isNotEmpty) ...[
+            const SizedBox(height: SfSpace.x4),
+            const SfSectionLabel('Đã hoàn thành'),
+            const SizedBox(height: SfSpace.x10),
+            _completedGroup(_sorted(completed)),
+          ],
         ],
       ),
     );
   }
+
+  Widget _filterBar(Map<_TripFilter, int> counts) => SizedBox(
+    height: 36,
+    child: ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: _TripFilter.values.length,
+      separatorBuilder: (_, _) => const SizedBox(width: SfSpace.x8),
+      itemBuilder: (_, index) {
+        final filter = _TripFilter.values[index];
+        return SfFilterChip(
+          label: '${_filterTitle(filter)} · ${counts[filter] ?? 0}',
+          selected: filter == _filter,
+          onTap: () => setState(() => _filter = filter),
+        );
+      },
+    ),
+  );
+
+  Widget _tripCard(Map<String, dynamic> trip, {bool emphasized = false}) {
+    final status = trip['status']?.toString().toUpperCase() ?? 'ASSIGNED';
+    final risk = trip['riskLevel']?.toString().toUpperCase() ?? 'LOW';
+    final highRisk = risk == 'HIGH' || risk == 'CRITICAL';
+    final needsChecklist =
+        tripDayBucket(status) == TripDayBucket.upcoming &&
+        trip['checklistCompleted'] != true;
+
+    return SfTripCard(
+      code: trip['tripCode']?.toString() ?? 'Chuyến #${trip['id']}',
+      origin: trip['startLocation']?.toString() ?? '--',
+      destination: trip['endLocation']?.toString() ?? '--',
+      status: _statusOf(status),
+      statusLabel: _statusLabel(status),
+      riskLabel: highRisk ? 'Rủi ro cao' : null,
+      summary: _summary(trip, needsChecklist: needsChecklist),
+      departAt: _time(trip['plannedStartTime']),
+      arriveAt: _time(trip['estimatedEndTime']),
+      progress: emphasized ? _progress(trip) / 100 : null,
+      heroTag: 'trip-${trip['id']}',
+      emphasized: emphasized,
+      onTap: () => _openTrip(trip),
+    );
+  }
+
+  /// "32,5 km · hàng lạnh · 2 điểm ngập trên tuyến"
+  String _summary(Map<String, dynamic> trip, {required bool needsChecklist}) {
+    final distance = (trip['distanceKm'] as num?)?.toDouble();
+    final cargo = trip['cargoType']?.toString();
+    final floods = (trip['floodPointCount'] as num?)?.toInt() ?? 0;
+    return [
+      if (distance != null) '${distance.toStringAsFixed(1)} km',
+      if (cargo != null && cargo.isNotEmpty) cargo,
+      if (floods > 0) '$floods điểm ngập trên tuyến',
+      if (needsChecklist) 'cần checklist trước khi đi',
+    ].join(' · ');
+  }
+
+  /// Chuyến đã xong gộp trong một thẻ, mỗi dòng có icon check và điểm an toàn.
+  Widget _completedGroup(List<Map<String, dynamic>> trips) {
+    final p = context.sf;
+    return SfCard(
+      padding: const EdgeInsets.symmetric(vertical: SfSpace.x4),
+      child: Column(
+        children: [
+          for (var i = 0; i < trips.length; i++) ...[
+            if (i > 0) Divider(height: 1, color: p.border),
+            _completedRow(trips[i]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _completedRow(Map<String, dynamic> trip) {
+    final p = context.sf;
+    final score = (trip['safetyScore'] as num?)?.round();
+    final status = score == null ? SfStatus.good : SfScoreRing.statusOf(score);
+    return SfListRow(
+      leading: const SfIconTile(icon: Icons.check_rounded, size: 34),
+      title:
+          '${trip['startLocation'] ?? '--'} → ${trip['endLocation'] ?? '--'}',
+      subtitle:
+          '${_time(trip['plannedStartTime'])} · '
+          '${trip['tripCode'] ?? 'Chuyến #${trip['id']}'}',
+      trailing: score == null
+          ? null
+          : Text(
+              '$scoređ',
+              style: SfType.mono.copyWith(
+                color: status.inkOf(p),
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+      onTap: () => _openTrip(trip),
+    );
+  }
+
+  List<Map<String, dynamic>> _sorted(List<Map<String, dynamic>> trips) =>
+      [...trips]..sort((a, b) {
+        final left = DateTime.tryParse(a['plannedStartTime']?.toString() ?? '');
+        final right = DateTime.tryParse(
+          b['plannedStartTime']?.toString() ?? '',
+        );
+        if (left == null || right == null) return 0;
+        return left.compareTo(right);
+      });
 
   List<Map<String, dynamic>> _withBucket(
     List<Map<String, dynamic>> trips,
     TripDayBucket bucket,
   ) => trips.where((trip) => tripDayBucket(trip['status']) == bucket).toList();
-}
-
-/// Một dòng lịch trình: cột giờ bên trái + thẻ chuyến bên phải.
-class _ScheduleRow extends StatelessWidget {
-  const _ScheduleRow({
-    required this.trip,
-    required this.isLast,
-    required this.onTap,
-  });
-
-  final Map<String, dynamic> trip;
-  final bool isLast;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.sf;
-    final status = trip['status']?.toString().toUpperCase() ?? 'ASSIGNED';
-    final bucket = tripDayBucket(status);
-    final tone = _statusOf(status);
-    final active = bucket == TripDayBucket.active;
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 52,
-            child: Column(
-              children: [
-                Text(
-                  _time(trip['plannedStartTime']),
-                  style: SfType.mono.copyWith(
-                    color: active ? p.accent : p.textSecondary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: SfSpace.x8),
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: active ? tone.inkOf(p) : p.surface,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: tone.inkOf(p), width: 2),
-                  ),
-                ),
-                if (!isLast)
-                  Expanded(
-                    child: Container(
-                      width: 2,
-                      margin: const EdgeInsets.symmetric(
-                        vertical: SfSpace.x4,
-                      ),
-                      color: p.border,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: SfSpace.x12),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : SfSpace.x16),
-              child: SfTripCard(
-                code: trip['tripCode']?.toString() ?? 'Chuyến #${trip['id']}',
-                origin: trip['startLocation']?.toString() ?? '--',
-                destination: trip['endLocation']?.toString() ?? '--',
-                status: tone,
-                statusLabel: _statusLabel(status),
-                heroTag: 'trip-${trip['id']}',
-                emphasized: active,
-                plate: trip['vehiclePlateNumber']?.toString(),
-                metrics: [
-                  SfTripMetric(
-                    'Dự kiến',
-                    _duration(trip),
-                    icon: Icons.timelapse_rounded,
-                  ),
-                  SfTripMetric(
-                    'Rủi ro',
-                    _riskLabel(trip['riskLevel']?.toString() ?? 'LOW'),
-                    icon: Icons.shield_outlined,
-                  ),
-                  if (active)
-                    SfTripMetric(
-                      'Tiến độ',
-                      '${_progress(trip).round()}%',
-                      icon: Icons.trending_up_rounded,
-                    ),
-                ],
-                onTap: onTap,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Dải tổng quan ngày — nền tối để tách khỏi danh sách phía dưới.
-class _DayOverview extends StatelessWidget {
-  const _DayOverview({
-    required this.total,
-    required this.upcoming,
-    required this.active,
-    required this.completed,
-  });
-
-  final int total;
-  final int upcoming;
-  final int active;
-  final int completed;
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final progress = total == 0 ? 0.0 : completed / total;
-    return Container(
-      padding: const EdgeInsets.all(SfSpace.x20),
-      decoration: const BoxDecoration(
-        color: SfColors.navy,
-        borderRadius: SfRadius.cardR,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: SfTouch.min,
-                height: SfTouch.min,
-                decoration: const BoxDecoration(
-                  color: SfColors.navy700,
-                  borderRadius: SfRadius.controlR,
-                ),
-                child: Center(
-                  child: Text(
-                    now.day.toString().padLeft(2, '0'),
-                    style: SfType.titleCard.copyWith(
-                      color: SfColors.darkTextPrimary,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: SfSpace.x12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _weekday(now.weekday),
-                      style: SfType.titleCard.copyWith(
-                        color: SfColors.darkTextPrimary,
-                      ),
-                    ),
-                    Text(
-                      'Tháng ${now.month}, ${now.year}',
-                      style: SfType.meta.copyWith(
-                        color: SfColors.darkTextSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: SfSpace.x12,
-                  vertical: SfSpace.x4 + 2,
-                ),
-                decoration: const BoxDecoration(
-                  color: SfColors.navy700,
-                  borderRadius: SfRadius.pillR,
-                ),
-                child: Text(
-                  '$total chuyến',
-                  style: SfType.mono.copyWith(color: SfColors.mint),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: SfSpace.x20),
-          Row(
-            children: [
-              _metric('Chưa đi', upcoming),
-              _divider(),
-              _metric('Đang chạy', active, accent: SfColors.mint),
-              _divider(),
-              _metric('Đã đi', completed),
-            ],
-          ),
-          const SizedBox(height: SfSpace.x16),
-          Row(
-            children: [
-              Text(
-                'Tiến độ ngày',
-                style: SfType.meta.copyWith(color: SfColors.darkTextSecondary),
-              ),
-              const Spacer(),
-              Text(
-                '${(progress * 100).round()}%',
-                style: SfType.mono.copyWith(color: SfColors.darkTextPrimary),
-              ),
-            ],
-          ),
-          const SizedBox(height: SfSpace.x8),
-          ClipRRect(
-            borderRadius: SfRadius.pillR,
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: SfColors.navy700,
-              valueColor: const AlwaysStoppedAnimation<Color>(SfColors.mint),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _metric(String label, int value, {Color? accent}) => Expanded(
-    child: Column(
-      children: [
-        Text(
-          '$value',
-          style: SfType.titleScreen.copyWith(
-            color: accent ?? SfColors.darkTextPrimary,
-          ),
-        ),
-        const SizedBox(height: SfSpace.x4),
-        Text(
-          label.toUpperCase(),
-          style: SfType.label.copyWith(color: SfColors.darkTextSecondary),
-        ),
-      ],
-    ),
-  );
-
-  Widget _divider() =>
-      Container(width: 1, height: SfSpace.x32, color: SfColors.navy700);
-}
-
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({
-    required this.value,
-    required this.counts,
-    required this.onChanged,
-  });
-
-  final _TripFilter value;
-  final Map<_TripFilter, int> counts;
-  final ValueChanged<_TripFilter> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.sf;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _TripFilter.values.map((filter) {
-          final selected = filter == value;
-          return Padding(
-            padding: const EdgeInsets.only(right: SfSpace.x8),
-            child: Material(
-              color: selected ? p.accent : p.surface,
-              borderRadius: SfRadius.pillR,
-              child: InkWell(
-                borderRadius: SfRadius.pillR,
-                onTap: () => onChanged(filter),
-                child: Container(
-                  height: SfTouch.min,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: SfSpace.x16,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: SfRadius.pillR,
-                    border: Border.all(
-                      color: selected ? p.accent : p.border,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _filterIcon(filter),
-                        size: 17,
-                        color: selected ? p.onAccent : p.textSecondary,
-                      ),
-                      const SizedBox(width: SfSpace.x8),
-                      Text(
-                        '${_filterTitle(filter)} ${counts[filter] ?? 0}',
-                        style: SfType.meta.copyWith(
-                          color: selected ? p.onAccent : p.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
 }
 
 double _progress(Map<String, dynamic> trip) =>
@@ -501,25 +287,11 @@ SfStatus _statusOf(String status) => switch (status) {
   _ => SfStatus.pending,
 };
 
-String _riskLabel(String value) => switch (value.toUpperCase()) {
-  'CRITICAL' => 'Rất cao',
-  'HIGH' => 'Cao',
-  'MEDIUM' => 'Vừa',
-  _ => 'Thấp',
-};
-
 String _filterTitle(_TripFilter filter) => switch (filter) {
   _TripFilter.all => 'Tất cả',
-  _TripFilter.upcoming => 'Chưa đi',
   _TripFilter.active => 'Đang chạy',
-  _TripFilter.completed => 'Đã đi',
-};
-
-IconData _filterIcon(_TripFilter filter) => switch (filter) {
-  _TripFilter.all => Icons.view_agenda_outlined,
-  _TripFilter.upcoming => Icons.schedule_rounded,
-  _TripFilter.active => Icons.navigation_rounded,
-  _TripFilter.completed => Icons.task_alt_rounded,
+  _TripFilter.upcoming => 'Chờ đi',
+  _TripFilter.completed => 'Đã xong',
 };
 
 String _statusLabel(String status) => switch (status) {
@@ -539,26 +311,6 @@ String _statusLabel(String status) => switch (status) {
 String _time(Object? value) {
   final date = DateTime.tryParse(value?.toString() ?? '');
   if (date == null) return '--:--';
-  return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  return '${date.hour.toString().padLeft(2, '0')}:'
+      '${date.minute.toString().padLeft(2, '0')}';
 }
-
-String _duration(Map<String, dynamic> trip) {
-  final start = DateTime.tryParse(trip['plannedStartTime']?.toString() ?? '');
-  final end = DateTime.tryParse(trip['estimatedEndTime']?.toString() ?? '');
-  if (start == null || end == null || !end.isAfter(start)) return '--';
-  final minutes = end.difference(start).inMinutes;
-  if (minutes < 60) return '$minutes phút';
-  final hours = minutes ~/ 60;
-  final remain = minutes % 60;
-  return remain == 0 ? '$hours giờ' : '${hours}g $remain phút';
-}
-
-String _weekday(int weekday) => switch (weekday) {
-  DateTime.monday => 'Thứ Hai',
-  DateTime.tuesday => 'Thứ Ba',
-  DateTime.wednesday => 'Thứ Tư',
-  DateTime.thursday => 'Thứ Năm',
-  DateTime.friday => 'Thứ Sáu',
-  DateTime.saturday => 'Thứ Bảy',
-  _ => 'Chủ Nhật',
-};

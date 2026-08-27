@@ -3,3 +3,5 @@ pydantic==2.11.7
 uvicorn[standard]==0.35.0
 python-multipart==0.0.20
 cryptography==45.0.5
+psycopg[binary]==3.2.9
+sentence-transformers==5.1.0

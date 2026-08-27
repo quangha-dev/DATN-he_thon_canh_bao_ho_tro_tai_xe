@@ -232,7 +232,7 @@ export default function SettingsPage() {
   return (
     <form onSubmit={handleSave} className="grid items-start gap-5 lg:grid-cols-2">
       {/* ============ Cột trái: ngưỡng giờ lái + bộ lọc AI ============ */}
-      <div className="sf-surface p-7">
+      <div className="sf-surface p-5 sm:p-7">
         <div className="mb-6 flex items-center gap-3">
           <span className="sf-icon-chip">
             <Clock className="h-5 w-5" />
@@ -277,7 +277,7 @@ export default function SettingsPage() {
                   value={maxContinuousDriving}
                   onChange={(e) => setMaxContinuousDriving(Number(e.target.value))}
                   aria-label="Giới hạn lái liên tục tối đa (phút)"
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  className="absolute inset-0 m-0 h-full w-full cursor-pointer opacity-0"
                 />
                 <span
                   aria-hidden
@@ -357,7 +357,7 @@ export default function SettingsPage() {
 
       {/* ============ Cột phải: kết nối + trợ lý ============ */}
       <div className="grid gap-5">
-        <div className="sf-surface p-7">
+        <div className="sf-surface p-5 sm:p-7">
           <div className="mb-5 flex items-center gap-3">
             <span
               className="grid h-[38px] w-[38px] flex-none place-items-center rounded-[14px]"
@@ -393,7 +393,7 @@ export default function SettingsPage() {
         </div>
 
         {user?.role === "ADMIN" && (
-          <div className="sf-surface p-7">
+          <div className="sf-surface p-5 sm:p-7">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
                 <span

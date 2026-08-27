@@ -17,6 +17,8 @@ public class DockerSecurityConfigurationValidator {
     private final String evidenceProvider;
     private final String minioAccessKey;
     private final String minioSecretKey;
+    private final boolean aiServiceEnabled;
+    private final String aiInternalToken;
 
     public DockerSecurityConfigurationValidator(
             @Value("${app.jwt.secret}") String jwtSecret,
@@ -24,13 +26,17 @@ public class DockerSecurityConfigurationValidator {
             @Value("${app.cors.allowed-origins}") String corsAllowedOrigins,
             @Value("${app.evidence.provider}") String evidenceProvider,
             @Value("${app.evidence.minio.access-key:}") String minioAccessKey,
-            @Value("${app.evidence.minio.secret-key:}") String minioSecretKey) {
+            @Value("${app.evidence.minio.secret-key:}") String minioSecretKey,
+            @Value("${app.ai-service.enabled:false}") boolean aiServiceEnabled,
+            @Value("${app.ai-service.internal-token:}") String aiInternalToken) {
         this.jwtSecret = jwtSecret;
         this.databasePassword = databasePassword;
         this.corsAllowedOrigins = corsAllowedOrigins;
         this.evidenceProvider = evidenceProvider;
         this.minioAccessKey = minioAccessKey;
         this.minioSecretKey = minioSecretKey;
+        this.aiServiceEnabled = aiServiceEnabled;
+        this.aiInternalToken = aiInternalToken;
     }
 
     @PostConstruct
@@ -47,6 +53,14 @@ public class DockerSecurityConfigurationValidator {
         if ("minio".equalsIgnoreCase(evidenceProvider)) {
             requireSecret("MINIO_ROOT_USER/MINIO_ACCESS_KEY", minioAccessKey, 3);
             requireSecret("MINIO_ROOT_PASSWORD/MINIO_SECRET_KEY", minioSecretKey, 12);
+        }
+        if (aiServiceEnabled) {
+            requireSecret("AI_INTERNAL_TOKEN", aiInternalToken, 32);
+            if (jwtSecret.trim().equals(aiInternalToken.trim())) {
+                throw new IllegalStateException(
+                        "AI_INTERNAL_TOKEN phải độc lập với JWT_SECRET"
+                );
+            }
         }
     }
 

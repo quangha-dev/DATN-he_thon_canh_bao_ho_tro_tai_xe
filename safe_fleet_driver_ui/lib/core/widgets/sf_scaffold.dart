@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../design/motion.dart';
 import '../design/tokens.dart';
 import 'sf_card.dart';
+import 'sf_surfaces.dart';
 
 /// Khung màn chuẩn: tiêu đề + phụ đề + hành động, padding thống nhất, và một
 /// chỗ duy nhất xử lý loading / empty / error cho mọi màn.
@@ -109,6 +110,81 @@ class SfScreenScaffold extends StatelessWidget {
   }
 }
 
+/// Khung màn con: header gradient xanh, thân cuộn, thanh hành động dính đáy.
+///
+/// Dock ẩn ở màn con nên thân màn chỉ chừa padding thường, không chừa 108px.
+class SfSubScreen extends StatelessWidget {
+  const SfSubScreen({
+    required this.title,
+    required this.child,
+    super.key,
+    this.subtitle,
+    this.trailing,
+    this.headerBottom,
+    this.bottomBar,
+    this.padding = SfSpace.screenSub,
+    this.scrollable = true,
+    this.onBack,
+    this.background,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+
+  /// Nội dung thêm trong header gradient — ví dụ 3 ô số của Chi tiết chuyến.
+  final Widget? headerBottom;
+
+  final Widget child;
+
+  /// Thanh hành động dính đáy, nằm ngoài vùng cuộn.
+  final Widget? bottomBar;
+
+  final EdgeInsets padding;
+  final bool scrollable;
+  final VoidCallback? onBack;
+  final Color? background;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.sf;
+    final body = scrollable
+        ? SingleChildScrollView(padding: padding, child: child)
+        : Padding(padding: padding, child: child);
+
+    return Scaffold(
+      backgroundColor: background ?? p.bg,
+      body: Column(
+        children: [
+          SfGradientHeader(
+            title: title,
+            subtitle: subtitle,
+            trailing: trailing,
+            onBack: onBack,
+            bottom: headerBottom,
+          ),
+          Expanded(child: body),
+        ],
+      ),
+      bottomNavigationBar: bottomBar == null
+          ? null
+          : Container(
+              padding: EdgeInsets.fromLTRB(
+                SfSpace.x16,
+                SfSpace.x12,
+                SfSpace.x16,
+                MediaQuery.paddingOf(context).bottom + SfSpace.x12,
+              ),
+              decoration: BoxDecoration(
+                color: p.surface,
+                border: Border(top: BorderSide(color: p.border)),
+              ),
+              child: bottomBar,
+            ),
+    );
+  }
+}
+
 /// Tiêu đề màn: một thông tin quan trọng nhất, to nhất.
 class SfScreenTitle extends StatelessWidget {
   const SfScreenTitle({
@@ -158,7 +234,8 @@ class SfScreenTitle extends StatelessWidget {
 /// Bottom sheet 3 mức snap: peek / nửa / toàn phần.
 ///
 /// Bám ngón tay khi kéo, snap theo vận tốc. Nội dung nền (bản đồ) tự mờ và
-/// thu nhỏ khi sheet lên mức cao nhất — xem [SfSheetScope.progress].
+/// thu nhỏ khi sheet lên mức cao nhất; màn Chế độ lái tự theo dõi kích thước
+/// sheet qua [DraggableScrollableController] để làm việc đó.
 class SfSheet extends StatelessWidget {
   const SfSheet({
     required this.builder,

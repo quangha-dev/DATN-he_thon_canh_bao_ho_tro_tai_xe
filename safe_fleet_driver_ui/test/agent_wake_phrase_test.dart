@@ -19,5 +19,25 @@ void main() {
         'còn bao xa nữa',
       );
     });
+
+    test('không phụ thuộc chữ hoa thường hay khoảng trắng thừa', () {
+      expect(agentWakeRemainder('  HEY SAFEFLEET  báo ngập  '), 'báo ngập');
+      expect(agentWakeRemainder('SafeFleet ơi'), '');
+    });
+
+    test('cụm dài được ưu tiên khớp trước cụm ngắn', () {
+      // Nếu "safe fleet" khớp trước thì phần còn lại sẽ dính chữ "hey".
+      expect(agentWakeRemainder('hey safe fleet mở bản đồ'), 'mở bản đồ');
+      expect(agentWakeRemainder('trợ lý safefleet mở bản đồ'), 'mở bản đồ');
+    });
+
+    test('chính câu trả lời của trợ lý cũng khớp tên gọi', () {
+      // Đây là lý do micro phải tắt trong lúc trợ lý đang đọc: nếu vẫn nghe,
+      // máy sẽ nghe thấy tên mình trong câu trả lời và tự kích hoạt vòng lặp.
+      expect(
+        agentWakeRemainder('Tôi là trợ lý SafeFleet, bạn cần gì ạ'),
+        isNotNull,
+      );
+    });
   });
 }

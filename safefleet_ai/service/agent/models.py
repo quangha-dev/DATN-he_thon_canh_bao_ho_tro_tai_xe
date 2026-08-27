@@ -34,13 +34,20 @@ class AgentClientAction(CamelModel):
     type: str
     destination: str
     trip_id: int | None = None
+    destination_name: str | None = None
+    destination_address: str | None = None
+    destination_lat: float | None = None
+    destination_lng: float | None = None
+    auto_start: bool = False
 
 
 class AgentConfirmationRequest(CamelModel):
     type: str
     action: str
-    trip_id: int
+    trip_id: int | None = None
     note: str | None = None
+    severity: str | None = None
+    description: str | None = None
     prompt: str
 
 

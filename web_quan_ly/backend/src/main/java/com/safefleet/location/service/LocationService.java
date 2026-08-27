@@ -5,7 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.safefleet.location.dto.request.RouteRequest;
 import com.safefleet.location.dto.response.LocationSuggestionResponse;
 import com.safefleet.location.dto.response.RouteResponse;
+import com.safefleet.navigation.provider.RoutingProvider;
+import com.safefleet.navigation.provider.RoutingProvider.GeoPoint;
+import com.safefleet.navigation.provider.RoutingProvider.ProviderRoute;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -24,6 +28,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class LocationService {
 
     private static final double HANOI_LAT = 21.0285;
@@ -31,9 +36,19 @@ public class LocationService {
     private static final double FALLBACK_AVERAGE_SPEED_KMH = 35.0;
 
     private final ObjectMapper objectMapper;
+    private final RoutingProvider routingProvider;
+
+    @Value("${app.google-maps.server-api-key:}")
+    private String googleMapsApiKey;
+
+    @Value("${app.google-maps.places-text-search-url:https://places.googleapis.com/v1/places:searchText}")
+    private String placesTextSearchUrl;
 
     @Value("${app.location.photon-url:https://photon.komoot.io/api/}")
     private String photonUrl;
+
+    @Value("${app.location.photon-reverse-url:}")
+    private String photonReverseUrl;
 
     @Value("${app.location.osrm-url:https://router.project-osrm.org/route/v1/driving}")
     private String osrmUrl;
@@ -48,13 +63,23 @@ public class LocationService {
             return List.of();
         }
 
+        if (googleMapsApiKey != null && !googleMapsApiKey.isBlank()) {
+            try {
+                List<LocationSuggestionResponse> googleResults = searchGooglePlaces(normalizedQuery, limit);
+                if (!googleResults.isEmpty()) {
+                    return googleResults;
+                }
+            } catch (Exception exception) {
+                log.debug("Google Places unavailable: {}", exception.getClass().getSimpleName());
+            }
+        }
+
         try {
             URI uri = UriComponentsBuilder.fromUriString(photonUrl)
                     .queryParam("q", normalizedQuery)
                     .queryParam("limit", limit)
                     .queryParam("lat", HANOI_LAT)
                     .queryParam("lon", HANOI_LNG)
-                    .queryParam("lang", "vi")
                     .build()
                     .encode()
                     .toUri();
@@ -71,45 +96,142 @@ public class LocationService {
                 if (!suggestions.isEmpty()) {
                     return suggestions;
                 }
+            } else {
+                log.debug("Photon autocomplete returned HTTP {}", response.statusCode());
             }
-        } catch (Exception ignored) {
+        } catch (Exception exception) {
+            log.debug("Photon autocomplete unavailable: {}", exception.getClass().getSimpleName());
             // Fallback below keeps dispatch form usable during public API/network failures.
         }
 
         return fallbackLocations(normalizedQuery, limit);
     }
 
-    public RouteResponse route(RouteRequest request) {
+    /**
+     * Names the point a driver dropped on the map.
+     *
+     * <p>A pin is only useful if it can be read back as a place: the driver has
+     * to recognise it in the route sheet, and the fleet has to see something
+     * other than a pair of decimals in the trip record. When the geocoder is
+     * unreachable the coordinates themselves are returned, because a pin that
+     * cannot be named must still be navigable.</p>
+     */
+    public LocationSuggestionResponse reverse(double lat, double lng) {
         try {
-            String coordinates = "%s,%s;%s,%s".formatted(
-                    request.startLng(), request.startLat(), request.endLng(), request.endLat());
-            URI uri = UriComponentsBuilder
-                    .fromUriString(osrmUrl + "/" + coordinates)
-                    .queryParam("overview", "full")
-                    .queryParam("geometries", "geojson")
-                    .queryParam("steps", "false")
+            URI uri = UriComponentsBuilder.fromUriString(reverseUrl())
+                    .queryParam("lat", lat)
+                    .queryParam("lon", lng)
+                    .queryParam("limit", 1)
                     .build()
                     .encode()
                     .toUri();
-
-            HttpRequest httpRequest = HttpRequest.newBuilder(uri)
-                    .timeout(Duration.ofSeconds(6))
+            HttpRequest request = HttpRequest.newBuilder(uri)
+                    .timeout(Duration.ofSeconds(5))
                     .header("User-Agent", "SafeFleet-DATN/1.0")
                     .GET()
                     .build();
-
-            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                RouteResponse route = parseOsrm(response.body());
-                if (route != null) {
-                    return route;
+                List<LocationSuggestionResponse> parsed = parsePhoton(response.body(), 1);
+                if (!parsed.isEmpty()) {
+                    LocationSuggestionResponse place = parsed.get(0);
+                    // Keep the dropped coordinates, not the centroid of the
+                    // matched street: the driver pointed at a specific spot.
+                    return new LocationSuggestionResponse(
+                            place.id(),
+                            place.name(),
+                            place.address(),
+                            lat,
+                            lng,
+                            "MAP_PIN"
+                    );
                 }
             }
-        } catch (Exception ignored) {
-            // Public OSRM can be unavailable or blocked. Use deterministic fallback below.
+        } catch (Exception exception) {
+            log.debug("Photon reverse unavailable: {}", exception.getClass().getSimpleName());
         }
+        return droppedPin(lat, lng);
+    }
 
+    private LocationSuggestionResponse droppedPin(double lat, double lng) {
+        return new LocationSuggestionResponse(
+                "pin-%s-%s".formatted(round(lat), round(lng)),
+                "Vị trí đã chọn trên bản đồ",
+                "%.5f, %.5f".formatted(lat, lng),
+                lat,
+                lng,
+                "MAP_PIN"
+        );
+    }
+
+    private String reverseUrl() {
+        if (photonReverseUrl != null && !photonReverseUrl.isBlank()) {
+            return photonReverseUrl.trim();
+        }
+        // Photon serves reverse geocoding next to /api, not under it.
+        return photonUrl.trim().replaceAll("/api/?$", "") + "/reverse";
+    }
+
+    public RouteResponse route(RouteRequest request) {
+        List<ProviderRoute> routes = routingProvider.routes(List.of(
+                new GeoPoint(request.startLat(), request.startLng()),
+                new GeoPoint(request.endLat(), request.endLng())
+        ), false);
+        if (!routes.isEmpty()) {
+            ProviderRoute route = routes.get(0);
+            return new RouteResponse(
+                    roundOne(route.distanceMeters() / 1000.0),
+                    Math.max(1, Math.round(route.durationSeconds() / 60.0)),
+                    route.geometry().stream()
+                            .map(point -> List.of(point.lng(), point.lat()))
+                            .toList(),
+                    route.provider(),
+                    route.fallback(),
+                    route.fallback() ? "Đang dùng tuyến dự phòng" : "Tính tuyến thành công"
+            );
+        }
         return fallbackRoute(request);
+    }
+
+    private List<LocationSuggestionResponse> searchGooglePlaces(String query, int limit) throws Exception {
+        Map<String, Object> body = Map.of(
+                "textQuery", query,
+                "maxResultCount", Math.min(10, Math.max(1, limit)),
+                "languageCode", "vi",
+                "regionCode", "VN",
+                "locationBias", Map.of("circle", Map.of(
+                        "center", Map.of("latitude", HANOI_LAT, "longitude", HANOI_LNG),
+                        "radius", 50000.0
+                ))
+        );
+        HttpRequest request = HttpRequest.newBuilder(URI.create(placesTextSearchUrl))
+                .timeout(Duration.ofSeconds(6))
+                .header("Content-Type", "application/json")
+                .header("X-Goog-Api-Key", googleMapsApiKey.trim())
+                .header("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.location")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            log.warn("Google Places returned HTTP {}; using Photon/local fallback", response.statusCode());
+            return List.of();
+        }
+        List<LocationSuggestionResponse> results = new ArrayList<>();
+        for (JsonNode place : objectMapper.readTree(response.body()).path("places")) {
+            JsonNode location = place.path("location");
+            if (!location.has("latitude") || !location.has("longitude")) continue;
+            String address = place.path("formattedAddress").asText("");
+            String name = place.path("displayName").path("text").asText(address);
+            results.add(new LocationSuggestionResponse(
+                    place.path("id").asText(),
+                    name,
+                    address,
+                    location.path("latitude").asDouble(),
+                    location.path("longitude").asDouble(),
+                    "GOOGLE_PLACES"
+            ));
+        }
+        return results;
     }
 
     private List<LocationSuggestionResponse> parsePhoton(String body, int limit) throws Exception {

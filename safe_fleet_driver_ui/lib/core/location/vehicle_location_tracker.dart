@@ -85,7 +85,7 @@ class VehicleLocationTracker {
           notificationChannelName: 'Theo dõi vị trí xe',
           enableWakeLock: true,
           setOngoing: true,
-          color: SfColors.teal,
+          color: SfColors.green700,
         ),
       );
     }

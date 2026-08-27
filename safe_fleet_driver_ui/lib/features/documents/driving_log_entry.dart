@@ -53,6 +53,8 @@ class DrivingLogEntry {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.confirmationId,
+    this.confirmedAt,
   });
 
   final String id;
@@ -78,6 +80,13 @@ class DrivingLogEntry {
   final DrivingLogStatus status;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? confirmationId;
+  final DateTime? confirmedAt;
+
+  bool get isConfirmed =>
+      confirmationId != null &&
+      confirmationId!.isNotEmpty &&
+      confirmedAt != null;
 
   int get totalCost =>
       (mealCost ?? 0) + (ruleCost ?? 0) + (tyreCost ?? 0) + (otherCost ?? 0);
@@ -128,6 +137,8 @@ class DrivingLogEntry {
     String? voucherNumber,
     DrivingLogStatus? status,
     DateTime? updatedAt,
+    String? confirmationId,
+    DateTime? confirmedAt,
   }) => DrivingLogEntry(
     id: id,
     imagePath: imagePath ?? this.imagePath,
@@ -152,6 +163,8 @@ class DrivingLogEntry {
     status: status ?? this.status,
     createdAt: createdAt,
     updatedAt: updatedAt ?? DateTime.now(),
+    confirmationId: confirmationId ?? this.confirmationId,
+    confirmedAt: confirmedAt ?? this.confirmedAt,
   );
 
   Map<String, Object?> toDatabase() => {
@@ -178,6 +191,8 @@ class DrivingLogEntry {
     'status': status.databaseValue,
     'created_at': createdAt.toIso8601String(),
     'updated_at': updatedAt.toIso8601String(),
+    'confirmation_id': confirmationId,
+    'confirmed_at': confirmedAt?.toIso8601String(),
   };
 
   factory DrivingLogEntry.fromDatabase(Map<String, Object?> row) {
@@ -216,6 +231,8 @@ class DrivingLogEntry {
       updatedAt:
           DateTime.tryParse(row['updated_at']?.toString() ?? '') ??
           DateTime.now(),
+      confirmationId: row['confirmation_id']?.toString(),
+      confirmedAt: DateTime.tryParse(row['confirmed_at']?.toString() ?? ''),
     );
   }
 }

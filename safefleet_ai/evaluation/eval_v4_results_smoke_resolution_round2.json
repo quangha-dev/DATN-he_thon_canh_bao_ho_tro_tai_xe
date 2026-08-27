@@ -1,0 +1,1703 @@
+{
+  "dataset": "safefleet-agent-gold-v4-progressive-50",
+  "snapshotId": "safefleet-v4-b05663d29a71b3f0",
+  "referenceDatetime": "2026-08-25T10:32:16+07:00",
+  "mode": "LIVE_AGENT_V4_MULTI_TURN",
+  "historyMode": "actual",
+  "snapshotPreflight": {
+    "matches": true,
+    "expectedSnapshotId": "safefleet-v4-b05663d29a71b3f0",
+    "actualSnapshotId": "safefleet-v4-b05663d29a71b3f0",
+    "expectedFingerprint": "b05663d29a71b3f0b19907e2b6286782c30fdcc7c18ae0d2abcee47b4cf12857",
+    "actualFingerprint": "b05663d29a71b3f0b19907e2b6286782c30fdcc7c18ae0d2abcee47b4cf12857",
+    "capturedAt": "2026-08-25T11:44:29+07:00"
+  },
+  "selection": {
+    "level": 0,
+    "split": "all",
+    "ids": [
+      "SFV4-015",
+      "SFV4-032",
+      "SFV4-033",
+      "SFV4-034",
+      "SFV4-035",
+      "SFV4-036",
+      "SFV4-037",
+      "SFV4-039",
+      "SFV4-041",
+      "SFV4-042",
+      "SFV4-043",
+      "SFV4-044",
+      "SFV4-045",
+      "SFV4-048",
+      "SFV4-049",
+      "SFV4-050"
+    ]
+  },
+  "summary": {
+    "total": 16,
+    "passed": 5,
+    "failed": 11,
+    "passRate": 0.3125,
+    "durationSeconds": 286.065,
+    "averageLatencySeconds": 15.45,
+    "classificationCounts": {
+      "PASS": 5,
+      "TOOL_CALL_CONTRACT_MISMATCH": 2,
+      "QUALITY_MISMATCH": 3,
+      "SYSTEM_OR_TOOL_ERROR": 1,
+      "EVALUATOR_ERROR": 5
+    },
+    "averageScores": {
+      "coherence": 1.0,
+      "completeness": 0.7388,
+      "correctness": 0.7388,
+      "relevance": 0.5562,
+      "taskCompletion": 0.8883,
+      "toolCallContractF1": 0.8477,
+      "toolCallContractPrecision": 0.846,
+      "toolCallContractRecall": 0.9167,
+      "toolF1": 0.8884
+    },
+    "categories": {
+      "agent_data": {
+        "total": 1,
+        "passed": 1,
+        "passRate": 1.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 0.75,
+          "correctness": 0.75,
+          "relevance": 0.5348,
+          "taskCompletion": 0.96,
+          "toolCallContractF1": 0.8,
+          "toolCallContractPrecision": 0.6667,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 0.8
+        }
+      },
+      "reasoning_risk": {
+        "total": 1,
+        "passed": 1,
+        "passRate": 1.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 1.0,
+          "correctness": 1.0,
+          "relevance": 0.8779,
+          "taskCompletion": 1.0,
+          "toolCallContractF1": 1.0,
+          "toolCallContractPrecision": 1.0,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 1.0
+        }
+      },
+      "reasoning_comparison": {
+        "total": 1,
+        "passed": 0,
+        "passRate": 0.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 0.7143,
+          "correctness": 0.7143,
+          "relevance": 0.3956,
+          "taskCompletion": 0.95,
+          "toolCallContractF1": 0.75,
+          "toolCallContractPrecision": 0.75,
+          "toolCallContractRecall": 0.75,
+          "toolF1": 1.0
+        }
+      },
+      "reasoning_consistency": {
+        "total": 1,
+        "passed": 0,
+        "passRate": 0.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 0.7143,
+          "correctness": 0.7143,
+          "relevance": 0.5841,
+          "taskCompletion": 1.0,
+          "toolCallContractF1": 1.0,
+          "toolCallContractPrecision": 1.0,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 1.0
+        }
+      },
+      "reasoning_reconciliation": {
+        "total": 1,
+        "passed": 1,
+        "passRate": 1.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 1.0,
+          "correctness": 1.0,
+          "relevance": 0.904,
+          "taskCompletion": 1.0,
+          "toolCallContractF1": 1.0,
+          "toolCallContractPrecision": 1.0,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 1.0
+        }
+      },
+      "reasoning_alerts": {
+        "total": 1,
+        "passed": 1,
+        "passRate": 1.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 1.0,
+          "correctness": 1.0,
+          "relevance": 0.6707,
+          "taskCompletion": 1.0,
+          "toolCallContractF1": 1.0,
+          "toolCallContractPrecision": 1.0,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 1.0
+        }
+      },
+      "reasoning_temporal": {
+        "total": 2,
+        "passed": 1,
+        "passRate": 0.5,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 1.0,
+          "correctness": 1.0,
+          "relevance": 0.7848,
+          "taskCompletion": 1.0,
+          "toolCallContractF1": 1.0,
+          "toolCallContractPrecision": 1.0,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 1.0
+        }
+      },
+      "reasoning_route": {
+        "total": 1,
+        "passed": 0,
+        "passRate": 0.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 0.8571,
+          "correctness": 0.8571,
+          "relevance": 0.3714,
+          "taskCompletion": 0.6,
+          "toolCallContractF1": 0.5,
+          "toolCallContractPrecision": 1.0,
+          "toolCallContractRecall": 0.3333,
+          "toolF1": 0.6667
+        }
+      },
+      "reasoning_checklist": {
+        "total": 1,
+        "passed": 0,
+        "passRate": 0.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 0.0909,
+          "correctness": 0.0909,
+          "relevance": 0.2919,
+          "taskCompletion": 0.5778,
+          "toolCallContractF1": 0.9412,
+          "toolCallContractPrecision": 0.8889,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 0.8889
+        }
+      },
+      "reasoning_prioritization": {
+        "total": 1,
+        "passed": 0,
+        "passRate": 0.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 0.0,
+          "correctness": 0.0,
+          "relevance": 0.1989,
+          "taskCompletion": 0.75,
+          "toolCallContractF1": 0.6667,
+          "toolCallContractPrecision": 0.5,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 0.75
+        }
+      },
+      "reasoning_action": {
+        "total": 1,
+        "passed": 0,
+        "passRate": 0.0,
+        "averageScores": {
+          "coherence": 1.0,
+          "completeness": 1.0,
+          "correctness": 1.0,
+          "relevance": 0.5044,
+          "taskCompletion": 0.9333,
+          "toolCallContractF1": 0.6667,
+          "toolCallContractPrecision": 0.5,
+          "toolCallContractRecall": 1.0,
+          "toolF1": 0.6667
+        }
+      },
+      "reasoning_safety": {
+        "total": 2,
+        "passed": 0,
+        "passRate": 0.0,
+        "averageScores": {}
+      },
+      "reasoning_scope": {
+        "total": 1,
+        "passed": 0,
+        "passRate": 0.0,
+        "averageScores": {}
+      },
+      "reasoning_synthesis": {
+        "total": 1,
+        "passed": 0,
+        "passRate": 0.0,
+        "averageScores": {}
+      }
+    }
+  },
+  "levels": {
+    "2": {
+      "total": 1,
+      "passed": 1,
+      "passRate": 1.0,
+      "averageDurationSeconds": 22.534
+    },
+    "4": {
+      "total": 7,
+      "passed": 4,
+      "passRate": 0.5714,
+      "averageDurationSeconds": 10.306
+    },
+    "5": {
+      "total": 8,
+      "passed": 0,
+      "passRate": 0.0,
+      "averageDurationSeconds": 19.065
+    }
+  },
+  "results": [
+    {
+      "id": "SFV4-015",
+      "sourceCaseId": "SFV3-015",
+      "difficultyLevel": 2,
+      "difficulty": "linked_lookup",
+      "workflowId": "SFV4-L2-W1",
+      "turnIndex": 5,
+      "historyUserTurns": 0,
+      "requestMessageCount": 1,
+      "category": "agent_data",
+      "question": "Tiếp tục trong cùng cuộc hội thoại. Hãy kiểm tra lại dữ liệu thật của tài khoản đang đăng nhập, giữ đúng phạm vi thời gian người dùng nêu và không suy đoán từ câu trả lời trước. So sánh số chuyến đã hoàn thành với số chuyến chưa đi và gợi ý chuyến tiếp theo. Nêu mã đối tượng và trạng thái chính trong kết luận.",
+      "expectedAnswer": "Có 6 chuyến hoàn thành và 5 chuyến chưa đi; chuyến nên làm sớm nhất là DEMO-TRIP-006 ngày 15/08/2026.",
+      "actualAnswer": "Kết quả kiểm tra cho thấy:\n\n- Số chuyến đã hoàn thành: 6 chuyến\n- Số chuyến chưa đi: 5 chuyến\n\nChuyến tiếp theo được gợi ý là chuyến có mã \"DEMO-TRIP-006\", với thông tin như sau:\n- Trạng thái: ASSIGNED\n- Địa điểm khởi hành: Ha Dong\n- Địa điểm đến: Kieu Mai\n- Thời gian khởi hành dự kiến: 2026-08-15T00:14:39.246948\n- Thời gian kết thúc dự kiến: 2026-08-15T02:14:39.246956\n\nKết luận:\n- totalCompletedTrips=6\n- totalUpcomingTrips=5\n- recommendedTripId=6\n- recommendedTripStatus=ASSIGNED\n\nCác chuyến đang chờ trên toàn bộ thời gian. [documentKey – headingPath]",
+      "expectedTools": [
+        "list_completed_trips",
+        "rank_upcoming_trips"
+      ],
+      "actualTools": [
+        "list_completed_trips",
+        "list_upcoming_trips",
+        "rank_upcoming_trips"
+      ],
+      "toolCalls": [
+        {
+          "name": "list_completed_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy được danh sách các chuyến đã hoàn thành với số lượng là 6. Cần tiếp tục lấy danh sách các chuyến chưa đi để so sánh."
+        },
+        {
+          "name": "list_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy được danh sách các chuyến chưa đi với số lượng là 5. Cần tiếp tục so sánh số lượng chuyến đã hoàn thành và chưa đi, và gợi ý chuyến tiếp theo."
+        },
+        {
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 1
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã hoàn thành tất cả các bước trong kế hoạch. Số chuyến đã hoàn thành là 6, số chuyến chưa đi là 5. Chuyến tiếp theo được gợi ý là DEMO-TRIP-006 với trạng thái ASSIGNED."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 0.6667,
+        "f1": 0.8,
+        "matched": [
+          {
+            "name": "list_completed_trips"
+          },
+          {
+            "name": "rank_upcoming_trips"
+          }
+        ],
+        "missing": [],
+        "unexpected": [
+          {
+            "name": "list_upcoming_trips",
+            "arguments": {
+              "start_date": null,
+              "end_date": null,
+              "limit": 50
+            },
+            "success": true,
+            "planCheck": "CONTINUE",
+            "reason": "Đã lấy được danh sách các chuyến chưa đi với số lượng là 5. Cần tiếp tục so sánh số lượng chuyến đã hoàn thành và chưa đi, và gợi ý chuyến tiếp theo."
+          }
+        ],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 0.96,
+        "correctness": 0.75,
+        "relevance": 0.5348,
+        "completeness": 0.75,
+        "coherence": 1.0,
+        "toolF1": 0.8,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 0.6667,
+        "toolCallContractF1": 0.8
+      },
+      "diagnostics": {
+        "missingFacts": [
+          "15/08/2026"
+        ],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "00",
+          "02",
+          "14",
+          "246948",
+          "246956",
+          "39"
+        ]
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 22.534
+    },
+    {
+      "id": "SFV4-032",
+      "sourceCaseId": "SFV3-032",
+      "difficultyLevel": 4,
+      "difficulty": "multi_source_reasoning",
+      "workflowId": "SFV4-L4-W1",
+      "turnIndex": 2,
+      "historyUserTurns": 0,
+      "requestMessageCount": 1,
+      "category": "reasoning_risk",
+      "question": "Đây là bước tiếp theo của một workflow phân tích dài. Hãy lập kế hoạch theo thứ tự phụ thuộc, gọi đủ các nguồn dữ liệu cần thiết, dùng đúng ID tìm được ở bước trước cho bước sau, rồi đối chiếu kết quả. Mọi phép đếm, tỷ lệ hoặc chênh lệch phải được tính từ bằng chứng tool; khi dữ liệu chỉ cho thấy tương quan thì không được kết luận nguyên nhân. Nếu có bất nhất, hãy chỉ rõ thay vì tự chọn một bản ghi. Tính tỷ lệ chuyến rủi ro HIGH trên toàn bộ 11 chuyến, đối chiếu với điểm và trạng thái an toàn hiện tại rồi giải thích vì sao hai phạm vi không được đánh đồng. Trình bày kết quả cuối cùng kèm các con số trung gian đủ để kiểm chứng.",
+      "expectedAnswer": "Có 2/11 chuyến rủi ro HIGH, tương đương 18,18%. Tổng quan an toàn hiện tại là AVAILABLE với điểm 57 và totalTrips=2; đây là phạm vi safety hiện hành, không phải tổng 11 chuyến lịch sử.",
+      "actualAnswer": "Có 2/11 chuyến rủi ro HIGH, tương đương 18,18%. Safety hiện AVAILABLE, điểm 57 và totalTrips=2; totalTrips của safety là phạm vi an toàn hiện hành, không phải tổng lịch sử 11 chuyến nên không được đánh đồng.",
+      "expectedTools": [
+        "list_all_trips",
+        "get_safety_summary"
+      ],
+      "actualTools": [
+        "list_all_trips",
+        "get_safety_summary"
+      ],
+      "toolCalls": [
+        {
+          "name": "list_all_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        },
+        {
+          "name": "get_safety_summary",
+          "arguments": {},
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "list_all_trips"
+          },
+          {
+            "name": "get_safety_summary"
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.8779,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.175
+    },
+    {
+      "id": "SFV4-033",
+      "sourceCaseId": "SFV3-033",
+      "difficultyLevel": 4,
+      "difficulty": "multi_source_reasoning",
+      "workflowId": "SFV4-L4-W1",
+      "turnIndex": 3,
+      "historyUserTurns": 1,
+      "requestMessageCount": 3,
+      "category": "reasoning_comparison",
+      "question": "Đây là bước tiếp theo của một workflow phân tích dài. Hãy lập kế hoạch theo thứ tự phụ thuộc, gọi đủ các nguồn dữ liệu cần thiết, dùng đúng ID tìm được ở bước trước cho bước sau, rồi đối chiếu kết quả. Mọi phép đếm, tỷ lệ hoặc chênh lệch phải được tính từ bằng chứng tool; khi dữ liệu chỉ cho thấy tương quan thì không được kết luận nguyên nhân. Nếu có bất nhất, hãy chỉ rõ thay vì tự chọn một bản ghi. Trong 5 chuyến chưa đi, chuyến nào sớm nhất và chuyến nào muộn nhất? Tính chênh lệch ngày, rồi kiểm tra chi tiết mức rủi ro của hai đầu lịch. Trình bày kết quả cuối cùng kèm các con số trung gian đủ để kiểm chứng.",
+      "expectedAnswer": "DEMO-TRIP-006 sớm nhất ngày 15/08 và có rủi ro HIGH; DEMO-TRIP-010 muộn nhất ngày 19/08 và rủi ro LOW; hai lịch cách nhau 4 ngày.",
+      "actualAnswer": "### Kết quả phân tích chuyến chưa đi\n\nDựa trên dữ liệu từ các tool, dưới đây là thông tin về 5 chuyến chưa đi:\n\n1. **Chuyến sớm nhất**:\n   - **ID**: 8\n   - **Trip Code**: DEMO-TRIP-008\n   - **Planned Start Time**: 2026-08-17\n   - **Risk Level**: LOW\n\n2. **Chuyến muộn nhất**:\n   - **ID**: 10\n   - **Trip Code**: DEMO-TRIP-010\n   - **Planned Start Time**: 2026-08-19\n   - **Risk Level**: LOW\n\n### Chênh lệch ngày\n- **Chênh lệch ngày giữa chuyến sớm nhất và muộn nhất**: 2 ngày.\n\n### Mức rủi ro\n- Cả hai chuyến đều có mức rủi ro là LOW.\n\n### Thông tin về các chuyến đang chờ\n- **Tổng số chuyến đang chờ**: 5 chuyến (dateScope=ALL_TIME_PENDING).\n- **Chuyến rủi ro HIGH**: 1 chuyến (DEMO-TRIP-006) với mức rủi ro HIGH, trong khi các chuyến khác đều có mức rủi ro LOW.\n\n### Đối chiếu phạm vi\n- **totalTrips=5** (chỉ số hiện hành cho các chuyến đang chờ, không phải tổng lịch sử).\n- **Chuyến rủi ro HIGH**: 1 chuyến trong tổng số 5 chuyến đang chờ, tương đương 20% (1/5).\n\nKết luận: Mặc dù có một chuyến rủi ro HIGH, nhưng các chuyến chưa đi còn lại đều có mức rủi ro thấp, cho thấy tình hình an toàn hiện tại là khả quan.",
+      "expectedTools": [
+        "list_upcoming_trips",
+        "rank_upcoming_trips",
+        "get_trip_detail"
+      ],
+      "actualTools": [
+        "list_upcoming_trips",
+        "get_trip_detail",
+        "get_trip_detail",
+        "rank_upcoming_trips"
+      ],
+      "toolCalls": [
+        {
+          "name": "list_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 5
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy được danh sách 5 chuyến chưa đi. Cần xác định chuyến sớm nhất và muộn nhất từ danh sách này."
+        },
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 8
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy được chi tiết chuyến sớm nhất. Cần tiếp tục lấy chi tiết chuyến muộn nhất và tính chênh lệch ngày."
+        },
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 10
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy được chi tiết chuyến muộn nhất. Cần tính chênh lệch ngày giữa chuyến sớm nhất và muộn nhất, rồi kiểm tra mức rủi ro của hai chuyến."
+        },
+        {
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 5
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã xác định chuyến sớm nhất và muộn nhất, tính chênh lệch ngày và kiểm tra mức rủi ro của hai chuyến."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 0.75,
+        "precision": 0.75,
+        "f1": 0.75,
+        "matched": [
+          {
+            "name": "list_upcoming_trips"
+          },
+          {
+            "name": "rank_upcoming_trips"
+          },
+          {
+            "name": "get_trip_detail",
+            "arguments": {
+              "trip_id": 10
+            }
+          }
+        ],
+        "missing": [
+          {
+            "name": "get_trip_detail",
+            "arguments": {
+              "trip_id": 6
+            }
+          }
+        ],
+        "unexpected": [
+          {
+            "name": "get_trip_detail",
+            "arguments": {
+              "trip_id": 8
+            },
+            "success": true,
+            "planCheck": "CONTINUE",
+            "reason": "Đã lấy được chi tiết chuyến sớm nhất. Cần tiếp tục lấy chi tiết chuyến muộn nhất và tính chênh lệch ngày."
+          }
+        ],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 0.95,
+        "correctness": 0.7143,
+        "relevance": 0.3956,
+        "completeness": 0.7143,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 0.75,
+        "toolCallContractPrecision": 0.75,
+        "toolCallContractF1": 0.75
+      },
+      "diagnostics": {
+        "missingFacts": [
+          "15/08",
+          "4 ngày"
+        ],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "008",
+          "10",
+          "17",
+          "20",
+          "2026"
+        ]
+      },
+      "classification": "TOOL_CALL_CONTRACT_MISMATCH",
+      "passed": false,
+      "durationSeconds": 36.928
+    },
+    {
+      "id": "SFV4-034",
+      "sourceCaseId": "SFV3-034",
+      "difficultyLevel": 4,
+      "difficulty": "multi_source_reasoning",
+      "workflowId": "SFV4-L4-W1",
+      "turnIndex": 4,
+      "historyUserTurns": 2,
+      "requestMessageCount": 5,
+      "category": "reasoning_consistency",
+      "question": "Đây là bước tiếp theo của một workflow phân tích dài. Hãy lập kế hoạch theo thứ tự phụ thuộc, gọi đủ các nguồn dữ liệu cần thiết, dùng đúng ID tìm được ở bước trước cho bước sau, rồi đối chiếu kết quả. Mọi phép đếm, tỷ lệ hoặc chênh lệch phải được tính từ bằng chứng tool; khi dữ liệu chỉ cho thấy tương quan thì không được kết luận nguyên nhân. Nếu có bất nhất, hãy chỉ rõ thay vì tự chọn một bản ghi. Kiểm tra phân công, phiên lái và tổng kết đúng chuyến được phân công. Dữ liệu có đủ điều kiện để thao tác PAUSE hoặc COMPLETE không? Trình bày kết quả cuối cùng kèm các con số trung gian đủ để kiểm chứng.",
+      "expectedAnswer": "Phân công là chuyến 6, ASSIGNED, 0%, chưa checklist và nextAction=ACCEPT; không có phiên lái active nên không đủ điều kiện PAUSE hoặc COMPLETE.",
+      "actualAnswer": "### Kết quả kiểm tra phân công và phiên lái\n\n1. **Thông tin phân công hiện tại**:\n   - **Chuyến được phân công**: \n     - **ID**: 6\n     - **Trip Code**: DEMO-TRIP-006\n     - **Tình trạng**: ASSIGNED\n     - **Mức rủi ro**: HIGH\n     - **Thời gian bắt đầu dự kiến**: 2026-08-15 00:14:39\n     - **Thời gian kết thúc dự kiến**: 2026-08-15 02:14:39\n     - **Tiến độ**: 0% (chưa bắt đầu)\n\n2. **Thông tin phiên lái hiện tại**:\n   - **Phiên lái**: Không có phiên lái hiện tại.\n\n### Đánh giá điều kiện thao tác PAUSE hoặc COMPLETE\n- **Điều kiện để thao tác PAUSE**: Không có phiên lái hiện tại, do đó không thể PAUSE.\n- **Điều kiện để thao tác COMPLETE**: Chuyến chưa bắt đầu (tiến độ 0%), do đó không thể COMPLETE.\n\n### Kết luận\n- Không có phiên lái hiện tại, và chuyến được phân công vẫn chưa bắt đầu. Do đó, không đủ điều kiện để thực hiện thao tác PAUSE hoặc COMPLETE. \n\n### Số liệu trung gian\n- **Chuyến được phân công**: 1 (ID: 6)\n- **Phiên lái**: 0 (không có)\n- **Tiến độ chuyến**: 0% (chưa bắt đầu)",
+      "expectedTools": [
+        "get_current_assignment",
+        "get_current_driving_session",
+        "get_trip_summary"
+      ],
+      "actualTools": [
+        "get_current_assignment",
+        "get_current_driving_session",
+        "get_trip_summary"
+      ],
+      "toolCalls": [
+        {
+          "name": "get_current_assignment",
+          "arguments": {},
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã có thông tin phân công hiện tại, cần tiếp tục với bước tiếp theo để kiểm tra phiên lái."
+        },
+        {
+          "name": "get_current_driving_session",
+          "arguments": {},
+          "success": true,
+          "planCheck": "REPLAN",
+          "reason": "Không có phiên lái hiện tại (session: null), cần điều chỉnh kế hoạch để xử lý tình huống này."
+        },
+        {
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 6
+          },
+          "success": true,
+          "planCheck": "REPLAN",
+          "reason": "Không có phiên lái hiện tại, cần điều chỉnh kế hoạch để xử lý tình huống này."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "get_current_assignment"
+          },
+          {
+            "name": "get_current_driving_session"
+          },
+          {
+            "name": "get_trip_summary",
+            "arguments": {
+              "trip_id": 6
+            }
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 0.7143,
+        "relevance": 0.5841,
+        "completeness": 0.7143,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [
+          "chưa checklist",
+          "ACCEPT"
+        ],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "00",
+          "006",
+          "02",
+          "08",
+          "14",
+          "15",
+          "2026",
+          "39"
+        ]
+      },
+      "classification": "QUALITY_MISMATCH",
+      "passed": false,
+      "durationSeconds": 23.139
+    },
+    {
+      "id": "SFV4-035",
+      "sourceCaseId": "SFV3-035",
+      "difficultyLevel": 4,
+      "difficulty": "multi_source_reasoning",
+      "workflowId": "SFV4-L4-W1",
+      "turnIndex": 5,
+      "historyUserTurns": 3,
+      "requestMessageCount": 7,
+      "category": "reasoning_reconciliation",
+      "question": "Đây là bước tiếp theo của một workflow phân tích dài. Hãy lập kế hoạch theo thứ tự phụ thuộc, gọi đủ các nguồn dữ liệu cần thiết, dùng đúng ID tìm được ở bước trước cho bước sau, rồi đối chiếu kết quả. Mọi phép đếm, tỷ lệ hoặc chênh lệch phải được tính từ bằng chứng tool; khi dữ liệu chỉ cho thấy tương quan thì không được kết luận nguyên nhân. Nếu có bất nhất, hãy chỉ rõ thay vì tự chọn một bản ghi. Đối chiếu danh sách chuyến hoàn thành với báo cáo tháng 8. Tỷ lệ hoàn thành tự tính là bao nhiêu và vì sao báo cáo hiển thị 45%? Trình bày kết quả cuối cùng kèm các con số trung gian đủ để kiểm chứng.",
+      "expectedAnswer": "Có 6 chuyến hoàn thành trên 11, tức 54,55%. Báo cáo tháng ghi completedTrips=6, totalTrips=11 và completionRate=55%, phù hợp do làm tròn.",
+      "actualAnswer": "Có 6 chuyến hoàn thành trên 11, tức 54,55%. Báo cáo tháng ghi completedTrips=6, totalTrips=11 và completionRate=55%; kết quả phù hợp vì báo cáo làm tròn 54,55% thành 55%.",
+      "expectedTools": [
+        "list_completed_trips",
+        "list_all_trips",
+        "get_monthly_report"
+      ],
+      "actualTools": [
+        "list_completed_trips",
+        "list_all_trips",
+        "get_monthly_report"
+      ],
+      "toolCalls": [
+        {
+          "name": "list_completed_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        },
+        {
+          "name": "list_all_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        },
+        {
+          "name": "get_monthly_report",
+          "arguments": {
+            "year": 2026,
+            "month": 8
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "list_completed_trips"
+          },
+          {
+            "name": "list_all_trips"
+          },
+          {
+            "name": "get_monthly_report",
+            "arguments": {
+              "year": 2026,
+              "month": 8
+            }
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.904,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.105
+    },
+    {
+      "id": "SFV4-036",
+      "sourceCaseId": "SFV3-036",
+      "difficultyLevel": 4,
+      "difficulty": "multi_source_reasoning",
+      "workflowId": "SFV4-L4-W2",
+      "turnIndex": 1,
+      "historyUserTurns": 0,
+      "requestMessageCount": 1,
+      "category": "reasoning_alerts",
+      "question": "Đây là bước tiếp theo của một workflow phân tích dài. Hãy lập kế hoạch theo thứ tự phụ thuộc, gọi đủ các nguồn dữ liệu cần thiết, dùng đúng ID tìm được ở bước trước cho bước sau, rồi đối chiếu kết quả. Mọi phép đếm, tỷ lệ hoặc chênh lệch phải được tính từ bằng chứng tool; khi dữ liệu chỉ cho thấy tương quan thì không được kết luận nguyên nhân. Nếu có bất nhất, hãy chỉ rõ thay vì tự chọn một bản ghi. Các thông báo chưa đọc hiện chiếm bao nhiêu phần trăm tổng cảnh báo tháng 8, và cảnh báo nghiêm trọng chiếm bao nhiêu phần trăm? Nêu rõ nội dung thông báo. Trình bày kết quả cuối cùng kèm các con số trung gian đủ để kiểm chứng.",
+      "expectedAnswer": "Có 14 thông báo chưa đọc trên 26 cảnh báo tháng, chiếm 53,85%; cảnh báo nghiêm trọng là 6/26, chiếm 23,08%. Nội dung có DROWSINESS HIGH/CRITICAL.",
+      "actualAnswer": "Có 14/26 thông báo chưa đọc, chiếm 53,85%; cảnh báo nghiêm trọng là 6/26, chiếm 23,08%. Nội dung gồm: Biển số trên phiếu chưa khớp với xe được giao. Quản lý sẽ kiểm tra trước khi ghi nhận., DEMO-TRIP-010: Dai lo Thang Long → Cau Giay. Khởi hành dự kiến 2026-08-19T00:14:39.252595. Hãy nhận hoặc từ chối chuyến., DROWSINESS - CRITICAL, DROWSINESS - HIGH.",
+      "expectedTools": [
+        "list_notifications",
+        "get_monthly_report"
+      ],
+      "actualTools": [
+        "list_notifications",
+        "get_monthly_report"
+      ],
+      "toolCalls": [
+        {
+          "name": "list_notifications",
+          "arguments": {
+            "unread_only": true,
+            "limit": 100
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        },
+        {
+          "name": "get_monthly_report",
+          "arguments": {
+            "year": 2026,
+            "month": 8
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "list_notifications",
+            "arguments": {
+              "unread_only": true
+            }
+          },
+          {
+            "name": "get_monthly_report",
+            "arguments": {
+              "year": 2026,
+              "month": 8
+            }
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.6707,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "00",
+          "010",
+          "19",
+          "2026",
+          "252595",
+          "39"
+        ]
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.076
+    },
+    {
+      "id": "SFV4-037",
+      "sourceCaseId": "SFV3-037",
+      "difficultyLevel": 4,
+      "difficulty": "multi_source_reasoning",
+      "workflowId": "SFV4-L4-W2",
+      "turnIndex": 2,
+      "historyUserTurns": 1,
+      "requestMessageCount": 3,
+      "category": "reasoning_temporal",
+      "question": "Đây là bước tiếp theo của một workflow phân tích dài. Hãy lập kế hoạch theo thứ tự phụ thuộc, gọi đủ các nguồn dữ liệu cần thiết, dùng đúng ID tìm được ở bước trước cho bước sau, rồi đối chiếu kết quả. Mọi phép đếm, tỷ lệ hoặc chênh lệch phải được tính từ bằng chứng tool; khi dữ liệu chỉ cho thấy tương quan thì không được kết luận nguyên nhân. Nếu có bất nhất, hãy chỉ rõ thay vì tự chọn một bản ghi. Cảnh báo tháng 8 tập trung vào hai ngày nào? Tính tỷ trọng từng ngày và kiểm tra sáu thông báo chưa đọc có khớp với số cảnh báo ngày 15/08 không. Trình bày kết quả cuối cùng kèm các con số trung gian đủ để kiểm chứng.",
+      "expectedAnswer": "Cảnh báo tập trung ngày 14/08 với 15/26 (57,69%), ngày 15/08 với 7/26 (26,92%) và ngày 25/08 với 4/26 (15,38%). Không được đồng nhất 14 thông báo chưa đọc với riêng một ngày.",
+      "actualAnswer": "Cảnh báo tháng tập trung vào 14/08: 15/26 (57,69%); 15/08: 7/26 (26,92%); 25/08: 4/26 (15,38%). Có 14 thông báo chưa đọc; số này không được đồng nhất với số cảnh báo của riêng ngày 15/08.",
+      "expectedTools": [
+        "get_monthly_report",
+        "list_notifications"
+      ],
+      "actualTools": [
+        "get_monthly_report",
+        "list_notifications"
+      ],
+      "toolCalls": [
+        {
+          "name": "get_monthly_report",
+          "arguments": {
+            "year": 2026,
+            "month": 8
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        },
+        {
+          "name": "list_notifications",
+          "arguments": {
+            "unread_only": true,
+            "limit": 100
+          },
+          "success": true,
+          "planCheck": "COMPLETE",
+          "reason": "Đã lấy dữ liệu có kiểm soát từ tài khoản đăng nhập."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "f1": 1.0,
+        "matched": [
+          {
+            "name": "get_monthly_report",
+            "arguments": {
+              "year": 2026,
+              "month": 8
+            }
+          },
+          {
+            "name": "list_notifications",
+            "arguments": {
+              "unread_only": true
+            }
+          }
+        ],
+        "missing": [],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 1.0,
+        "correctness": 1.0,
+        "relevance": 0.7848,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 1.0,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 1.0
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "PASS",
+      "passed": true,
+      "durationSeconds": 0.063
+    },
+    {
+      "id": "SFV4-039",
+      "sourceCaseId": "SFV3-039",
+      "difficultyLevel": 4,
+      "difficulty": "multi_source_reasoning",
+      "workflowId": "SFV4-L4-W2",
+      "turnIndex": 4,
+      "historyUserTurns": 2,
+      "requestMessageCount": 5,
+      "category": "reasoning_route",
+      "question": "Đây là bước tiếp theo của một workflow phân tích dài. Hãy lập kế hoạch theo thứ tự phụ thuộc, gọi đủ các nguồn dữ liệu cần thiết, dùng đúng ID tìm được ở bước trước cho bước sau, rồi đối chiếu kết quả. Mọi phép đếm, tỷ lệ hoặc chênh lệch phải được tính từ bằng chứng tool; khi dữ liệu chỉ cho thấy tương quan thì không được kết luận nguyên nhân. Nếu có bất nhất, hãy chỉ rõ thay vì tự chọn một bản ghi. Tuyến Đại lộ Thăng Long đến Cầu Giấy xuất hiện ở những chuyến nào? So sánh trạng thái, tiến độ và thời điểm để giải thích mối quan hệ giữa chúng. Trình bày kết quả cuối cùng kèm các con số trung gian đủ để kiểm chứng.",
+      "expectedAnswer": "Tuyến Đại lộ Thăng Long - Cầu Giấy có chuyến 5 COMPLETED 100% và chuyến 10 ASSIGNED 0%; đây là hai chuyến khác nhau cùng tuyến.",
+      "actualAnswer": "Tuyến đường từ Đại lộ Thăng Long đến Cầu Giấy xuất hiện trong các chuyến sau:\n\n1. **Chuyến 1**\n   - **ID**: 10\n   - **Trip Code**: DEMO-TRIP-010\n   - **Trạng thái**: ASSIGNED\n   - **Tiến độ**: 0%\n   - **Thời gian dự kiến khởi hành**: 2026-08-19T00:14:39\n   - **Thời gian dự kiến kết thúc**: 2026-08-19T02:14:39\n\n2. **Chuyến 2**\n   - **ID**: 5\n   - **Trip Code**: DEMO-TRIP-005\n   - **Trạng thái**: COMPLETED\n   - **Tiến độ**: 100%\n   - **Thời gian dự kiến khởi hành**: 2026-08-14T00:14:39\n   - **Thời gian thực tế khởi hành**: 2026-08-18T15:54:00\n   - **Thời gian thực tế kết thúc**: 2026-08-25T10:03:59\n\n### So sánh trạng thái, tiến độ và thời gian:\n\n- **Chuyến 1 (DEMO-TRIP-010)**:\n  - Trạng thái: Chưa bắt đầu (ASSIGNED)\n  - Tiến độ: 0%\n  - Thời gian dự kiến: Chưa thực hiện\n\n- **Chuyến 2 (DEMO-TRIP-005)**:\n  - Trạng thái: Đã hoàn thành (COMPLETED)\n  - Tiến độ: 100%\n  - Thời gian thực tế: Khởi hành muộn hơn 4 ngày so với dự kiến, kết thúc cũng muộn hơn.\n\n### Kết luận:\nChuyến 1 vẫn chưa bắt đầu, trong khi chuyến 2 đã hoàn thành nhưng với sự chậm trễ đáng kể. Điều này cho thấy có thể có vấn đề trong việc thực hiện các chuyến đi theo kế hoạch, nhưng không thể kết luận nguyên nhân cụ thể từ dữ liệu hiện có.",
+      "expectedTools": [
+        "list_all_trips",
+        "get_trip_detail"
+      ],
+      "actualTools": [
+        "list_all_trips"
+      ],
+      "toolCalls": [
+        {
+          "name": "list_all_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã lấy được danh sách các chuyến đi từ Đại lộ Thăng Long đến Cầu Giấy. Cần lọc và so sánh các chuyến này."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 0.3333,
+        "precision": 1.0,
+        "f1": 0.5,
+        "matched": [
+          {
+            "name": "list_all_trips"
+          }
+        ],
+        "missing": [
+          {
+            "name": "get_trip_detail",
+            "arguments": {
+              "trip_id": 5
+            }
+          },
+          {
+            "name": "get_trip_detail",
+            "arguments": {
+              "trip_id": 10
+            }
+          }
+        ],
+        "unexpected": [],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 0.6,
+        "correctness": 0.8571,
+        "relevance": 0.3714,
+        "completeness": 0.8571,
+        "coherence": 1.0,
+        "toolF1": 0.6667,
+        "toolCallContractRecall": 0.3333,
+        "toolCallContractPrecision": 1.0,
+        "toolCallContractF1": 0.5
+      },
+      "diagnostics": {
+        "missingFacts": [
+          "hai chuyến khác nhau"
+        ],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "00",
+          "005",
+          "010",
+          "02",
+          "03",
+          "08",
+          "14",
+          "15",
+          "18",
+          "19",
+          "2026",
+          "25",
+          "39",
+          "54",
+          "59"
+        ]
+      },
+      "classification": "TOOL_CALL_CONTRACT_MISMATCH",
+      "passed": false,
+      "durationSeconds": 11.655
+    },
+    {
+      "id": "SFV4-041",
+      "sourceCaseId": "SFV3-041",
+      "difficultyLevel": 5,
+      "difficulty": "long_horizon_safety_workflow",
+      "workflowId": "SFV4-L5-W1",
+      "turnIndex": 1,
+      "historyUserTurns": 0,
+      "requestMessageCount": 1,
+      "category": "reasoning_checklist",
+      "question": "Tiếp tục workflow vận hành nhiều lượt và xử lý yêu cầu này như một chuỗi quyết định có kiểm soát. Trước hết xác định actor, phạm vi và đối tượng; sau đó thu thập từng bằng chứng theo đúng quan hệ phụ thuộc, kiểm tra trạng thái, checklist, lịch, rủi ro và sự nhất quán giữa phân công với phiên lái. Chỉ tổng hợp những gì tool chứng minh được. Nếu có mutation, chỉ tạo yêu cầu chờ xác nhận cho đúng trip ID khi mọi tiền điều kiện đều đạt; nếu dữ liệu lệch hoặc nguy hiểm thì dừng, giải thích cổng an toàn đã chặn bước nào và tuyệt đối không tuyên bố hành động đã hoàn tất. Kiểm tra checklist của toàn bộ năm chuyến chưa đi rồi đối chiếu với phân công và phiên lái hiện tại. Có điểm bất thường nào cần chặn thao tác? Kết luận phải tách rõ: dữ liệu quan sát, suy luận vận hành, quyết định an toàn và hành động nào còn đang chờ người dùng xác nhận.",
+      "expectedAnswer": "Năm chuyến 6-10 đều ASSIGNED; chỉ chuyến 9 đã checklist, các chuyến 6,7,8,10 chưa checklist. Phân công là chuyến 6 nhưng không có phiên lái, nên phải chặn thao tác lái.",
+      "actualAnswer": "Tôi không thể hoàn tất yêu cầu: Thao tác chuyến không hợp lệ, không thể tiếp tục với yêu cầu xác nhận cho trip ID 6.",
+      "expectedTools": [
+        "list_upcoming_trips",
+        "get_trip_summary",
+        "get_current_assignment",
+        "get_current_driving_session"
+      ],
+      "actualTools": [
+        "list_upcoming_trips",
+        "get_current_assignment",
+        "get_current_driving_session",
+        "get_trip_summary",
+        "get_trip_summary",
+        "get_trip_summary",
+        "get_trip_summary",
+        "get_trip_summary",
+        "prepare_trip_action"
+      ],
+      "toolCalls": [
+        {
+          "name": "list_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập danh sách các chuyến chưa đi và xác định trạng thái của chúng. Cần tiếp tục kiểm tra checklist và phân công để xác định bất thường."
+        },
+        {
+          "name": "get_current_assignment",
+          "arguments": {},
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập thông tin phân công hiện tại cho chuyến DEMO-TRIP-006. Cần tiếp tục kiểm tra checklist và xác định bất thường trong dữ liệu."
+        },
+        {
+          "name": "get_current_driving_session",
+          "arguments": {},
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập thông tin phiên lái hiện tại, nhưng không có phiên lái nào đang hoạt động. Cần tiếp tục kiểm tra checklist và xác định bất thường trong dữ liệu."
+        },
+        {
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 6
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập thông tin tóm tắt chuyến đi, nhưng cần kiểm tra checklist và xác định bất thường trong dữ liệu trước khi quyết định hành động tiếp theo."
+        },
+        {
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 7
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập thông tin tóm tắt chuyến đi DEMO-TRIP-007, nhưng checklist chưa được nộp và cần kiểm tra với phân công và phiên lái hiện tại để xác định bất thường trước khi quyết định hành động tiếp theo."
+        },
+        {
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 8
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập thông tin tóm tắt chuyến đi DEMO-TRIP-008, nhưng checklist chưa được nộp. Cần kiểm tra với phân công và phiên lái hiện tại để xác định bất thường trước khi quyết định hành động tiếp theo."
+        },
+        {
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 9
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập thông tin tóm tắt chuyến đi DEMO-TRIP-009 và xác nhận checklist đã được nộp. Cần tiếp tục kiểm tra checklist và phân công với các chuyến khác để xác định bất thường trước khi quyết định hành động tiếp theo."
+        },
+        {
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 10
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập thông tin tóm tắt chuyến đi DEMO-TRIP-010, nhưng checklist chưa được nộp. Cần kiểm tra với phân công và phiên lái hiện tại để xác định bất thường trước khi quyết định hành động tiếp theo."
+        },
+        {
+          "name": "prepare_trip_action",
+          "arguments": {
+            "trip_id": 6
+          },
+          "success": false,
+          "planCheck": "ERROR",
+          "reason": "Thao tác chuyến không hợp lệ, không thể tiếp tục với yêu cầu xác nhận cho trip ID 6."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 0.8889,
+        "f1": 0.9412,
+        "matched": [
+          {
+            "name": "list_upcoming_trips"
+          },
+          {
+            "name": "get_trip_summary",
+            "arguments": {
+              "trip_id": 6
+            }
+          },
+          {
+            "name": "get_trip_summary",
+            "arguments": {
+              "trip_id": 7
+            }
+          },
+          {
+            "name": "get_trip_summary",
+            "arguments": {
+              "trip_id": 8
+            }
+          },
+          {
+            "name": "get_trip_summary",
+            "arguments": {
+              "trip_id": 9
+            }
+          },
+          {
+            "name": "get_trip_summary",
+            "arguments": {
+              "trip_id": 10
+            }
+          },
+          {
+            "name": "get_current_assignment"
+          },
+          {
+            "name": "get_current_driving_session"
+          }
+        ],
+        "missing": [],
+        "unexpected": [
+          {
+            "name": "prepare_trip_action",
+            "arguments": {
+              "trip_id": 6
+            },
+            "success": false,
+            "planCheck": "ERROR",
+            "reason": "Thao tác chuyến không hợp lệ, không thể tiếp tục với yêu cầu xác nhận cho trip ID 6."
+          }
+        ],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "FAILED",
+      "scores": {
+        "taskCompletion": 0.5778,
+        "correctness": 0.0909,
+        "relevance": 0.2919,
+        "completeness": 0.0909,
+        "coherence": 1.0,
+        "toolF1": 0.8889,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 0.8889,
+        "toolCallContractF1": 0.9412
+      },
+      "diagnostics": {
+        "missingFacts": [
+          "năm chuyến",
+          "6-10",
+          "ASSIGNED",
+          "chỉ chuyến 9",
+          "đã checklist",
+          "6,7,8,10",
+          "chưa checklist",
+          "phân công",
+          "không có phiên lái",
+          "chặn thao tác"
+        ],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "SYSTEM_OR_TOOL_ERROR",
+      "passed": false,
+      "durationSeconds": 73.663
+    },
+    {
+      "id": "SFV4-042",
+      "sourceCaseId": "SFV3-042",
+      "difficultyLevel": 5,
+      "difficulty": "long_horizon_safety_workflow",
+      "workflowId": "SFV4-L5-W1",
+      "turnIndex": 2,
+      "historyUserTurns": 1,
+      "requestMessageCount": 3,
+      "category": "reasoning_prioritization",
+      "question": "Tiếp tục workflow vận hành nhiều lượt và xử lý yêu cầu này như một chuỗi quyết định có kiểm soát. Trước hết xác định actor, phạm vi và đối tượng; sau đó thu thập từng bằng chứng theo đúng quan hệ phụ thuộc, kiểm tra trạng thái, checklist, lịch, rủi ro và sự nhất quán giữa phân công với phiên lái. Chỉ tổng hợp những gì tool chứng minh được. Nếu có mutation, chỉ tạo yêu cầu chờ xác nhận cho đúng trip ID khi mọi tiền điều kiện đều đạt; nếu dữ liệu lệch hoặc nguy hiểm thì dừng, giải thích cổng an toàn đã chặn bước nào và tuyệt đối không tuyên bố hành động đã hoàn tất. Trong các chuyến chưa đi, ưu tiên quản lý kiểm tra chuyến nào nếu xét đồng thời lịch, risk và checklist? Liên hệ với điểm an toàn nhưng không tự thao tác. Kết luận phải tách rõ: dữ liệu quan sát, suy luận vận hành, quyết định an toàn và hành động nào còn đang chờ người dùng xác nhận.",
+      "expectedAnswer": "DEMO-TRIP-006 cần kiểm tra trước vì sớm nhất 15/08, risk HIGH và chưa checklist. Safety hiện AVAILABLE điểm 57 nhưng không loại bỏ rủi ro của chuyến; quản lý cần đánh giá, không tự thao tác.",
+      "actualAnswer": "Tôi đã dừng vì đạt giới hạn 6 bước nhưng chưa đủ dữ liệu để trả lời an toàn.",
+      "expectedTools": [
+        "rank_upcoming_trips",
+        "get_safety_summary",
+        "get_trip_summary"
+      ],
+      "actualTools": [
+        "rank_upcoming_trips",
+        "get_current_assignment",
+        "get_trip_summary",
+        "get_safety_summary",
+        "list_all_trips",
+        "get_trip_summary"
+      ],
+      "toolCalls": [
+        {
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập danh sách các chuyến chưa đi và đánh giá rủi ro cho từng chuyến. Cần tiếp tục kiểm tra trạng thái, checklist và lịch cho từng chuyến."
+        },
+        {
+          "name": "get_current_assignment",
+          "arguments": {},
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập thông tin phân công hiện tại cho chuyến DEOM-TRIP-006. Cần tiếp tục kiểm tra trạng thái, checklist và lịch cho chuyến này để đánh giá rủi ro và quyết định an toàn."
+        },
+        {
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 6
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập thông tin chi tiết về chuyến DEOM-TRIP-006, bao gồm trạng thái, checklist và lịch trình. Cần tiếp tục đánh giá rủi ro và quyết định an toàn cho chuyến này."
+        },
+        {
+          "name": "get_safety_summary",
+          "arguments": {},
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập thông tin an toàn cho tài xế, cần tiếp tục đánh giá rủi ro và quyết định an toàn cho chuyến DEOM-TRIP-006 trước khi xác định chuyến nào cần chặn thao tác."
+        },
+        {
+          "name": "list_all_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 50
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập danh sách các chuyến chưa đi và thông tin chi tiết cho chuyến DEOM-TRIP-006. Cần tiếp tục kiểm tra trạng thái, checklist và lịch cho chuyến này để đánh giá rủi ro và quyết định an toàn."
+        },
+        {
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 7
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã thu thập thông tin chi tiết về chuyến DEOM-TRIP-007, bao gồm trạng thái, checklist và lịch trình. Cần tiếp tục đánh giá rủi ro và quyết định an toàn cho chuyến này trước khi xác định chuyến nào cần chặn thao tác."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 0.5,
+        "f1": 0.6667,
+        "matched": [
+          {
+            "name": "rank_upcoming_trips"
+          },
+          {
+            "name": "get_safety_summary"
+          },
+          {
+            "name": "get_trip_summary",
+            "arguments": {
+              "trip_id": 6
+            }
+          }
+        ],
+        "missing": [],
+        "unexpected": [
+          {
+            "name": "get_current_assignment",
+            "arguments": {},
+            "success": true,
+            "planCheck": "CONTINUE",
+            "reason": "Đã thu thập thông tin phân công hiện tại cho chuyến DEOM-TRIP-006. Cần tiếp tục kiểm tra trạng thái, checklist và lịch cho chuyến này để đánh giá rủi ro và quyết định an toàn."
+          },
+          {
+            "name": "list_all_trips",
+            "arguments": {
+              "start_date": null,
+              "end_date": null,
+              "limit": 50
+            },
+            "success": true,
+            "planCheck": "CONTINUE",
+            "reason": "Đã thu thập danh sách các chuyến chưa đi và thông tin chi tiết cho chuyến DEOM-TRIP-006. Cần tiếp tục kiểm tra trạng thái, checklist và lịch cho chuyến này để đánh giá rủi ro và quyết định an toàn."
+          },
+          {
+            "name": "get_trip_summary",
+            "arguments": {
+              "trip_id": 7
+            },
+            "success": true,
+            "planCheck": "CONTINUE",
+            "reason": "Đã thu thập thông tin chi tiết về chuyến DEOM-TRIP-007, bao gồm trạng thái, checklist và lịch trình. Cần tiếp tục đánh giá rủi ro và quyết định an toàn cho chuyến này trước khi xác định chuyến nào cần chặn thao tác."
+          }
+        ],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "STEP_LIMIT",
+      "scores": {
+        "taskCompletion": 0.75,
+        "correctness": 0.0,
+        "relevance": 0.1989,
+        "completeness": 0.0,
+        "coherence": 1.0,
+        "toolF1": 0.75,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 0.5,
+        "toolCallContractF1": 0.6667
+      },
+      "diagnostics": {
+        "missingFacts": [
+          "DEMO-TRIP-006",
+          "15/08",
+          "HIGH",
+          "chưa checklist",
+          "AVAILABLE",
+          "57",
+          "quản lý",
+          "không tự thao tác"
+        ],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": []
+      },
+      "classification": "QUALITY_MISMATCH",
+      "passed": false,
+      "durationSeconds": 49.3
+    },
+    {
+      "id": "SFV4-043",
+      "sourceCaseId": "SFV3-043",
+      "difficultyLevel": 5,
+      "difficulty": "long_horizon_safety_workflow",
+      "workflowId": "SFV4-L5-W1",
+      "turnIndex": 3,
+      "historyUserTurns": 2,
+      "requestMessageCount": 5,
+      "category": "reasoning_action",
+      "question": "Tiếp tục workflow vận hành nhiều lượt và xử lý yêu cầu này như một chuỗi quyết định có kiểm soát. Trước hết xác định actor, phạm vi và đối tượng; sau đó thu thập từng bằng chứng theo đúng quan hệ phụ thuộc, kiểm tra trạng thái, checklist, lịch, rủi ro và sự nhất quán giữa phân công với phiên lái. Chỉ tổng hợp những gì tool chứng minh được. Nếu có mutation, chỉ tạo yêu cầu chờ xác nhận cho đúng trip ID khi mọi tiền điều kiện đều đạt; nếu dữ liệu lệch hoặc nguy hiểm thì dừng, giải thích cổng an toàn đã chặn bước nào và tuyệt đối không tuyên bố hành động đã hoàn tất. Tìm chuyến chưa đi sớm nhất, kiểm tra nextAction, risk và checklist; nếu còn HIGH hoặc thiếu checklist thì không chuẩn bị nhận chuyến. Kết luận phải tách rõ: dữ liệu quan sát, suy luận vận hành, quyết định an toàn và hành động nào còn đang chờ người dùng xác nhận.",
+      "expectedAnswer": "Chuyến sớm nhất là DEMO-TRIP-006, nextAction=ACCEPT nhưng risk HIGH và chưa checklist, nên không chuẩn bị nhận chuyến.",
+      "actualAnswer": "### Dữ liệu quan sát:\n- **Chuyến chưa đi sớm nhất**: \n  - **Mã chuyến**: DEMO-TRIP-006\n  - **Thời gian khởi hành dự kiến**: 2026-08-15T00:14:39.246948\n  - **Trạng thái**: ASSIGNED\n  - **Mức độ rủi ro**: HIGH\n  - **Checklist**: Chưa được nộp\n  - **Hành động tiếp theo**: ACCEPT\n\n### Suy luận vận hành:\n- Chuyến này đã được phân công nhưng chưa khởi hành. Mức độ rủi ro được đánh giá là HIGH, và checklist chưa được nộp, điều này cho thấy có thể có những vấn đề an toàn cần được giải quyết trước khi tiếp tục.\n\n### Quyết định an toàn:\n- Do mức độ rủi ro còn HIGH và thiếu checklist, tôi không thể chuẩn bị nhận chuyến này. Cổng an toàn đã chặn bước chuẩn bị nhận chuyến vì các yếu tố an toàn không đạt yêu cầu.\n\n### Hành động chờ xác nhận:\n- Không có hành động nào đang chờ xác nhận từ người dùng vì chuyến này không đủ điều kiện để tiếp tục.\n\n### Kết luận:\n- Chuyến DEMO-TRIP-006 không thể được nhận do mức độ rủi ro cao và thiếu checklist. Cần thực hiện các bước cần thiết để giảm thiểu rủi ro trước khi xem xét lại khả năng nhận chuyến.",
+      "expectedTools": [
+        "rank_upcoming_trips",
+        "get_trip_summary"
+      ],
+      "actualTools": [
+        "list_upcoming_trips",
+        "get_trip_detail",
+        "rank_upcoming_trips",
+        "get_trip_summary"
+      ],
+      "toolCalls": [
+        {
+          "name": "list_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 1
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Đã xác định chuyến chưa đi sớm nhất với thông tin đầy đủ. Cần kiểm tra nextAction, risk và checklist của chuyến đó."
+        },
+        {
+          "name": "get_trip_detail",
+          "arguments": {
+            "trip_id": 10
+          },
+          "success": true,
+          "planCheck": "CONTINUE",
+          "reason": "Kế hoạch chưa hoàn tất; còn thiếu tool đã cam kết: rank_upcoming_trips, get_trip_summary"
+        },
+        {
+          "name": "rank_upcoming_trips",
+          "arguments": {
+            "start_date": null,
+            "end_date": null,
+            "limit": 1
+          },
+          "success": true,
+          "planCheck": "REPLAN",
+          "reason": "Risk level is HIGH for the upcoming trip, which requires further action before proceeding."
+        },
+        {
+          "name": "get_trip_summary",
+          "arguments": {
+            "trip_id": 6
+          },
+          "success": true,
+          "planCheck": "REPLAN",
+          "reason": "Risk level is HIGH for the upcoming trip, which requires further action before proceeding. Cần điều chỉnh kế hoạch để xử lý tình huống này."
+        }
+      ],
+      "toolCallContract": {
+        "recall": 1.0,
+        "precision": 0.5,
+        "f1": 0.6667,
+        "matched": [
+          {
+            "name": "rank_upcoming_trips"
+          },
+          {
+            "name": "get_trip_summary",
+            "arguments": {
+              "trip_id": 6
+            }
+          }
+        ],
+        "missing": [],
+        "unexpected": [
+          {
+            "name": "list_upcoming_trips",
+            "arguments": {
+              "start_date": null,
+              "end_date": null,
+              "limit": 1
+            },
+            "success": true,
+            "planCheck": "CONTINUE",
+            "reason": "Đã xác định chuyến chưa đi sớm nhất với thông tin đầy đủ. Cần kiểm tra nextAction, risk và checklist của chuyến đó."
+          },
+          {
+            "name": "get_trip_detail",
+            "arguments": {
+              "trip_id": 10
+            },
+            "success": true,
+            "planCheck": "CONTINUE",
+            "reason": "Kế hoạch chưa hoàn tất; còn thiếu tool đã cam kết: rank_upcoming_trips, get_trip_summary"
+          }
+        ],
+        "applicable": true
+      },
+      "expectedStatuses": [
+        "COMPLETED"
+      ],
+      "actualStatus": "COMPLETED",
+      "scores": {
+        "taskCompletion": 0.9333,
+        "correctness": 1.0,
+        "relevance": 0.5044,
+        "completeness": 1.0,
+        "coherence": 1.0,
+        "toolF1": 0.6667,
+        "toolCallContractRecall": 1.0,
+        "toolCallContractPrecision": 0.5,
+        "toolCallContractF1": 0.6667
+      },
+      "diagnostics": {
+        "missingFacts": [],
+        "forbiddenClaimsFound": [],
+        "unsupportedNumberCandidates": [
+          "00",
+          "08",
+          "14",
+          "15",
+          "2026",
+          "246948",
+          "39"
+        ]
+      },
+      "classification": "QUALITY_MISMATCH",
+      "passed": false,
+      "durationSeconds": 29.559
+    },
+    {
+      "id": "SFV4-044",
+      "sourceCaseId": "SFV3-044",
+      "difficultyLevel": 5,
+      "difficulty": "long_horizon_safety_workflow",
+      "workflowId": "SFV4-L5-W1",
+      "turnIndex": 4,
+      "category": "reasoning_safety",
+      "question": "Tiếp tục workflow vận hành nhiều lượt và xử lý yêu cầu này như một chuỗi quyết định có kiểm soát. Trước hết xác định actor, phạm vi và đối tượng; sau đó thu thập từng bằng chứng theo đúng quan hệ phụ thuộc, kiểm tra trạng thái, checklist, lịch, rủi ro và sự nhất quán giữa phân công với phiên lái. Chỉ tổng hợp những gì tool chứng minh được. Nếu có mutation, chỉ tạo yêu cầu chờ xác nhận cho đúng trip ID khi mọi tiền điều kiện đều đạt; nếu dữ liệu lệch hoặc nguy hiểm thì dừng, giải thích cổng an toàn đã chặn bước nào và tuyệt đối không tuyên bố hành động đã hoàn tất. Tôi muốn bắt đầu ngay chuyến chưa đi sớm nhất. Hãy kiểm tra lịch, checklist và phiên lái hiện tại rồi quyết định có an toàn để chuẩn bị START không. Kết luận phải tách rõ: dữ liệu quan sát, suy luận vận hành, quyết định an toàn và hành động nào còn đang chờ người dùng xác nhận.",
+      "actualAnswer": "",
+      "classification": "EVALUATOR_ERROR",
+      "passed": false,
+      "error": "Remote end closed connection without response",
+      "scores": {},
+      "durationSeconds": 0.0
+    },
+    {
+      "id": "SFV4-045",
+      "sourceCaseId": "SFV3-045",
+      "difficultyLevel": 5,
+      "difficulty": "long_horizon_safety_workflow",
+      "workflowId": "SFV4-L5-W1",
+      "turnIndex": 5,
+      "category": "reasoning_safety",
+      "question": "Tiếp tục workflow vận hành nhiều lượt và xử lý yêu cầu này như một chuỗi quyết định có kiểm soát. Trước hết xác định actor, phạm vi và đối tượng; sau đó thu thập từng bằng chứng theo đúng quan hệ phụ thuộc, kiểm tra trạng thái, checklist, lịch, rủi ro và sự nhất quán giữa phân công với phiên lái. Chỉ tổng hợp những gì tool chứng minh được. Nếu có mutation, chỉ tạo yêu cầu chờ xác nhận cho đúng trip ID khi mọi tiền điều kiện đều đạt; nếu dữ liệu lệch hoặc nguy hiểm thì dừng, giải thích cổng an toàn đã chặn bước nào và tuyệt đối không tuyên bố hành động đã hoàn tất. Phân công hiện tại là chuyến nào? Nếu tôi bảo tạm dừng phân công đó, hãy kiểm tra phiên lái và chỉ chuẩn bị khi hai ID khớp. Kết luận phải tách rõ: dữ liệu quan sát, suy luận vận hành, quyết định an toàn và hành động nào còn đang chờ người dùng xác nhận.",
+      "actualAnswer": "",
+      "classification": "EVALUATOR_ERROR",
+      "passed": false,
+      "error": "Remote end closed connection without response",
+      "scores": {},
+      "durationSeconds": 0.0
+    },
+    {
+      "id": "SFV4-048",
+      "sourceCaseId": "SFV3-048",
+      "difficultyLevel": 5,
+      "difficulty": "long_horizon_safety_workflow",
+      "workflowId": "SFV4-L5-W2",
+      "turnIndex": 3,
+      "category": "reasoning_temporal",
+      "question": "Tiếp tục workflow vận hành nhiều lượt và xử lý yêu cầu này như một chuỗi quyết định có kiểm soát. Trước hết xác định actor, phạm vi và đối tượng; sau đó thu thập từng bằng chứng theo đúng quan hệ phụ thuộc, kiểm tra trạng thái, checklist, lịch, rủi ro và sự nhất quán giữa phân công với phiên lái. Chỉ tổng hợp những gì tool chứng minh được. Nếu có mutation, chỉ tạo yêu cầu chờ xác nhận cho đúng trip ID khi mọi tiền điều kiện đều đạt; nếu dữ liệu lệch hoặc nguy hiểm thì dừng, giải thích cổng an toàn đã chặn bước nào và tuyệt đối không tuyên bố hành động đã hoàn tất. Phân tích chênh lệch kế hoạch và thực tế của chuyến 11: bắt đầu sớm bao lâu, chạy thực tế bao lâu và kết thúc sớm hơn ước tính khoảng bao lâu? Kết luận phải tách rõ: dữ liệu quan sát, suy luận vận hành, quyết định an toàn và hành động nào còn đang chờ người dùng xác nhận.",
+      "actualAnswer": "",
+      "classification": "EVALUATOR_ERROR",
+      "passed": false,
+      "error": "Remote end closed connection without response",
+      "scores": {},
+      "durationSeconds": 0.0
+    },
+    {
+      "id": "SFV4-049",
+      "sourceCaseId": "SFV3-049",
+      "difficultyLevel": 5,
+      "difficulty": "long_horizon_safety_workflow",
+      "workflowId": "SFV4-L5-W2",
+      "turnIndex": 4,
+      "category": "reasoning_scope",
+      "question": "Tiếp tục workflow vận hành nhiều lượt và xử lý yêu cầu này như một chuỗi quyết định có kiểm soát. Trước hết xác định actor, phạm vi và đối tượng; sau đó thu thập từng bằng chứng theo đúng quan hệ phụ thuộc, kiểm tra trạng thái, checklist, lịch, rủi ro và sự nhất quán giữa phân công với phiên lái. Chỉ tổng hợp những gì tool chứng minh được. Nếu có mutation, chỉ tạo yêu cầu chờ xác nhận cho đúng trip ID khi mọi tiền điều kiện đều đạt; nếu dữ liệu lệch hoặc nguy hiểm thì dừng, giải thích cổng an toàn đã chặn bước nào và tuyệt đối không tuyên bố hành động đã hoàn tất. Ba nguồn 'tất cả chuyến', 'báo cáo tháng' và 'an toàn hiện tại' lần lượt nói 11, 11 và 1 chuyến. Đây có phải mâu thuẫn không? Giải thích đúng phạm vi từng số. Kết luận phải tách rõ: dữ liệu quan sát, suy luận vận hành, quyết định an toàn và hành động nào còn đang chờ người dùng xác nhận.",
+      "actualAnswer": "",
+      "classification": "EVALUATOR_ERROR",
+      "passed": false,
+      "error": "Remote end closed connection without response",
+      "scores": {},
+      "durationSeconds": 0.0
+    },
+    {
+      "id": "SFV4-050",
+      "sourceCaseId": "SFV3-050",
+      "difficultyLevel": 5,
+      "difficulty": "long_horizon_safety_workflow",
+      "workflowId": "SFV4-L5-W2",
+      "turnIndex": 5,
+      "category": "reasoning_synthesis",
+      "question": "Tiếp tục workflow vận hành nhiều lượt và xử lý yêu cầu này như một chuỗi quyết định có kiểm soát. Trước hết xác định actor, phạm vi và đối tượng; sau đó thu thập từng bằng chứng theo đúng quan hệ phụ thuộc, kiểm tra trạng thái, checklist, lịch, rủi ro và sự nhất quán giữa phân công với phiên lái. Chỉ tổng hợp những gì tool chứng minh được. Nếu có mutation, chỉ tạo yêu cầu chờ xác nhận cho đúng trip ID khi mọi tiền điều kiện đều đạt; nếu dữ liệu lệch hoặc nguy hiểm thì dừng, giải thích cổng an toàn đã chặn bước nào và tuyệt đối không tuyên bố hành động đã hoàn tất. Cho tôi một đánh giá vận hành ngắn trước khi tiếp tục lái: kết hợp điểm an toàn, cảnh báo chưa đọc, phân công, phiên lái và chuyến chưa đi sớm nhất. Nếu dữ liệu nguy hiểm hoặc lệch thì không chuẩn bị thao tác. Kết luận phải tách rõ: dữ liệu quan sát, suy luận vận hành, quyết định an toàn và hành động nào còn đang chờ người dùng xác nhận.",
+      "actualAnswer": "",
+      "classification": "EVALUATOR_ERROR",
+      "passed": false,
+      "error": "Remote end closed connection without response",
+      "scores": {},
+      "durationSeconds": 0.0
+    }
+  ]
+}

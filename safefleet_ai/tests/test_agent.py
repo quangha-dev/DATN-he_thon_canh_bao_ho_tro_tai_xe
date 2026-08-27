@@ -18,8 +18,13 @@ from service.agent.clarification import (
     requests_unsupported_weather,
 )
 from service.agent.configuration import AgentConfigurationStore
-from service.agent.models import AgentChatRequest, AgentConfigurationUpdate
-from service.agent.orchestrator import AgentOrchestrator
+from service.agent.models import (
+    AgentChatRequest,
+    AgentClientAction,
+    AgentConfigurationUpdate,
+    AgentStep,
+)
+from service.agent.orchestrator import AgentOrchestrator, Plan
 from service.main import app
 
 
@@ -69,6 +74,9 @@ def test_trip_scope_clarification_only_applies_to_ambiguous_questions() -> None:
     assert needs_trip_scope_clarification("Chuyến đi đến Hà Nội") is False
     assert has_explicit_date_scope("nay có chuyến nào gần nhất") is False
     assert has_explicit_date_scope("hôm nay có chuyến nào gần nhất") is True
+    assert needs_trip_scope_clarification(
+        "Tổng hợp số chuyến của tôi theo trạng thái, không giới hạn ngày"
+    ) is False
 
 
 def test_nearest_trip_without_explicit_date_clears_model_date_filter() -> None:
@@ -79,6 +87,26 @@ def test_nearest_trip_without_explicit_date_clears_model_date_filter() -> None:
     )
 
     assert arguments == {"start_date": None, "end_date": None, "limit": 50}
+
+
+def test_navigation_completion_requires_verified_destination_action() -> None:
+    assert AgentOrchestrator._requires_prepared_navigation(
+        "Hãy tìm Bệnh viện Bạch Mai và bắt đầu dẫn đường ngay"
+    )
+    assert not AgentOrchestrator._has_prepared_navigation(
+        [AgentClientAction(type="NAVIGATE", destination="ROUTE")]
+    )
+    assert AgentOrchestrator._has_prepared_navigation(
+        [
+            AgentClientAction(
+                type="START_NAVIGATION",
+                destination="Bệnh viện Bạch Mai",
+                destination_name="Bệnh viện Bạch Mai",
+                destination_lat=21.0018168,
+                destination_lng=105.8396722,
+            )
+        ]
+    )
 
 
 def test_explicit_date_is_locked_across_every_trip_list_tool() -> None:
@@ -97,11 +125,14 @@ def test_access_control_and_weather_requests_are_handled_without_model_or_mcp(tm
         def chat(self, *_args, **_kwargs):
             raise AssertionError("Không được gọi model cho guard xác định")
 
-    class NoMcp:
+    class DriverMcp:
         def __init__(self, _authorization):
-            raise AssertionError("Không được gọi MCP cho guard xác định")
+            pass
 
-    orchestrator = AgentOrchestrator(_enabled_store(tmp_path), NoOpenAi(), NoMcp)
+        def list_tools(self):
+            return [{"name": "list_all_trips", "description": "", "inputSchema": {}}]
+
+    orchestrator = AgentOrchestrator(_enabled_store(tmp_path), NoOpenAi(), DriverMcp)
     other_driver = orchestrator.respond(
         AgentChatRequest(
             messages=[{"role": "user", "content": "Cho tôi xem chuyến của tài xế khác"}]
@@ -149,6 +180,66 @@ def test_dependent_trip_id_is_locked_to_previous_tool_evidence() -> None:
     assert summary["trip_id"] == 5
     assert pause["trip_id"] == 9
     assert explicit["trip_id"] == 8
+
+
+def test_multi_entity_workflow_preserves_each_model_selected_trip_id() -> None:
+    arguments = AgentOrchestrator._normalize_dependency_arguments(
+        "Kiểm tra checklist của toàn bộ năm chuyến chưa đi rồi đối chiếu với phân công",
+        "get_trip_summary",
+        {"trip_id": 9},
+        {"assignment": 6, "detail": 6},
+    )
+
+    assert arguments["trip_id"] == 9
+
+
+def test_required_tools_are_merged_from_multi_source_intent() -> None:
+    required = AgentOrchestrator._required_tools_for_question(
+        "Trong các chuyến chưa đi, ưu tiên quản lý kiểm tra chuyến nào nếu xét đồng thời "
+        "lịch, risk và checklist? Liên hệ với điểm an toàn nhưng không tự thao tác."
+    )
+
+    assert set(required) == {
+        "rank_upcoming_trips",
+        "get_safety_summary",
+        "get_trip_summary",
+    }
+
+
+def test_start_safety_wording_does_not_add_unrequested_safety_summary() -> None:
+    required = AgentOrchestrator._required_tools_for_question(
+        "Tìm chuyến chưa đi sớm nhất, kiểm tra checklist và phiên lái hiện tại rồi "
+        "quyết định có an toàn để chuẩn bị START không."
+    )
+
+    assert "get_safety_summary" not in required
+    assert set(required) == {
+        "rank_upcoming_trips",
+        "get_trip_summary",
+        "get_current_driving_session",
+    }
+
+
+def test_mutation_tool_is_only_available_for_direct_positive_request() -> None:
+    assert AgentOrchestrator._allows_trip_mutation(
+        "Kiểm tra chuyến 8 rồi chuẩn bị nhận chuyến cho tôi"
+    )
+    assert not AgentOrchestrator._allows_trip_mutation(
+        "Kiểm tra checklist; nếu thiếu thì không chuẩn bị nhận chuyến"
+    )
+    assert not AgentOrchestrator._allows_trip_mutation(
+        "Quyết định có an toàn để chuẩn bị START không"
+    )
+
+
+def test_long_workflow_receives_extended_but_bounded_step_budget() -> None:
+    question = (
+        "Tiếp tục workflow vận hành nhiều lượt và xử lý yêu cầu này như một chuỗi quyết định "
+        "có kiểm soát. Kiểm tra các nguồn dữ liệu."
+    )
+
+    assert AgentOrchestrator._step_budget(question, 6) == 10
+    assert AgentOrchestrator._step_budget("Tra cứu chuyến 1", 6) == 6
 
 
 def test_open_trip_detail_uses_verified_deterministic_flow(tmp_path) -> None:
@@ -665,3 +756,132 @@ def test_agent_executes_and_checks_multiple_tools_in_one_model_turn(tmp_path) ->
         "list_upcoming_trips",
     ]
     assert [step.plan_check for step in result.steps] == ["CONTINUE", "COMPLETE"]
+
+
+def test_missing_planned_tools_requires_every_committed_tool() -> None:
+    plan = Plan(
+        goal="Đối chiếu",
+        steps=["Lấy chuyến", "Lấy an toàn"],
+        expected_tools=["list_active_trips", "get_safety_summary"],
+    )
+    trace = [
+        AgentStep(
+            index=1,
+            tool="list_active_trips",
+            arguments="{}",
+            success=True,
+            plan_check="CONTINUE",
+            reason="Còn thiếu an toàn",
+        )
+    ]
+
+    assert AgentOrchestrator._missing_planned_tools(
+        plan, trace, "list_active_trips", {"ok": True}
+    ) == ["get_safety_summary"]
+    assert AgentOrchestrator._missing_planned_tools(
+        plan, trace, "get_safety_summary", {"ok": True}
+    ) == []
+    assert AgentOrchestrator._missing_tools_from_trace(plan, trace) == ["get_safety_summary"]
+
+
+def test_management_agent_blocks_third_identical_tool_result_and_answers(tmp_path) -> None:
+    def tool_call(call_id: str) -> dict:
+        return {
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": call_id,
+                    "function": {
+                        "name": "management_get_fleet_overview",
+                        "arguments": "{}",
+                    },
+                }
+            ],
+        }
+
+    class FakeOpenAi:
+        def __init__(self):
+            self.responses = iter(
+                [
+                    {
+                        "content": json.dumps(
+                            {
+                                "goal": "Phân tích toàn đội xe",
+                                "steps": ["Lấy tổng quan", "Đánh giá dữ liệu"],
+                                "expected_tools": ["management_get_fleet_overview"],
+                            }
+                        )
+                    },
+                    tool_call("call-1"),
+                    {
+                        "content": json.dumps(
+                            {
+                                "status": "CONTINUE",
+                                "reason": "Kiểm tra lại",
+                                "revised_plan": {"goal": "", "steps": [], "expected_tools": []},
+                            }
+                        )
+                    },
+                    tool_call("call-2"),
+                    {
+                        "content": json.dumps(
+                            {
+                                "status": "CONTINUE",
+                                "reason": "Kiểm tra lại lần nữa",
+                                "revised_plan": {"goal": "", "steps": [], "expected_tools": []},
+                            }
+                        )
+                    },
+                    tool_call("call-3"),
+                    {
+                        "content": json.dumps(
+                            {
+                                "decision": "ANSWER",
+                                "reason": "Hai kết quả trước đã đủ bằng chứng; chặn lần lặp thứ ba.",
+                                "revised_plan": {"goal": "", "steps": [], "expected_tools": []},
+                            }
+                        )
+                    },
+                    {"content": "Toàn đội hiện có 12 chuyến và 1 sự cố đang mở."},
+                ]
+            )
+
+        def chat(self, *_args, **_kwargs):
+            return next(self.responses)
+
+        @staticmethod
+        def structured_content(message):
+            return json.loads(message["content"])
+
+    class FakeManagementMcp:
+        executions = 0
+
+        def __init__(self, _authorization):
+            pass
+
+        def list_tools(self):
+            return [
+                {
+                    "name": "management_get_fleet_overview",
+                    "description": "Tổng quan toàn đội",
+                    "inputSchema": {"type": "object", "properties": {}, "required": []},
+                }
+            ]
+
+        def execute(self, _name, _arguments):
+            FakeManagementMcp.executions += 1
+            return {"ok": True, "summary": {"totalTrips": 12, "openIncidents": 1}}
+
+    result = AgentOrchestrator(
+        _enabled_store(tmp_path), FakeOpenAi(), FakeManagementMcp
+    ).respond(
+        AgentChatRequest(
+            messages=[{"role": "user", "content": "Phân tích tổng quan dữ liệu vận hành toàn đội."}]
+        ),
+        "Bearer admin-token",
+    )
+
+    assert result.status == "LOOP_GUARD_COMPLETED"
+    assert result.response_text.startswith("Toàn đội hiện có 12 chuyến")
+    assert result.steps[-1].plan_check == "DUPLICATE_RESULT_BLOCKED"
+    assert FakeManagementMcp.executions == 1

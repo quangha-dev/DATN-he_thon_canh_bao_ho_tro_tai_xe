@@ -34,6 +34,8 @@ import java.util.Optional;
 public class TelemetryService {
 
     private static final long MAX_FUTURE_CLOCK_SKEW_MINUTES = 5;
+    private static final long MAX_REALTIME_POSITION_AGE_MINUTES = 2;
+    private static final double MAX_REALTIME_GPS_ACCURACY_METERS = 50.0;
 
     private final TelemetryLogRepository telemetryLogRepository;
     private final VehicleRepository vehicleRepository;
@@ -41,7 +43,11 @@ public class TelemetryService {
     private final TripRepository tripRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
-    @Transactional
+    @Transactional(noRollbackFor = {
+            BadRequestException.class,
+            ForbiddenActionException.class,
+            NotFoundException.class
+    })
     public TelemetryResponse ingest(TelemetryRequest request) {
         Vehicle vehicle = vehicleRepository.findByIdForUpdate(request.vehicleId())
                 .filter(item -> !item.isDeleted())
@@ -80,14 +86,19 @@ public class TelemetryService {
         log.setSpeed(request.speed());
         log.setHeading(request.heading());
         log.setBatteryLevel(request.batteryLevel());
-        log.setGpsStatus(request.gpsStatus() == null ? GpsStatus.GOOD : request.gpsStatus());
+        GpsStatus gpsStatus = request.gpsStatus() == null ? GpsStatus.GOOD : request.gpsStatus();
+        log.setGpsAccuracyMeters(request.gpsAccuracyMeters());
+        log.setGpsStatus(gpsStatus);
         log.setClientEventId(request.clientEventId() == null ? null : request.clientEventId().trim());
         log.setRecordedAt(recordedAt);
         log.setReceivedAt(receivedAt);
         log.setCreatedAt(recordedAt);
 
         boolean newestPosition = vehicle.getLastUpdatedAt() == null || !recordedAt.isBefore(vehicle.getLastUpdatedAt());
-        if (newestPosition) {
+        boolean positionAccepted = newestPosition
+                && shouldAcceptRealtimePosition(gpsStatus, request.gpsAccuracyMeters(), recordedAt, receivedAt);
+        log.setPositionAccepted(positionAccepted);
+        if (positionAccepted) {
             vehicle.setLastLat(request.lat());
             vehicle.setLastLng(request.lng());
             vehicle.setLastSpeed(request.speed());
@@ -95,11 +106,23 @@ public class TelemetryService {
         }
 
         TelemetryResponse response = TelemetryMapper.toResponse(telemetryLogRepository.save(log));
-        if (newestPosition) {
+        if (positionAccepted) {
             VehicleRealtimeStatusResponse status = VehicleMapper.toRealtimeStatus(vehicle);
             publishAfterCommit(vehicle.getId(), status);
         }
         return response;
+    }
+
+    boolean shouldAcceptRealtimePosition(GpsStatus gpsStatus,
+                                         Double accuracyMeters,
+                                         LocalDateTime recordedAt,
+                                         LocalDateTime receivedAt) {
+        if (gpsStatus == GpsStatus.LOST || gpsStatus == GpsStatus.OFFLINE) return false;
+        boolean accurate = accuracyMeters == null
+                ? gpsStatus == GpsStatus.GOOD
+                : accuracyMeters <= MAX_REALTIME_GPS_ACCURACY_METERS;
+        boolean fresh = !recordedAt.isBefore(receivedAt.minusMinutes(MAX_REALTIME_POSITION_AGE_MINUTES));
+        return accurate && fresh;
     }
 
     void publishAfterCommit(Long vehicleId, VehicleRealtimeStatusResponse status) {

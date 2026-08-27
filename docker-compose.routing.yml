@@ -1,0 +1,38 @@
+services:
+  valhalla:
+    image: ghcr.io/valhalla/valhalla-scripted:3.8.3
+    restart: unless-stopped
+    environment:
+      tile_urls: ${VALHALLA_TILE_URLS:-https://download.geofabrik.de/asia/vietnam-latest.osm.pbf}
+      # valhalla-scripted treats these values as case-sensitive shell enums.
+      serve_tiles: "True"
+      use_tiles_ignore_pbf: "True"
+      force_rebuild: ${VALHALLA_FORCE_REBUILD:-False}
+      build_elevation: ${VALHALLA_BUILD_ELEVATION:-False}
+      build_admins: "True"
+      build_time_zones: "True"
+      build_tar: "True"
+      # One build thread is slower but prevents Docker Desktop from exhausting
+      # host I/O/memory while constructing the full Vietnam graph.
+      server_threads: ${VALHALLA_SERVER_THREADS:-1}
+    expose:
+      - "8002"
+    volumes:
+      - valhalla_data:/custom_files
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8002/status >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 20
+      start_period: 30m
+    networks: [safefleet]
+
+  backend:
+    environment:
+      VALHALLA_URL: http://valhalla:8002
+    depends_on:
+      valhalla:
+        condition: service_healthy
+
+volumes:
+  valhalla_data:

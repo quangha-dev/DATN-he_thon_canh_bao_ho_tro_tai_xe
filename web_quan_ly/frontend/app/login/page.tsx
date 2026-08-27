@@ -265,7 +265,7 @@ export default function LoginPage() {
 
             <div className="flex items-center gap-2.5 text-[12px] text-sf-text-muted">
               <ShieldCheck className="h-4 w-4 flex-none" style={{ color: "var(--sf-primary)" }} />
-              <span>Phiên đăng nhập được bảo vệ bằng JWT, tự hết hạn sau 8 giờ.</span>
+              <span>Phiên đăng nhập dùng JWT ngắn hạn và được làm mới an toàn.</span>
             </div>
 
             {SHOW_DEMO_CREDENTIALS && (

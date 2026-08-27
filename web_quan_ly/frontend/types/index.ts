@@ -47,6 +47,14 @@ export interface Vehicle {
   model: string;
   year: number;
   capacity: number;
+  heightMeters?: number;
+  widthMeters?: number;
+  lengthMeters?: number;
+  grossWeightTons?: number;
+  axleLoadTons?: number;
+  axleCount?: number;
+  topSpeedKph?: number;
+  hazardousGoods?: boolean;
   status: VehicleStatus;
   gpsStatus: GpsStatus;
   currentDriverId?: string;
@@ -231,6 +239,7 @@ export interface IncidentTimelineEntry {
 // ===== FLOOD POINT =====
 export interface FloodPoint {
   id: string;
+  hazardType: 'flood' | 'traffic_jam';
   location: string;
   lat: number;
   lng: number;
@@ -243,6 +252,13 @@ export interface FloodPoint {
   affectedRoutes: string[];
   imageUrl?: string;
   source: string;
+  status: 'unverified' | 'verified' | 'resolved' | 'expired';
+  receivedAt: string;
+  expiresAt?: string;
+  reporterName?: string;
+  geometryType?: 'point' | 'segment' | 'polygon';
+  geometry?: Array<{ lat: number; lng: number }>;
+  radiusMeters?: number;
 }
 
 export type FloodSeverity = 'light' | 'moderate' | 'heavy' | 'impassable';

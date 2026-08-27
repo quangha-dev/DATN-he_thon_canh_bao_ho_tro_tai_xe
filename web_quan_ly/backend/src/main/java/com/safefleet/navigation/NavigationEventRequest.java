@@ -5,8 +5,6 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-import java.time.LocalDateTime;
-
 public record NavigationEventRequest(
         @NotBlank String sessionId,
         @NotBlank @Size(max = 40) String eventType,
@@ -14,7 +12,7 @@ public record NavigationEventRequest(
         @DecimalMin("-180.0") @DecimalMax("180.0") Double lng,
         Double distanceToRouteMeters,
         Double gpsAccuracyMeters,
-        LocalDateTime occurredAt,
+        @Size(max = 40) String occurredAt,
         @Size(max = 1000) String metadata
 ) {
 }

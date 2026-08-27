@@ -1,0 +1,19 @@
+[Unit]
+Description=SafeFleet PostgreSQL and MinIO backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=safefleet
+Group=safefleet
+Environment=SAFEEFLEET_APP_ROOT=/opt/safefleet/app
+Environment=SAFEEFLEET_ENV_FILE=/opt/safefleet/.env.production
+Environment=SAFEEFLEET_BACKUP_DIR=/opt/safefleet/backups
+ExecStart=/usr/bin/bash /opt/safefleet/app/deploy/vps/backup.sh
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/safefleet/backups /run/docker.sock

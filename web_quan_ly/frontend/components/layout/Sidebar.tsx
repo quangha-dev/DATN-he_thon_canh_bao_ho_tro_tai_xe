@@ -29,6 +29,7 @@ import {
   Moon,
   Sun,
   User,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 
@@ -56,6 +57,7 @@ const MENU: MenuGroup[] = [
     title: "Điều hành",
     items: [
       { key: "command-center", label: "Trung tâm điều hành", icon: LayoutDashboard, path: "/command-center" },
+      { key: "agent", label: "Agent quản lý", icon: Bot, path: "/agent" },
       { key: "realtime-map", label: "Bản đồ realtime", icon: Map, path: "/realtime-map" },
     ],
   },

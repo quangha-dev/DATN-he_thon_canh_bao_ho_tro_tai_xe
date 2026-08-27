@@ -4,9 +4,10 @@ import '../design/motion.dart';
 import '../design/tokens.dart';
 import 'sf_status.dart';
 
-/// Thẻ chuẩn: surface + viền 1px + bo góc 20, không đổ bóng.
+/// Thẻ chuẩn: surface + viền 1px + bo góc 20 + bóng nhẹ xanh.
 ///
-/// Biến thể [emphasis]: viền theo màu trạng thái + dải màu 3px trên đỉnh.
+/// Biến thể [emphasis]: viền và nền theo màu trạng thái — dùng cho thẻ chuyến
+/// đang chạy (viền xanh 1.5px) và thẻ thông báo có mức ưu tiên.
 class SfCard extends StatelessWidget {
   const SfCard({
     required this.child,
@@ -15,6 +16,11 @@ class SfCard extends StatelessWidget {
     this.padding = SfSpace.card,
     this.onTap,
     this.background,
+    this.borderColor,
+    this.borderWidth,
+    this.radius = SfRadius.card,
+    this.elevated = true,
+    this.tinted = false,
   });
 
   final Widget child;
@@ -22,35 +28,49 @@ class SfCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
   final Color? background;
+  final Color? borderColor;
+  final double? borderWidth;
+  final double radius;
+
+  /// Đổ bóng thẻ. Tắt khi thẻ nằm lồng trong thẻ khác.
+  final bool elevated;
+
+  /// Nền lấy theo màu trạng thái thay vì trắng.
+  final bool tinted;
 
   @override
   Widget build(BuildContext context) {
     final p = context.sf;
-    final accent = emphasis?.inkOf(p);
-    final content = Padding(padding: padding, child: child);
+    final r = BorderRadius.circular(radius);
+    final line =
+        borderColor ??
+        (emphasis != null ? emphasis!.borderOf(p) : p.border);
+    final fill =
+        background ??
+        (tinted && emphasis != null ? emphasis!.tint(p) : p.surface);
 
-    return Material(
-      color: background ?? p.surface,
-      borderRadius: SfRadius.cardR,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: SfRadius.cardR,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: SfRadius.cardR,
-            border: Border.all(color: accent ?? p.border),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: r,
+        boxShadow: elevated && !p.isDark ? SfShadow.card : const <BoxShadow>[],
+      ),
+      child: Material(
+        color: fill,
+        borderRadius: r,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: r,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: r,
+              border: Border.all(
+                color: line,
+                width: borderWidth ?? (emphasis != null ? 1.5 : 1),
+              ),
+            ),
+            child: Padding(padding: padding, child: child),
           ),
-          child: accent == null
-              ? content
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(height: 3, color: accent),
-                    content,
-                  ],
-                ),
         ),
       ),
     );
@@ -79,10 +99,8 @@ class SfMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.sf;
-    final valueStyle = (drive ? SfType.displayDrive : SfType.mono).copyWith(
+    final valueStyle = (drive ? SfType.displayDrive : SfType.stat).copyWith(
       color: valueColor ?? p.textPrimary,
-      fontSize: drive ? null : 20,
-      fontWeight: FontWeight.w700,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -108,7 +126,7 @@ class SfMetric extends StatelessWidget {
                 unit!,
                 style:
                     (drive
-                            ? SfType.titleCard.copyWith(
+                            ? SfType.titleCardSm.copyWith(
                                 fontSize: SfTouch.driveFontFloor,
                               )
                             : SfType.meta)

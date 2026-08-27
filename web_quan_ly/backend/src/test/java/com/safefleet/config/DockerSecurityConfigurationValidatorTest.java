@@ -15,7 +15,9 @@ class DockerSecurityConfigurationValidatorTest {
                 "https://fleet.example.vn",
                 "minio",
                 "safefleet-minio",
-                "minio-password-strong"
+                "minio-password-strong",
+                true,
+                "independent-ai-internal-token-strong"
         );
 
         assertThatCode(validator::validate).doesNotThrowAnyException();
@@ -29,6 +31,8 @@ class DockerSecurityConfigurationValidatorTest {
                 "https://fleet.example.vn",
                 "local",
                 "",
+                "",
+                false,
                 ""
         );
         var wildcardCors = new DockerSecurityConfigurationValidator(
@@ -37,6 +41,8 @@ class DockerSecurityConfigurationValidatorTest {
                 "*",
                 "local",
                 "",
+                "",
+                false,
                 ""
         );
 
@@ -56,6 +62,8 @@ class DockerSecurityConfigurationValidatorTest {
                 "https://fleet.example.vn",
                 "minio",
                 "",
+                "",
+                false,
                 ""
         );
         var local = new DockerSecurityConfigurationValidator(
@@ -64,6 +72,8 @@ class DockerSecurityConfigurationValidatorTest {
                 "https://fleet.example.vn",
                 "local",
                 "",
+                "",
+                false,
                 ""
         );
 
@@ -71,5 +81,37 @@ class DockerSecurityConfigurationValidatorTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("MINIO_ROOT_USER");
         assertThatCode(local::validate).doesNotThrowAnyException();
+    }
+
+    @Test
+    void requiresIndependentAiServiceToken() {
+        String jwt = "jwt-secret-with-at-least-thirty-two-characters";
+        var missing = new DockerSecurityConfigurationValidator(
+                jwt,
+                "database-password-strong",
+                "https://fleet.example.vn",
+                "local",
+                "",
+                "",
+                true,
+                ""
+        );
+        var reusedJwt = new DockerSecurityConfigurationValidator(
+                jwt,
+                "database-password-strong",
+                "https://fleet.example.vn",
+                "local",
+                "",
+                "",
+                true,
+                jwt
+        );
+
+        assertThatThrownBy(missing::validate)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("AI_INTERNAL_TOKEN");
+        assertThatThrownBy(reusedJwt::validate)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("độc lập");
     }
 }

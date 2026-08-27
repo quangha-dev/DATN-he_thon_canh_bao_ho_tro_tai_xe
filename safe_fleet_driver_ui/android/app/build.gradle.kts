@@ -4,6 +4,9 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Navigation runs on MapLibre against the self-hosted road graph, so the app no
+// longer carries a Google Maps API key or the Navigation SDK.
+
 dependencies {
     // Native foreground camera detector uses the same ML Kit runtime as the
     // Flutter face-detection plugin, but app code needs direct compile access.
@@ -11,6 +14,15 @@ dependencies {
     implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("com.google.mlkit:face-mesh-detection:16.0.0-beta1")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
+}
+
+configurations.configureEach {
+    // google_mlkit_image_labeling 0.15.0 pulls linkfirebase:17.0.0, whose
+    // retired firebase-iid:20.1.5 packages the same receiver as current FCM.
+    // SafeFleet uses the bundled/default image labeler, not Firebase-hosted
+    // custom models, so the obsolete IID runtime must not enter the APK.
+    exclude(group = "com.google.firebase", module = "firebase-iid")
 }
 
 val releaseStoreFile = System.getenv("SAFEEFLEET_ANDROID_STORE_FILE")
@@ -46,6 +58,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }

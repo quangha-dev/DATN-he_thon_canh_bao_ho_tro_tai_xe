@@ -79,7 +79,9 @@ public class VehicleService {
         Vehicle vehicle = new Vehicle();
         vehicle.setPlateNumber(request.plateNumber());
         apply(vehicle, request.vehicleType(), request.brand(), request.model(), request.year(),
-                request.loadCapacity(), request.seatCount(), request.fuelType(),
+                request.loadCapacity(), request.heightMeters(), request.widthMeters(), request.lengthMeters(),
+                request.grossWeightTons(), request.axleLoadTons(), request.axleCount(), request.topSpeedKph(),
+                Boolean.TRUE.equals(request.hazardousGoods()), request.seatCount(), request.fuelType(),
                 request.status() == null ? VehicleStatus.AVAILABLE : request.status(),
                 request.currentDriverId(), request.gpsDeviceId(), request.cameraDeviceId(),
                 request.inspectionExpiredAt(), request.insuranceExpiredAt());
@@ -90,7 +92,9 @@ public class VehicleService {
     public VehicleResponse update(Long id, UpdateVehicleRequest request) {
         Vehicle vehicle = findVehicle(id);
         apply(vehicle, request.vehicleType(), request.brand(), request.model(), request.year(),
-                request.loadCapacity(), request.seatCount(), request.fuelType(), request.status(),
+                request.loadCapacity(), request.heightMeters(), request.widthMeters(), request.lengthMeters(),
+                request.grossWeightTons(), request.axleLoadTons(), request.axleCount(), request.topSpeedKph(),
+                Boolean.TRUE.equals(request.hazardousGoods()), request.seatCount(), request.fuelType(), request.status(),
                 request.currentDriverId(), request.gpsDeviceId(), request.cameraDeviceId(),
                 request.inspectionExpiredAt(), request.insuranceExpiredAt());
         return VehicleMapper.toResponse(vehicle);
@@ -126,6 +130,14 @@ public class VehicleService {
                        String model,
                        Integer year,
                        java.math.BigDecimal loadCapacity,
+                       java.math.BigDecimal heightMeters,
+                       java.math.BigDecimal widthMeters,
+                       java.math.BigDecimal lengthMeters,
+                       java.math.BigDecimal grossWeightTons,
+                       java.math.BigDecimal axleLoadTons,
+                       Integer axleCount,
+                       java.math.BigDecimal topSpeedKph,
+                       boolean hazardousGoods,
                        Integer seatCount,
                        com.safefleet.vehicle.enums.FuelType fuelType,
                        VehicleStatus status,
@@ -139,6 +151,14 @@ public class VehicleService {
         vehicle.setModel(model);
         vehicle.setYear(year);
         vehicle.setLoadCapacity(loadCapacity);
+        vehicle.setHeightMeters(heightMeters);
+        vehicle.setWidthMeters(widthMeters);
+        vehicle.setLengthMeters(lengthMeters);
+        vehicle.setGrossWeightTons(grossWeightTons);
+        vehicle.setAxleLoadTons(axleLoadTons);
+        vehicle.setAxleCount(axleCount);
+        vehicle.setTopSpeedKph(topSpeedKph);
+        vehicle.setHazardousGoods(hazardousGoods);
         vehicle.setSeatCount(seatCount);
         vehicle.setFuelType(fuelType);
         vehicle.setStatus(status);

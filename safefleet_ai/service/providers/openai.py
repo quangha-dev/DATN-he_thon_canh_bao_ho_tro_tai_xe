@@ -86,7 +86,11 @@ class OpenAiClient:
             "max_tokens": max_tokens,
         }
         if tools:
-            payload.update(tools=tools, parallel_tool_calls=True, tool_choice=tool_choice or "auto")
+            # The orchestrator evaluates tool results sequentially because later calls may
+            # depend on IDs returned by earlier calls.  Disabling parallel calls also keeps
+            # the Chat Completions history valid: every assistant tool_call_id is answered
+            # before the next model turn.
+            payload.update(tools=tools, parallel_tool_calls=False, tool_choice=tool_choice or "auto")
         elif tool_choice is not None:
             payload["tool_choice"] = tool_choice
         if response_format:
@@ -140,6 +144,7 @@ class OpenAiClient:
                     content = response.read()
                 return json.loads(content.decode("utf-8")) if content else {}
             except urllib.error.HTTPError as exception:
+                detail = self._http_error_detail(exception)
                 retryable = exception.code == 429 or 500 <= exception.code < 600
                 if retryable and attempt < 2:
                     time.sleep(0.5 * (2**attempt))
@@ -149,7 +154,7 @@ class OpenAiClient:
                 elif exception.code == 429:
                     message = "OpenAI đang giới hạn lượt gọi hoặc tài khoản đã hết hạn mức"
                 else:
-                    message = f"OpenAI trả về lỗi {exception.code}"
+                    message = f"OpenAI trả về lỗi {exception.code}: {detail}"
                 raise OpenAiError(message) from exception
             except (OSError, TimeoutError, json.JSONDecodeError) as exception:
                 if attempt < 2:
@@ -157,6 +162,17 @@ class OpenAiClient:
                     continue
                 raise OpenAiError("Không thể kết nối OpenAI") from exception
         raise OpenAiError("Không thể kết nối OpenAI")
+
+    @staticmethod
+    def _http_error_detail(exception: urllib.error.HTTPError) -> str:
+        try:
+            raw = exception.read().decode("utf-8", errors="replace")
+            payload = json.loads(raw)
+            message = str((payload.get("error") or {}).get("message") or raw)
+        except (OSError, json.JSONDecodeError, AttributeError):
+            message = "yêu cầu không hợp lệ"
+        # Không đưa request, API key hoặc payload người dùng vào log/response lỗi.
+        return " ".join(message.split())[:500]
 
     @staticmethod
     def structured_content(message: dict[str, Any]) -> dict[str, Any]:

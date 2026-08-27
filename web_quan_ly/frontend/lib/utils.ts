@@ -115,8 +115,10 @@ export const STATUS_COLORS: Record<string, string> = {
 export const MAP_CONFIG = {
   center: [105.8542, 21.0285] as [number, number], // Hà Nội
   zoom: 12,
-  tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-  attribution: '© OpenStreetMap contributors',
+  tileUrl:
+    process.env.NEXT_PUBLIC_MAP_TILE_URL?.trim() ||
+    'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
 };
 
 // Safety score thresholds

@@ -31,19 +31,6 @@ class CabinCameraScreen extends ConsumerWidget {
       data: SfTheme.dark,
       child: Scaffold(
         backgroundColor: SfColors.darkBg,
-        appBar: AppBar(
-          backgroundColor: SfColors.darkBg,
-          title: const Text('Giám sát tỉnh táo'),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: SfSpace.x12),
-              child: Switch.adaptive(
-                value: state.enabled,
-                onChanged: (_) => notifier.toggle(),
-              ),
-            ),
-          ],
-        ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(
             SfSpace.x16,
@@ -52,6 +39,11 @@ class CabinCameraScreen extends ConsumerWidget {
             SfSpace.x32,
           ),
           children: [
+            SafeArea(
+              bottom: false,
+              child: _header(context, state, notifier),
+            ),
+            const SizedBox(height: SfSpace.x16),
             _alertBanner(state, metrics, notifier),
             const SizedBox(height: SfSpace.x16),
             _CameraPanel(
@@ -82,6 +74,60 @@ class CabinCameraScreen extends ConsumerWidget {
       ),
     );
   }
+
+  /// Header: back, tiêu đề, chip trạng thái, công tắc bật/tắt.
+  ///
+  /// Phụ đề nêu thẳng chuyện riêng tư — tài xế cần biết camera không quay lén
+  /// mình gửi về công ty.
+  Widget _header(
+    BuildContext context,
+    CabinSafetyState state,
+    CabinSafetyController notifier,
+  ) => Row(
+    children: [
+      SfIconButton(
+        icon: Icons.arrow_back_rounded,
+        onDark: true,
+        tooltip: 'Quay lại',
+        onTap: () => Navigator.of(context).maybePop(),
+      ),
+      const SizedBox(width: SfSpace.x12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    'Giám sát tỉnh táo',
+                    style: SfType.titleSub.copyWith(
+                      color: SfColors.darkTextPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: SfSpace.x8),
+                SfStatusPill(
+                  state.enabled ? 'Đang bật' : 'Đang tắt',
+                  status: state.enabled ? SfStatus.good : SfStatus.pending,
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              'Xử lý ngay trên máy · không gửi video lên server',
+              style: SfType.caption.copyWith(color: SfColors.darkTextFaint),
+            ),
+          ],
+        ),
+      ),
+      Switch.adaptive(
+        value: state.enabled,
+        onChanged: (_) => notifier.toggle(),
+      ),
+    ],
+  );
 
   /// Cấp 0 khi tỉnh táo, cấp 1 khi có dấu hiệu, cấp 2 khi vượt ngưỡng nguy hiểm.
   Widget _alertBanner(
@@ -140,11 +186,11 @@ class CabinCameraScreen extends ConsumerWidget {
   }
 
   Widget _privacyNote() => SfCard(
-    background: SfColors.darkSurfaceAlt,
+    background: SfColors.darkSurface2,
     child: const Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.shield_outlined, color: SfColors.mint),
+        Icon(Icons.shield_outlined, color: SfColors.green400),
         SizedBox(width: SfSpace.x12),
         Expanded(child: _PrivacyText()),
       ],
@@ -190,7 +236,7 @@ class _CameraPanel extends StatelessWidget {
       height: 320,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: SfColors.darkSurfaceAlt,
+        color: SfColors.darkSurface2,
         borderRadius: SfRadius.cardR,
         border: Border.all(color: SfColors.darkBorder),
       ),
@@ -238,7 +284,7 @@ class _CameraPanel extends StatelessWidget {
                   decoration: BoxDecoration(
                     border: Border.all(
                       color: locked
-                          ? SfColors.mint.withValues(alpha: 0.75)
+                          ? SfColors.green400.withValues(alpha: 0.75)
                           : SfColors.darkTextMuted.withValues(alpha: 0.45),
                       width: 2,
                     ),
@@ -324,8 +370,8 @@ class _StatusPanel extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress.clamp(0.0, 1.0),
                 minHeight: 8,
-                backgroundColor: SfColors.darkSurfaceAlt,
-                valueColor: const AlwaysStoppedAnimation<Color>(SfColors.mint),
+                backgroundColor: SfColors.darkSurface2,
+                valueColor: const AlwaysStoppedAnimation<Color>(SfColors.green400),
               ),
             ),
             const SizedBox(height: SfSpace.x8),
@@ -461,7 +507,7 @@ class _MetricGrid extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(item.$3, color: SfColors.mint, size: 22),
+                Icon(item.$3, color: SfColors.green400, size: 22),
                 const SizedBox(width: SfSpace.x8),
                 Expanded(
                   child: Column(
@@ -525,7 +571,7 @@ class _TrendPanel extends StatelessWidget {
                   invert: true,
                 ).inkOnDark,
                 grid: SfColors.darkBorder,
-                danger: SfColors.dangerHot,
+                danger: SfColors.dangerSoft,
               ),
             ),
           ),

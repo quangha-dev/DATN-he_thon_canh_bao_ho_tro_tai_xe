@@ -23,6 +23,9 @@
         <springdoc.version>2.6.0</springdoc.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <minio.version>9.0.1</minio.version>
+        <firebase-admin.version>9.10.0</firebase-admin.version>
+        <!-- 10.20+ is the first Flyway line with PostgreSQL 17 support. -->
+        <flyway.version>10.22.0</flyway.version>
     </properties>
 
     <dependencies>
@@ -51,6 +54,11 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
         </dependency>
@@ -72,6 +80,18 @@
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
             <version>${minio.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>${firebase-admin.version}</version>
+            <exclusions>
+                <!-- Spring provides the Commons Logging bridge through spring-jcl. -->
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

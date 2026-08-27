@@ -3,6 +3,7 @@ package com.safefleet.flood.controller;
 import com.safefleet.common.dto.ApiResponse;
 import com.safefleet.common.dto.PageResponse;
 import com.safefleet.flood.dto.request.CreateFloodReportRequest;
+import com.safefleet.flood.dto.request.CreateFloodHazardRequest;
 import com.safefleet.flood.dto.request.FloodActionRequest;
 import com.safefleet.flood.dto.request.RouteCheckRequest;
 import com.safefleet.flood.dto.response.FloodReportResponse;
@@ -41,6 +42,14 @@ public class FloodReportController {
     @PreAuthorize("hasAnyRole('ADMIN','FLEET_MANAGER','DISPATCHER') or hasRole('DRIVER')")
     public ApiResponse<FloodReportResponse> create(@Valid @RequestBody CreateFloodReportRequest request) {
         return ApiResponse.ok("Flood report created", floodReportService.create(request));
+    }
+
+    @Operation(summary = "Report a flooded road segment or polygon")
+    @PostMapping("/hazards")
+    @PreAuthorize("hasAnyRole('ADMIN','FLEET_MANAGER','DISPATCHER') or hasRole('DRIVER')")
+    public ApiResponse<FloodReportResponse> createHazard(
+            @Valid @RequestBody CreateFloodHazardRequest request) {
+        return ApiResponse.ok("Flood hazard created", floodReportService.createHazard(request));
     }
 
     @Operation(summary = "View flood points as table")

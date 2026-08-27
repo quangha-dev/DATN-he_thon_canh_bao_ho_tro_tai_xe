@@ -46,6 +46,30 @@ public class Vehicle extends BaseEntity {
     @Column(name = "load_capacity", precision = 10, scale = 2)
     private BigDecimal loadCapacity;
 
+    @Column(name = "height_meters", precision = 5, scale = 2)
+    private BigDecimal heightMeters;
+
+    @Column(name = "width_meters", precision = 5, scale = 2)
+    private BigDecimal widthMeters;
+
+    @Column(name = "length_meters", precision = 5, scale = 2)
+    private BigDecimal lengthMeters;
+
+    @Column(name = "gross_weight_tons", precision = 7, scale = 2)
+    private BigDecimal grossWeightTons;
+
+    @Column(name = "axle_load_tons", precision = 6, scale = 2)
+    private BigDecimal axleLoadTons;
+
+    @Column(name = "axle_count")
+    private Integer axleCount;
+
+    @Column(name = "top_speed_kph", precision = 6, scale = 2)
+    private BigDecimal topSpeedKph;
+
+    @Column(name = "hazardous_goods", nullable = false)
+    private boolean hazardousGoods;
+
     @Column(name = "seat_count")
     private Integer seatCount;
 

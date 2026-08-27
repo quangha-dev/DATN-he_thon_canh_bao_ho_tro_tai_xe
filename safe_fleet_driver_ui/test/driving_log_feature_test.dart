@@ -87,7 +87,7 @@ void main() {
     });
     final upgraded = await database.database;
     final version = await upgraded.rawQuery('PRAGMA user_version');
-    expect(version.single.values.single, 3);
+    expect(version.single.values.single, 4);
   });
 
   test('month filter and exported status are persisted', () async {
@@ -108,12 +108,38 @@ void main() {
     expect(july.map((entry) => entry.id), contains('scan-draft'));
     expect(july.map((entry) => entry.voucherNumber), contains('77029'));
 
+    await repository.confirmOnce(entry, confirmationId: 'confirmation-export');
     await repository.markExported([entry.id]);
     expect(
       (await repository.find(entry.id))!.status,
       DrivingLogStatus.exported,
     );
   });
+
+  test(
+    'final confirmation is persisted exactly once and locks first values',
+    () async {
+      final entry = _entry();
+      await repository.save(entry);
+
+      final first = await repository.confirmOnce(
+        entry,
+        confirmationId: 'confirmation-first',
+      );
+      final replay = await repository.confirmOnce(
+        entry.copyWith(projectAddress: 'Giá trị không được ghi đè'),
+        confirmationId: 'confirmation-second',
+      );
+
+      expect(first.isConfirmed, isTrue);
+      expect(replay.confirmationId, 'confirmation-first');
+      expect(replay.projectAddress, entry.projectAddress);
+      expect(
+        (await repository.find(entry.id))!.confirmationId,
+        'confirmation-first',
+      );
+    },
+  );
 
   test('generated xlsx contains the expected journal headers and values', () {
     final bytes = DrivingLogExportService().buildWorkbookBytes(

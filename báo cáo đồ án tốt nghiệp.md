@@ -555,23 +555,180 @@ GPS có sai số và có thể mất tín hiệu trong hầm hoặc khu vực nh
 | OCR | Exact Match, Character Error Rate, Word Error Rate, field accuracy, review time | Đánh giá cả nhận dạng văn bản và giá trị giảm thao tác nhập liệu. |
 | Bảo mật | Tỷ lệ ca negative authorization bị chặn, evidence access violations | Xác minh phân quyền và ownership. |
 
-### 2.2. Đề xuất giải pháp
+### 2.2. Thiết kế hệ thống
 
-#### 2.2.1. Mô hình tổng thể hệ thống
+#### 2.2.1. Kiến trúc tổng thể
 
-Giải pháp được thiết kế theo mô hình client server lai, trong đó điện thoại không chỉ là giao diện mà còn là nút edge AI thực hiện phần xử lý nhạy cảm với độ trễ. Backend là biên tin cậy về danh tính, quyền, transaction và dữ liệu dùng chung. AI service xử lý các tác vụ nặng hoặc có tính điều phối như Agent và OCR. Web dashboard cung cấp góc nhìn điều hành theo thời gian thực.
+SafeFleet được thiết kế cho hai actor nghiệp vụ là lái xe và quản lý. Ứng dụng tài xế vừa là giao diện nghiệp vụ vừa là nút edge AI thực hiện cảnh báo an toàn tại chỗ. Web quản lý cung cấp góc nhìn điều hành tập trung. Backend Spring Boot giữ vai trò nguồn sự thật về danh tính, quyền, transaction và trạng thái nghiệp vụ; AI service chỉ thực hiện suy luận, Agent, RAG và OCR trong phạm vi được backend kiểm soát.
 
-Mô hình tổng thể có ba đường xử lý. Đường thứ nhất là luồng an toàn tức thời gồm camera, nhận diện, Event Processor, Risk Engine và cảnh báo tại chỗ. Đường này vẫn hoạt động khi mất mạng. Đường thứ hai là luồng đồng bộ nghiệp vụ gồm GPS, chuyến, safety event, incident, notification và realtime dashboard. Đường thứ ba là luồng Agentic AI và OCR, nơi các yêu cầu được xử lý bất đồng bộ hoặc thông qua tool có kiểm soát.
+##### 2.2.1.1. Biểu đồ ngữ cảnh
 
-Để giữ an toàn, LLM không nằm trên critical path của cảnh báo. Khi Risk Engine xác định nguy cơ, ứng dụng phát cảnh báo ngay bằng luật xác định. Agent có vai trò hỗ trợ giao tiếp, tra cứu, tìm địa điểm, giải thích, chuẩn bị thao tác và phối hợp các công cụ. Trong sự kiện khẩn cấp, Agent chỉ là kênh tương tác bổ sung; state machine và safety policy mới là cơ chế quyết định cuối cùng.
+Biểu đồ ngữ cảnh xác định ranh giới SafeFleet và các luồng trao đổi chính với hai actor cùng các nền tảng bên ngoài. Lái xe không kết nối trực tiếp tới cơ sở dữ liệu hay AI service; quản lý cũng chỉ thao tác thông qua web và các API được phân quyền.
 
-**Hình 2.2. Kiến trúc tổng thể của SafeFleet khi hoàn thiện**
+```mermaid
+flowchart LR
+    Driver["Lái xe"]
+    Manager["Quản lý"]
+    SafeFleet["HỆ THỐNG SAFEFLEET<br/>Quản lý đội xe và hỗ trợ an toàn"]
+    Map["Dịch vụ bản đồ<br/>Map tiles, geocoding, routing"]
+    AI["Dịch vụ AI bên ngoài<br/>OpenAI API"]
+    Notify["Dịch vụ thông báo bên ngoài<br/>Firebase Cloud Messaging"]
 
-![Kiến trúc tổng thể SafeFleet](docs/report-diagrams/CH2-DIAGRAM-02-architecture.svg)
+    Driver -->|"Đăng nhập, nhận và thực hiện chuyến,<br/>gửi GPS, SOS, cảnh báo và câu hỏi"| SafeFleet
+    SafeFleet -->|"Chuyến được giao, dẫn đường,<br/>cảnh báo và thông báo"| Driver
 
-Các quyết định kiến trúc chính bao gồm xử lý camera trên thiết bị để giảm độ trễ và rủi ro riêng tư; sử dụng modular monolith cho backend để giữ transaction và triển khai đơn giản; tách AI service vì phụ thuộc Python/model khác với backend Java; sử dụng MySQL làm nguồn sự thật, MinIO làm kho evidence riêng tư và SQLite làm lớp chịu mất mạng. Redis không phải phụ thuộc bắt buộc ở quy mô ban đầu; unique constraint, idempotency record và transaction MySQL đủ để bảo vệ các luồng cốt lõi. Khi hệ thống mở rộng nhiều instance, distributed cache hoặc message broker chỉ được bổ sung sau khi có bằng chứng về nút thắt.
+    Manager -->|"Quản lý tài xế, xe, chuyến,<br/>sự cố, báo cáo và Agent"| SafeFleet
+    SafeFleet -->|"Dashboard, bản đồ realtime,<br/>cảnh báo và báo cáo"| Manager
 
-#### 2.2.2. Kiến trúc hệ thống (System Architecture)
+    SafeFleet -->|"Yêu cầu bản đồ và tuyến đường"| Map
+    Map -->|"Tile, địa điểm và phương án tuyến"| SafeFleet
+    SafeFleet -->|"Prompt đã kiểm soát và giảm thiểu dữ liệu"| AI
+    AI -->|"Kết quả suy luận"| SafeFleet
+    SafeFleet -->|"Yêu cầu gửi push"| Notify
+    Notify -->|"Thông báo trên điện thoại"| Driver
+```
+
+**Hình 2.8. Biểu đồ ngữ cảnh của SafeFleet**
+
+##### 2.2.1.2. Kiến trúc hệ thống
+
+Kiến trúc logic được tổ chức theo tầng để tách xử lý tại thiết bị, giao diện quản lý, nghiệp vụ trung tâm, năng lực AI và dữ liệu. LLM không nằm trên critical path của cảnh báo ngủ gật: ứng dụng phát âm thanh/rung ngay tại điện thoại, sau đó mới đồng bộ sự kiện về backend khi có mạng.
+
+```mermaid
+flowchart TB
+    subgraph Presentation["TẦNG ỨNG DỤNG"]
+        DriverApp["Ứng dụng lái xe Flutter<br/>Chuyến, dẫn đường, SOS, Agent"]
+        WebApp["Nền tảng web Next.js<br/>Dashboard và quản lý đội xe"]
+    end
+
+    subgraph MobileEdge["XỬ LÝ TẠI ĐIỆN THOẠI"]
+        CabinAI["Cabin AI<br/>Face Mesh + STGT TFLite"]
+        LocalRisk["Risk Engine và cảnh báo<br/>Âm thanh, rung, mức 1–10"]
+        Offline["SQLite và Sync Queue<br/>Offline, retry, idempotency"]
+        NavClient["Turn-by-turn Navigation<br/>GPS và hướng dẫn giọng nói"]
+    end
+
+    subgraph BackendLayer["TẦNG BACKEND API"]
+        Edge["Caddy<br/>HTTPS, WSS, reverse proxy"]
+        API["Spring Boot Backend<br/>REST API, RBAC, transaction"]
+        Realtime["STOMP WebSocket<br/>Cập nhật realtime"]
+        Jobs["Background Jobs<br/>Push, retry, cleanup"]
+    end
+
+    subgraph AIService["TẦNG DỊCH VỤ AI"]
+        Agent["Agent Orchestrator<br/>Plan, Execute, Check, Replan"]
+        Tools["MCP Tool Registry<br/>Tool theo vai trò và audit"]
+        RAG["RAG Engine<br/>Hybrid search và citation"]
+        OCR["OCR Pipeline<br/>Tesseract + VietOCR"]
+    end
+
+    subgraph DataLayer["TẦNG DỮ LIỆU VÀ BẰNG CHỨNG"]
+        PG[("PostgreSQL 17<br/>Dữ liệu nghiệp vụ")]
+        Vector[("pgvector<br/>Knowledge embeddings")]
+        MinIO[("MinIO<br/>Ảnh, chứng từ và evidence")]
+        Redis[("Redis mục tiêu<br/>Cache, queue, distributed lock")]
+    end
+
+    subgraph External["DỊCH VỤ BÊN NGOÀI"]
+        OpenAI["OpenAI API"]
+        FCM["Firebase FCM"]
+        Routing["Valhalla / OSRM / Photon"]
+        Tiles["Map Tile Provider"]
+    end
+
+    DriverApp --> CabinAI --> LocalRisk
+    DriverApp --> Offline
+    DriverApp --> NavClient
+    DriverApp -->|"HTTPS / REST"| Edge
+    WebApp -->|"HTTPS / WSS"| Edge
+    Edge --> API
+    Edge --> Realtime
+    API --- Realtime
+    API --- Jobs
+    API --> PG
+    API --> MinIO
+    API --> Redis
+    Realtime --> Redis
+    Jobs --> Redis
+    API -->|"REST nội bộ"| Agent
+    API -->|"OCR job"| OCR
+    Agent --> Tools
+    Tools -->|"REST + JWT/RBAC"| API
+    Tools --> RAG
+    RAG --> Vector
+    Vector --- PG
+    OCR --> MinIO
+    Agent --> OpenAI
+    Jobs --> FCM
+    API --> Routing
+    NavClient --> Tiles
+```
+
+**Hình 2.9. Kiến trúc tổng thể của SafeFleet**
+
+##### 2.2.1.3. Kiến trúc triển khai
+
+Kiến trúc triển khai mục tiêu sử dụng một VPS ở giai đoạn đầu. Caddy là điểm vào công khai duy nhất; PostgreSQL, MinIO, AI service và dịch vụ định tuyến chỉ giao tiếp trong mạng Docker nội bộ. Ứng dụng Android gọi REST API và nhận cập nhật STOMP/WebSocket qua HTTPS/WSS; trình duyệt tải web Next.js từ cùng domain để tránh sai lệch CORS và cấu hình endpoint.
+
+```mermaid
+flowchart TB
+    Android["Điện thoại Android<br/>SafeFleet Driver App"]
+    Browser["Trình duyệt web<br/>Quản lý SafeFleet"]
+
+    subgraph ExternalServices["DỊCH VỤ BÊN NGOÀI"]
+        Maps["Bản đồ và địa điểm<br/>Tiles / Photon"]
+        FCM2["Firebase Cloud Messaging"]
+        OpenAI2["OpenAI API"]
+    end
+
+    subgraph VPS["VPS PRODUCTION"]
+        Firewall["Firewall<br/>Chỉ mở 80/443 và SSH allowlist"]
+        Caddy["Caddy<br/>TLS và Reverse Proxy"]
+
+        subgraph DockerNet["Docker Compose Network"]
+            Frontend["Next.js Frontend<br/>:3000 nội bộ"]
+            Backend["Spring Boot Backend<br/>:8080 nội bộ"]
+            AIService2["FastAPI AI Service<br/>:8000 nội bộ"]
+            PostgreSQL[("PostgreSQL 17 + pgvector<br/>:5432 nội bộ")]
+            MinIO2[("MinIO<br/>S3 API :9000 nội bộ")]
+            Redis2[("Redis mục tiêu<br/>:6379 nội bộ")]
+            Valhalla["Valhalla Routing<br/>:8002 nội bộ"]
+        end
+
+        Volumes["Persistent volumes<br/>PostgreSQL, MinIO, Valhalla"]
+        Backup["Backup có checksum<br/>và bản sao mã hóa off-site"]
+    end
+
+    Android -->|"REST API qua HTTPS"| Firewall
+    Android -->|"STOMP WebSocket qua WSS"| Firewall
+    Browser -->|"HTTPS và WSS"| Firewall
+    Firewall --> Caddy
+    Caddy -->|"/"| Frontend
+    Caddy -->|"/api/v1/*"| Backend
+    Caddy -->|"/ws-native"| Backend
+    Backend -->|"REST nội bộ + service token"| AIService2
+    Backend -->|"JDBC"| PostgreSQL
+    AIService2 -->|"Vector query"| PostgreSQL
+    Backend -->|"S3 API"| MinIO2
+    Backend -->|"Cache, queue, lock"| Redis2
+    Backend -->|"Routing HTTP"| Valhalla
+    Backend -->|"Push notification"| FCM2
+    AIService2 -->|"Suy luận Agent"| OpenAI2
+    Android -->|"Map tiles / geocoding"| Maps
+    PostgreSQL --- Volumes
+    MinIO2 --- Volumes
+    Redis2 --- Volumes
+    Valhalla --- Volumes
+    Volumes --> Backup
+```
+
+**Hình 2.10. Kiến trúc triển khai của SafeFleet**
+
+Mô hình tổng thể có ba đường xử lý. Đường thứ nhất là luồng an toàn tức thời gồm camera, nhận diện, Temporal Event Processor, Risk Engine và cảnh báo tại chỗ; đường này vẫn hoạt động khi mất mạng. Đường thứ hai là luồng đồng bộ nghiệp vụ gồm GPS, chuyến, safety event, incident, notification và realtime dashboard. Đường thứ ba là luồng Agentic AI và OCR, nơi yêu cầu được xử lý qua tool có kiểm soát hoặc job bất đồng bộ.
+
+Các quyết định kiến trúc chính bao gồm xử lý camera trên thiết bị để giảm độ trễ và rủi ro riêng tư; sử dụng modular monolith cho backend để giữ transaction và triển khai đơn giản; tách AI service vì phụ thuộc Python/model khác với backend Java; sử dụng PostgreSQL 17 và pgvector làm nguồn sự thật, MinIO làm kho evidence riêng tư và SQLite làm lớp chịu mất mạng. Redis chưa phải phụ thuộc bắt buộc ở quy mô một instance; unique constraint, idempotency record và transaction PostgreSQL bảo vệ các luồng cốt lõi. Redis chỉ được bổ sung khi cần queue phân tán, distributed lock hoặc scale-out WebSocket.
+
+#### 2.2.2. Mô tả chi tiết các tầng
 
 ##### 2.2.2.1. Tầng thiết bị tài xế
 
@@ -581,7 +738,7 @@ SQLite có bốn nhóm dữ liệu: hàng đợi offline, cache dữ liệu ít 
 
 ##### 2.2.2.2. Tầng backend
 
-Backend Spring Boot là biên tin cậy của hệ thống. Security layer xác minh JWT, vai trò và ownership. Application services điều phối các module account, driver, vehicle, device, trip, telemetry, safety, incident, flood, navigation, warehouse document, maintenance, notification và report. Repository layer truy cập MySQL thông qua JPA; Flyway kiểm soát phiên bản schema.
+Backend Spring Boot là biên tin cậy của hệ thống. Security layer xác minh JWT, vai trò và ownership. Application services điều phối các module account, driver, vehicle, device, trip, telemetry, safety, incident, flood, navigation, warehouse document, maintenance, notification và report. Repository layer truy cập PostgreSQL thông qua JPA; Flyway kiểm soát phiên bản schema.
 
 Safety Orchestrator là thành phần mục tiêu nối safety event với incident. Module này không chạy lại computer vision mà xác minh ngữ cảnh, kiểm tra cooldown/idempotency, áp dụng policy chuyển cấp, tạo timeline và phát bản tin sau khi transaction commit. Việc tách safety event và incident giúp không xem mọi cảnh báo là sự cố cần cứu hộ.
 
@@ -597,7 +754,7 @@ RAG được thiết kế như một tool truy xuất, không được nhúng l�
 
 ##### 2.2.2.4. Tầng dữ liệu, web và dịch vụ ngoài
 
-MySQL lưu dữ liệu có cấu trúc và quan hệ. MinIO lưu evidence trong bucket private; client không giữ secret của object storage. Kho vector lưu embedding và metadata của tài liệu, nhưng bản gốc và phiên bản tài liệu vẫn phải được quản lý có thẩm quyền. Next.js web sử dụng REST cho truy vấn/command và STOMP cho cập nhật nhanh. MapLibre hiển thị bản đồ; Photon và OSRM lần lượt phục vụ geocoding và routing.
+PostgreSQL lưu dữ liệu có cấu trúc, quan hệ và vector tri thức thông qua extension pgvector. MinIO lưu evidence trong bucket private; client không giữ secret của object storage. Kho vector lưu embedding và metadata của tài liệu, nhưng bản gốc và phiên bản tài liệu vẫn phải được quản lý có thẩm quyền. Next.js web sử dụng REST cho truy vấn/command và STOMP cho cập nhật nhanh. MapLibre hiển thị bản đồ; Photon phục vụ geocoding, còn Valhalla là routing provider chính và OSRM là fallback suy giảm.
 
 Dịch vụ notification được đóng gói sau interface. Trong môi trường chưa có credential push, hệ thống dùng notification record, realtime và polling. Khi triển khai thực, FCM, SMS hoặc email chỉ được kích hoạt sau khi cấu hình secret, hạn mức, retry, dead letter và chính sách dữ liệu phù hợp.
 
@@ -607,7 +764,7 @@ Dịch vụ notification được đóng gói sau interface. Trong môi trườn
 
 Luồng hoạt động bắt đầu từ việc quản lý tạo và giao chuyến. Tài xế phải hoàn tất checklist trước khi khởi tạo đồng thời trip workflow, driving session và navigation session. Trong chuyến, GPS, AI cabin và cảnh báo chạy song song. Sự kiện an toàn được đánh giá theo cấp độ; SOS, hỏng xe và nguy cơ không phản hồi được đưa vào luồng incident. Sau chuyến, dữ liệu chuyến và chứng từ được đối chiếu để phục vụ báo cáo.
 
-**Hình 2.3. Sơ đồ hoạt động end to end của chuyến**
+**Hình 2.11. Sơ đồ hoạt động end to end của chuyến**
 
 ![Sơ đồ hoạt động toàn hệ thống](docs/report-diagrams/CH2-DIAGRAM-03-overall-activity.svg)
 
@@ -615,7 +772,7 @@ Luồng hoạt động bắt đầu từ việc quản lý tạo và giao chuy�
 
 Pipeline cabin có hai nhánh nhận diện. Nhánh buồn ngủ xử lý khuôn mặt, landmark và chuỗi đặc trưng. Nhánh điện thoại phát hiện object và kiểm tra quan hệ với tay, tai, mặt, vùng cabin cũng như tốc độ xe. Hai nhánh chỉ hợp nhất ở cấp prediction/event; không lấy confidence của một model làm risk score cuối cùng.
 
-**Hình 2.4. Pipeline Detection, Temporal Event, Risk và Action**
+**Hình 2.12. Pipeline Detection, Temporal Event, Risk và Action**
 
 ![Pipeline giám sát an toàn](docs/report-diagrams/CH2-DIAGRAM-04-safety-pipeline.svg)
 
@@ -623,7 +780,7 @@ Pipeline cabin có hai nhánh nhận diện. Nhánh buồn ngủ xử lý khuôn
 
 Agent nhận câu lệnh và structured context. Yêu cầu khẩn cấp được chuyển qua policy xác định; yêu cầu thông thường được lập kế hoạch. Mỗi tool call đều qua registry và guard. Sau thực thi, Agent quan sát kết quả, kiểm tra kế hoạch và chỉ trả lời thành công nếu hậu điều kiện đã được xác nhận. Cấu trúc này thể hiện vòng lặp suy luận, hành động và quan sát của Agent [18], đồng thời giới hạn rủi ro tool use đã phân tích ở Chương 1 [20].
 
-**Hình 2.5. Pipeline ra quyết định và thực thi của Agent**
+**Hình 2.13. Pipeline ra quyết định và thực thi của Agent**
 
 ![Pipeline Agentic AI](docs/report-diagrams/CH2-DIAGRAM-05-agent-pipeline.svg)
 
@@ -631,7 +788,7 @@ Agent nhận câu lệnh và structured context. Yêu cầu khẩn cấp đượ
 
 Kịch bản này là ca kiểm thử quan trọng nhất của giải pháp. Sau khi Event Processor tạo sự kiện buồn ngủ mức HIGH, app cảnh báo và yêu cầu xác nhận. Nếu tài xế phản hồi, sự kiện được ghi nhận nhưng vẫn tiếp tục theo dõi. Nếu không phản hồi và tín hiệu nguy hiểm tiếp diễn, local policy chuyển sang CRITICAL, lấy GPS gần nhất và xếp item ưu tiên cao. Backend tạo event, incident và timeline trong transaction; chỉ sau commit mới phát realtime. Khi mất mạng, app không tuyên bố đã gửi cứu hộ mà tiếp tục cảnh báo tại chỗ và retry.
 
-**Hình 2.6. Sơ đồ tuần tự sự kiện buồn ngủ CRITICAL**
+**Hình 2.14. Sơ đồ tuần tự sự kiện buồn ngủ CRITICAL**
 
 ![Sơ đồ tuần tự sự kiện khẩn cấp](docs/report-diagrams/CH2-DIAGRAM-06-critical-sequence.svg)
 
@@ -718,7 +875,7 @@ Khi có mạng, app gửi ảnh tới endpoint `/api/v1/mobile/documents/ocr/job
 
 Kết quả OCR không tự động trở thành dữ liệu cuối cùng. App hiển thị ảnh cạnh các trường, confidence và cảnh báo đối chiếu biển số dự kiến. Người dùng sửa trường thiếu/sai rồi xác nhận. Nếu người dùng đang sửa form khi kết quả server về, app lưu kết quả chờ và không ghi đè. Ảnh tạm trong database được xóa sau khi job kết thúc; nếu cần lưu evidence lâu dài thì ảnh phải được chuyển sang MinIO theo chính sách và quyền riêng biệt.
 
-**Hình 2.7. Sơ đồ tuần tự xử lý OCR bất đồng bộ**
+**Hình 2.15. Sơ đồ tuần tự xử lý OCR bất đồng bộ**
 
 ![Sơ đồ tuần tự OCR](docs/report-diagrams/CH2-DIAGRAM-07-ocr-sequence.svg)
 
@@ -896,18 +1053,18 @@ Tiền xử lý computer vision gồm resize có bảo toàn tỷ lệ, normaliz
 | Voice | Speech to Text, Flutter TTS | Tương tác rảnh tay tiếng Việt |
 | Backend | Java 21, Spring Boot, Spring Security, JPA, Validation | REST API, JWT/RBAC, nghiệp vụ, transaction và validation |
 | Realtime | STOMP/WebSocket trong Spring | Phát telemetry, safety event, incident và notification sau commit |
-| Database | MySQL 8.4, InnoDB, Flyway | Dữ liệu quan hệ, khóa ngoại, unique constraint, migration và transaction |
+| Database | PostgreSQL 17, pgvector, Flyway | Dữ liệu quan hệ, vector tri thức, khóa ngoại, unique constraint, migration và transaction |
 | Object storage | MinIO | Evidence private và tải xuống có kiểm soát |
 | AI service | Python, FastAPI, Pydantic | Agent API, MCP/tool, intent, OCR và model metadata |
 | Training/inference | PyTorch, OpenCV, Tesseract, VietOCR | Huấn luyện/xuất model, tiền xử lý ảnh và OCR hybrid |
 | Agent | Structured output, MCP style tool registry, LLM adapter | Lập kế hoạch, gọi tool, kiểm tra kết quả và fallback |
-| RAG | Vector index qua retrieval interface | Lập chỉ mục và truy xuất tài liệu có metadata/phiên bản |
+| RAG | PostgreSQL pgvector và hybrid retrieval | Lập chỉ mục và truy xuất tài liệu có metadata/phiên bản/citation |
 | Web | Next.js, React, TypeScript, MapLibre, Recharts | Dashboard, bản đồ và báo cáo |
-| Bản đồ | Photon, OSRM | Geocoding và routing; có provider abstraction/fallback |
-| Triển khai | Docker Compose | Đóng gói MySQL, backend, frontend, AI service và MinIO |
+| Bản đồ | MapLibre, Photon, Valhalla, OSRM fallback | Hiển thị bản đồ, geocoding và định tuyến có provider abstraction/fallback |
+| Triển khai | Docker Compose | Đóng gói PostgreSQL/pgvector, backend, frontend, AI service, MinIO và Valhalla |
 | Kiểm thử | JUnit, Testcontainers, pytest, Flutter Test, ESLint/TypeScript build | Kiểm thử đơn vị, tích hợp, hợp đồng và build |
 
-PostgreSQL hoặc Redis không được đưa vào sơ đồ chỉ vì phổ biến nếu hệ thống không sử dụng. MySQL được lựa chọn vì dữ liệu nghiệp vụ có nhiều quan hệ, cần transaction và unique constraint. SQLite phù hợp với queue trên một thiết bị. MinIO tách binary evidence khỏi bảng nghiệp vụ. AI service dùng Python để tận dụng hệ sinh thái model, còn backend Java giữ quyền quyết định nghiệp vụ và bảo mật. Sự phân chia này làm rõ trách nhiệm thay vì biến mọi thành phần thành microservice độc lập.
+PostgreSQL 17 được lựa chọn vì dữ liệu nghiệp vụ có nhiều quan hệ, cần transaction, unique constraint và đồng thời phải lưu vector tri thức qua pgvector. SQLite phù hợp với queue trên một thiết bị. MinIO tách binary evidence khỏi bảng nghiệp vụ. AI service dùng Python để tận dụng hệ sinh thái model, còn backend Java giữ quyền quyết định nghiệp vụ và bảo mật. Redis chưa phải phụ thuộc bắt buộc ở quy mô một VPS và chỉ được bổ sung khi có nhu cầu queue hoặc lock phân tán. Sự phân chia này làm rõ trách nhiệm thay vì biến mọi thành phần thành microservice độc lập.
 
 ### 2.5. Triển khai hệ thống (Implementation)
 
@@ -921,7 +1078,7 @@ Schema trung tâm được chuẩn hóa quanh các thực thể người dùng, 
 
 Để đáp ứng kiến trúc mục tiêu, bảng `safety_events` cần có `driving_session_id`, average confidence, duration, risk score, driver response và client event ID ổn định. Bảng `safety_event_actions` lưu từng bước cảnh báo, yêu cầu phản hồi, chuyển cấp hoặc notification. Bảng `agent_action_logs` lưu tool, tham số đã rút gọn/mask, policy decision, result status và reference ID. Các bảng này không lưu chain of thought của mô hình; chúng chỉ lưu kế hoạch/tóm tắt lý do vận hành cần thiết để audit.
 
-**Hình 2.8. ERD rút gọn của các thực thể cốt lõi trong thiết kế mục tiêu**
+**Hình 2.16. ERD rút gọn của các thực thể cốt lõi trong thiết kế mục tiêu**
 
 ![ERD cốt lõi SafeFleet](docs/report-diagrams/CH2-DIAGRAM-08-target-erd.svg)
 
@@ -1022,7 +1179,7 @@ Mobile Document Scan Service chịu trách nhiệm scan/quality; Driving Log Rep
 
 Frontend sử dụng API client thống nhất, route guard và access control để ẩn chức năng không thuộc quyền, nhưng bảo mật thực sự vẫn ở backend. Command Center kết hợp snapshot REST với sự kiện STOMP. Reports service tổng hợp bằng query có phạm vi và pagination; export phải lưu người yêu cầu, thời gian, bộ lọc và phiên bản dữ liệu khi cần đối soát. Các biểu đồ chỉ trình bày dữ liệu đã tổng hợp, không suy diễn risk từ màu sắc giao diện.
 
-**Hình 2.9. Sơ đồ lớp logic của các module cốt lõi**
+**Hình 2.17. Sơ đồ lớp logic của các module cốt lõi**
 
 ![Sơ đồ lớp logic SafeFleet](docs/report-diagrams/CH2-DIAGRAM-09-class.svg)
 

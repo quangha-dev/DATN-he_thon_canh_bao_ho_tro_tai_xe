@@ -622,7 +622,10 @@ export default function DispatchPage() {
     await submitDispatch(true);
   };
 
-  const routeCoordinates = routeSummary?.coordinates ?? [];
+  const routeCoordinates = useMemo(
+    () => routeSummary?.coordinates ?? [],
+    [routeSummary]
+  );
 
   /* Điểm ngập nằm trên tuyến: lấy khoảng cách ngắn nhất từ điểm ngập tới các
      đỉnh của tuyến, dưới ~400 m coi như tuyến đi qua điểm đó. */

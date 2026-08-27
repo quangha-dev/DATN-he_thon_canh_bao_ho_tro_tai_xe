@@ -82,6 +82,14 @@ type BackendVehicle = {
   model: string;
   year: number;
   loadCapacity?: number | string | null;
+  heightMeters?: number | string | null;
+  widthMeters?: number | string | null;
+  lengthMeters?: number | string | null;
+  grossWeightTons?: number | string | null;
+  axleLoadTons?: number | string | null;
+  axleCount?: number | null;
+  topSpeedKph?: number | string | null;
+  hazardousGoods?: boolean;
   seatCount?: number | null;
   fuelType?: string | null;
   status: string;
@@ -211,11 +219,15 @@ type BackendFloodReport = {
   lat: number;
   lng: number;
   address?: string | null;
+  hazardType?: "FLOOD" | "TRAFFIC_JAM" | null;
   severity: string;
   source: string;
   reportedByDriverId?: number | null;
   reportedByDriverName?: string | null;
   imageUrl?: string | null;
+  geometryType?: "POINT" | "SEGMENT" | "POLYGON" | null;
+  geometryJson?: string | null;
+  radiusMeters?: number | null;
   confidence?: number | null;
   status: string;
   verifiedBy?: number | null;
@@ -323,6 +335,30 @@ export type AgentAiConfiguration = {
   maxSteps: number;
   source: "DATABASE" | "ENVIRONMENT" | string;
   updatedAt?: string | null;
+};
+
+export type ManagementAgentMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type ManagementAgentResponse = {
+  responseText: string;
+  model: string;
+  source: string;
+  status: string;
+  plan: string[];
+  steps: Array<{
+    index: number;
+    tool: string;
+    arguments: string;
+    success: boolean;
+    planCheck: string;
+    reason: string;
+  }>;
+  replanned: boolean;
+  clientActions: unknown[];
+  confirmationRequest?: unknown | null;
 };
 
 /* ---- Thông báo ---- */
@@ -688,6 +724,14 @@ function vehicleFromBackend(vehicle: BackendVehicle): Vehicle {
     model: vehicle.model,
     year: vehicle.year,
     capacity: toNumber(vehicle.loadCapacity),
+    heightMeters: toNumber(vehicle.heightMeters) || undefined,
+    widthMeters: toNumber(vehicle.widthMeters) || undefined,
+    lengthMeters: toNumber(vehicle.lengthMeters) || undefined,
+    grossWeightTons: toNumber(vehicle.grossWeightTons) || undefined,
+    axleLoadTons: toNumber(vehicle.axleLoadTons) || undefined,
+    axleCount: vehicle.axleCount ?? undefined,
+    topSpeedKph: toNumber(vehicle.topSpeedKph) || undefined,
+    hazardousGoods: vehicle.hazardousGoods ?? false,
     status,
     gpsStatus: recentGpsStatus(vehicle.lastUpdatedAt, vehicle.status),
     currentDriverId: toId(vehicle.currentDriverId) || undefined,
@@ -718,6 +762,14 @@ export type VehicleMutationInput = {
   model?: string;
   year?: number | null;
   loadCapacity?: number | null;
+  heightMeters?: number | null;
+  widthMeters?: number | null;
+  lengthMeters?: number | null;
+  grossWeightTons?: number | null;
+  axleLoadTons?: number | null;
+  axleCount?: number | null;
+  topSpeedKph?: number | null;
+  hazardousGoods?: boolean;
   seatCount?: number | null;
   fuelType?: string | null;
   status: string;
@@ -876,20 +928,46 @@ function incidentFromBackend(incident: BackendIncident, timeline?: IncidentTimel
 }
 
 function floodFromBackend(report: BackendFloodReport): FloodPoint {
+  const statusMap: Record<string, FloodPoint["status"]> = {
+    UNVERIFIED: "unverified",
+    VERIFIED: "verified",
+    RESOLVED: "resolved",
+    EXPIRED: "expired",
+  };
+  let geometry: Array<{ lat: number; lng: number }> | undefined;
+  try {
+    geometry = report.geometryJson
+      ? (JSON.parse(report.geometryJson) as Array<{ lat: number; lng: number }>)
+      : undefined;
+  } catch {
+    geometry = undefined;
+  }
   return {
     id: toId(report.id),
+    hazardType: report.hazardType === "TRAFFIC_JAM" ? "traffic_jam" : "flood",
     location: report.address || `${report.lat.toFixed(5)}, ${report.lng.toFixed(5)}`,
     lat: report.lat,
     lng: report.lng,
     severity: mapFloodSeverity(report.severity),
     verified: report.status === "VERIFIED" || report.status === "RESOLVED",
     reportCount: report.reportedByDriverId ? 1 : 0,
-    confidence: Math.round(report.confidence ?? 0),
+    confidence: Math.round(
+      (report.confidence ?? 0) <= 1
+        ? (report.confidence ?? 0) * 100
+        : (report.confidence ?? 0)
+    ),
     lastUpdated: report.verifiedAt || report.createdAt,
     affectedVehicles: 0,
     affectedRoutes: [],
     imageUrl: report.imageUrl || undefined,
     source: report.source.replaceAll("_", " "),
+    status: statusMap[report.status] ?? "unverified",
+    receivedAt: report.createdAt,
+    expiresAt: report.expiredAt || undefined,
+    reporterName: report.reportedByDriverName || undefined,
+    geometryType: (report.geometryType?.toLowerCase() as FloodPoint["geometryType"]) || "point",
+    geometry,
+    radiusMeters: report.radiusMeters ?? 120,
   };
 }
 
@@ -1391,5 +1469,11 @@ export const safeFleetApi = {
 
   async testAgentAiConfiguration(): Promise<void> {
     await postData<void>("/agent/config/test");
+  },
+
+  async managementAgentChat(
+    messages: ManagementAgentMessage[]
+  ): Promise<ManagementAgentResponse> {
+    return postData<ManagementAgentResponse>("/management/agent/chat", { messages });
   },
 };

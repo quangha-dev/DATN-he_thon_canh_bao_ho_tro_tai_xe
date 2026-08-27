@@ -7,16 +7,19 @@ import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../../app.dart';
-import '../../core/agent/agent_conversation_provider.dart';
 import '../../core/config/app_config.dart';
+import '../../core/agent/agent_conversation_provider.dart';
 import '../../core/ai/cabin_safety_provider.dart';
 import '../../core/ai/stgt_drowsiness_engine.dart';
-import '../../core/ai/temporal_safety_engine.dart';
 import '../../core/widgets/ui.dart';
-import '../../models/driver_models.dart';
+import '../camera/cabin_camera_screen.dart';
 import '../agent/agent_chat_screen.dart';
 import '../flood/flood_report_screen.dart';
 import '../incidents/sos_screen.dart';
+import '../navigation/engine/guidance_planner.dart';
+import '../navigation/engine/nav_route.dart';
+import '../navigation/engine/navigation_engine.dart';
+import '../navigation/engine/voice_guidance.dart';
 
 /// Chế độ lái — màn duy nhất tài xế nhìn khi xe đang chạy.
 ///
@@ -35,7 +38,18 @@ class DrivingModeScreen extends ConsumerStatefulWidget {
 class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
   MapLibreMapController? _map;
   StreamSubscription<Position>? _positionSubscription;
-  NavigationRoute? _navigation;
+
+  /// Guidance runs on the same engine as the standalone turn-by-turn screen,
+  /// so a trip and an ad-hoc route behave identically - including map matching,
+  /// off-route confirmation and voice tiering.
+  NavSession? _navigation;
+  NavigationEngine? _engine;
+  GuidancePlanner? _planner;
+  final VoiceGuidance _voice = VoiceGuidance();
+  NavState? _navState;
+  DateTime? _lastNavEventAt;
+  DateTime? _lastRerouteAt;
+  bool _rerouting = false;
   Position? _position;
   String _gps = 'Đang định vị';
   bool _online = true;
@@ -52,6 +66,18 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
   final _sheetSize = ValueNotifier<double>(_snaps.first);
 
   static const _snaps = [0.24, 0.55, 0.92];
+
+  /// Phút lái liên tục kể từ lúc chuyến thực sự khởi hành — con số quyết định
+  /// của một ca lái. Khi chưa có giờ khởi hành thật thì đếm từ lúc mở màn.
+  final _driveStartedAt = DateTime.now();
+
+  int get _continuousMinutes {
+    final started =
+        DateTime.tryParse(widget.trip['startTime']?.toString() ?? '') ??
+        _driveStartedAt;
+    final minutes = DateTime.now().difference(started).inMinutes;
+    return minutes < 0 ? 0 : minutes;
+  }
 
   int get tripId => (widget.trip['id'] as num).toInt();
   int get vehicleId => (widget.trip['vehicleId'] as num).toInt();
@@ -75,6 +101,7 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
     _sheetController.dispose();
     _sheetSize.dispose();
     _positionSubscription?.cancel();
+    unawaited(_voice.dispose());
     super.dispose();
   }
 
@@ -158,10 +185,17 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
           destinationName: widget.trip['endLocation']?.toString() ?? 'Điểm đến',
           tripId: tripId,
         );
-    if (mounted) {
-      setState(() => _navigation = route);
-      await _drawRoute();
-    }
+    if (!mounted || route.isEmpty) return;
+    final destination = LatLng(destinationLat, destinationLng);
+    setState(() {
+      _navigation = route;
+      _engine = NavigationEngine(route: route.selected, destination: destination);
+      _planner = GuidancePlanner(
+        destinationName: widget.trip['endLocation']?.toString(),
+      );
+    });
+    unawaited(_voice.initialize());
+    await _drawRoute();
   }
 
   Future<void> _onPosition(Position position) async {
@@ -173,7 +207,25 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
     ref
         .read(cabinSafetyProvider.notifier)
         .updateSpeed(math.max(0, position.speed * 3.6));
-    if (_paused || _navigation == null) return;
+    final engine = _engine;
+    if (_paused || engine == null) return;
+
+    final navState = engine.update(
+      NavFix(
+        position: LatLng(position.latitude, position.longitude),
+        timestamp: position.timestamp,
+        accuracyMeters: position.accuracy,
+        headingDeg: position.heading.isFinite && position.heading >= 0
+            ? position.heading
+            : null,
+        speedMps: position.speed.isFinite && position.speed > 0
+            ? position.speed
+            : 0,
+      ),
+    );
+    _voice.enqueueAll(_planner?.plan(navState) ?? const []);
+    if (mounted) setState(() => _navState = navState);
+
     if (_lastTelemetry == null ||
         DateTime.now().difference(_lastTelemetry!) >=
             const Duration(seconds: 5)) {
@@ -195,52 +247,97 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
         });
       }
     }
-    final distance = _distanceToSelectedRoute(position);
+    // One request per GPS fix meant roughly two per second at road speed; the
+    // backend only needs a progress ping often enough to spot a new closure.
+    final now = DateTime.now();
+    if (_lastNavEventAt != null &&
+        now.difference(_lastNavEventAt!) < const Duration(seconds: 6)) {
+      if (navState.rerouteRequired) await _reroute(position, 'OFF_ROUTE_CONFIRMED');
+      return;
+    }
+    _lastNavEventAt = now;
+
     try {
       final event = await ref
           .read(driverRepositoryProvider)
           .navigationEvent(
             sessionId: _navigation!.sessionId,
             position: position,
-            distanceToRouteMeters: distance,
+            distanceToRouteMeters: navState.lateralMeters,
           );
+      if (mounted && !_online) setState(() => _online = true);
       if (event['rerouteRequired'] == true) {
-        final rerouted = await ref
-            .read(driverRepositoryProvider)
-            .reroute(sessionId: _navigation!.sessionId, position: position);
-        if (mounted) {
-          setState(() => _navigation = rerouted);
-          await _drawRoute();
-        }
+        await _reroute(position, 'HAZARD_AHEAD');
+      } else if (navState.rerouteRequired) {
+        await _reroute(position, 'OFF_ROUTE_CONFIRMED');
       }
     } catch (_) {
       if (mounted) setState(() => _online = false);
     }
   }
 
+  Future<void> _reroute(Position position, String reason) async {
+    if (_rerouting) return;
+    final session = _navigation;
+    if (session == null) return;
+    final now = DateTime.now();
+    if (_lastRerouteAt != null &&
+        now.difference(_lastRerouteAt!) < const Duration(seconds: 20)) {
+      return;
+    }
+    _lastRerouteAt = now;
+    _rerouting = true;
+    _voice.say(
+      reason == 'HAZARD_AHEAD'
+          ? 'Phát hiện đường bị chặn phía trước, đang tìm tuyến tránh'
+          : 'Đang tính lại tuyến đường',
+      priority: GuidancePriority.urgent,
+    );
+    try {
+      final rerouted = await ref
+          .read(driverRepositoryProvider)
+          .reroute(
+            sessionId: session.sessionId,
+            position: position,
+            reason: reason,
+          );
+      if (!mounted || rerouted.isEmpty) return;
+      setState(() => _navigation = rerouted);
+      _engine?.replaceRoute(
+        rerouted.selected,
+        at: LatLng(position.latitude, position.longitude),
+      );
+      _planner?.onRouteReplaced();
+      await _drawRoute();
+      _voice.say('Đã có tuyến mới', priority: GuidancePriority.urgent);
+    } catch (_) {
+      if (mounted) setState(() => _online = false);
+      _voice.say(
+        'Chưa tính lại được tuyến, hãy quay lại tuyến cũ',
+        priority: GuidancePriority.urgent,
+      );
+    } finally {
+      _rerouting = false;
+    }
+  }
+
   Future<void> _drawRoute() async {
-    if (_map == null || !_styleLoaded || _navigation == null) return;
+    final session = _navigation;
+    if (_map == null || !_styleLoaded || session == null || session.isEmpty) {
+      return;
+    }
     await _map!.clearLines();
-    for (var index = 0; index < _navigation!.routes.length; index++) {
-      final candidate = _navigation!.routes[index];
-      final geometry = (candidate['geometry'] as List? ?? const []).map((
-        point,
-      ) {
-        final values = point as List;
-        return LatLng(
-          (values[1] as num).toDouble(),
-          (values[0] as num).toDouble(),
-        );
-      }).toList();
-      if (geometry.length < 2) continue;
-      final selected = index == _navigation!.selectedRouteIndex;
+    for (var index = 0; index < session.routes.length; index++) {
+      final candidate = session.routes[index];
+      if (candidate.geometry.length < 2) continue;
+      final selected = index == session.selectedIndex;
       await _map!.addLine(
         LineOptions(
-          geometry: geometry,
+          geometry: candidate.geometry,
           // Trên nền tối, tuyến đang chạy dùng mint; các phương án khác lùi
           // hẳn về màu chữ mờ để không tranh chấp thị giác.
           lineColor: selected
-              ? sfHex(SfColors.mint)
+              ? sfHex(SfColors.green400)
               : sfHex(SfColors.darkTextMuted),
           lineWidth: selected ? 7 : 3,
           lineOpacity: selected ? 0.95 : 0.45,
@@ -357,20 +454,29 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
               ),
             ),
 
+            // Thẻ chỉ dẫn + banner ngập, neo trên cùng.
             SafeArea(
               bottom: false,
               child: Padding(
                 padding: const EdgeInsets.all(SfSpace.x12),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _turnCard(),
-                    const SizedBox(height: SfSpace.x8),
-                    _statusRow(),
+                    if (_navigation?.safe == false) ...[
+                      const SizedBox(height: SfSpace.x10),
+                      _floodBanner(),
+                    ],
                   ],
                 ),
               ),
             ),
+
+            // Chỉ số bên trái: tốc độ và giờ lái liên tục.
+            Positioned(left: SfSpace.x14, bottom: 250, child: _metricPills()),
+
+            // Cột phải: một wrapper duy nhất, không neo từng nút riêng.
+            Positioned(right: SfSpace.x14, bottom: 250, child: _rightRail()),
 
             _sheet(),
 
@@ -390,104 +496,166 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
     );
   }
 
-  // ---- Bảng chỉ dẫn rẽ: thông tin quan trọng nhất màn hình ----
+  // ---- Thẻ chỉ dẫn rẽ: thông tin quan trọng nhất màn hình ----
 
   Widget _turnCard() {
-    final selected = _navigation?.routes.isNotEmpty == true
-        ? _navigation!.selected
-        : null;
-    final steps = selected?['steps'] as List?;
-    final nextStep = steps?.isNotEmpty == true
-        ? Map<String, dynamic>.from(steps!.first as Map)
-        : null;
-    final metres = (nextStep?['distanceMeters'] as num?)?.toDouble();
+    final navState = _navState;
+    final nextStep = navState?.upcomingStep;
+    // Distance to the *next turn*, measured on the polyline the vehicle is
+    // matched onto - not the length of the whole remaining route.
+    final metres = navState?.distanceToManeuverMeters;
     final String value;
     final String unit;
     if (metres == null) {
       value = '--';
       unit = 'm';
     } else if (metres >= 1000) {
-      value = (metres / 1000).toStringAsFixed(1);
+      value = (metres / 1000).toStringAsFixed(1).replaceAll('.', ',');
       unit = 'km';
     } else {
-      value = metres.round().toString();
+      value = (metres / 5).round() * 5 == 0
+          ? '0'
+          : ((metres / 5).round() * 5).toString();
       unit = 'm';
     }
 
     return Container(
       padding: const EdgeInsets.all(SfSpace.x16),
       decoration: BoxDecoration(
-        color: SfColors.darkSurface,
-        borderRadius: SfRadius.cardR,
-        border: Border.all(color: SfColors.darkBorder),
-        boxShadow: SfShadow.floating,
+        color: SfColors.green700.withValues(alpha: 0.94),
+        borderRadius: SfRadius.heroR,
+        boxShadow: SfShadow.dock,
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: SfTouch.drive,
-            height: SfTouch.drive,
-            child: Material(
-              color: SfColors.darkSurfaceAlt,
-              borderRadius: SfRadius.controlR,
-              child: InkWell(
-                borderRadius: SfRadius.controlR,
-                onTap: () => Navigator.maybePop(context),
-                child: const Icon(
-                  Icons.arrow_back_rounded,
-                  color: SfColors.darkTextPrimary,
-                  size: 26,
-                ),
-              ),
-            ),
+          Icon(
+            bannerManeuver(nextStep).icon,
+            size: 44,
+            color: SfColors.onAccent,
           ),
-          const SizedBox(width: SfSpace.x16),
+          const SizedBox(width: SfSpace.x14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Icon(
-                      _turnIcon(nextStep?['maneuver']?.toString()),
-                      size: 26,
-                      color: SfColors.mint,
-                    ),
-                    const SizedBox(width: SfSpace.x8),
                     Text(
                       value,
                       style: SfType.displayDrive.copyWith(
-                        color: SfColors.darkTextPrimary,
+                        color: SfColors.onAccent,
                       ),
                     ),
                     const SizedBox(width: SfSpace.x4),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: SfSpace.x8),
-                      child: Text(
-                        unit,
-                        style: SfType.titleCard.copyWith(
-                          color: SfColors.darkTextSecondary,
-                          fontSize: SfTouch.driveFontFloor,
-                        ),
+                    Text(
+                      unit,
+                      style: SfType.titleCardSm.copyWith(
+                        color: SfColors.green300,
+                        fontSize: SfTouch.driveFontFloor,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: SfSpace.x4),
                 Text(
-                  nextStep?['instruction']?.toString() ??
-                      'Đang chuẩn bị chỉ dẫn',
+                  navState == null
+                      ? 'Đang chuẩn bị chỉ dẫn'
+                      : navState.offRoute
+                      ? 'Đã đi lệch tuyến — quay lại đường màu xanh'
+                      : bannerInstruction(nextStep),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: SfType.body.copyWith(
-                    color: SfColors.darkTextPrimary,
-                    fontSize: SfTouch.driveFontFloor + 2,
-                    fontWeight: FontWeight.w600,
+                  style: SfType.titleCard.copyWith(
+                    color: SfColors.onAccent,
+                    fontSize: SfTouch.driveFontFloor,
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(width: SfSpace.x8),
+          SfIconButton(
+            icon: Icons.close_rounded,
+            size: SfTouch.iconBtnLg,
+            onHero: true,
+            tooltip: 'Thoát chế độ lái',
+            onTap: () => Navigator.maybePop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---- Banner ngập trên tuyến ----
+
+  Widget _floodBanner() {
+    final session = _navigation;
+    final warnings = session == null || session.isEmpty
+        ? const <String>[]
+        : session.selected.warnings;
+    return Container(
+      padding: const EdgeInsets.all(SfSpace.x14),
+      decoration: BoxDecoration(
+        color: SfColors.danger.withValues(alpha: 0.95),
+        borderRadius: SfRadius.cardSmR,
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.water_drop_rounded,
+            size: 26,
+            color: SfColors.onDanger,
+          ),
+          const SizedBox(width: SfSpace.x12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  warnings.isEmpty ? 'Có điểm ngập trên tuyến' : warnings.first,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: SfType.titleCardSm.copyWith(
+                    color: SfColors.onDanger,
+                    fontSize: SfTouch.driveFontFloor,
+                  ),
+                ),
+                if (warnings.length > 1) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    warnings[1],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: SfType.caption.copyWith(
+                      color: SfColors.onDanger.withValues(alpha: 0.86),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: SfSpace.x12),
+          // Nhãn không được ngắt dòng.
+          SfPressable(
+            onTap: _busy ? null : _rerouteAroundFlood,
+            child: Container(
+              height: SfTouch.min,
+              padding: const EdgeInsets.symmetric(horizontal: SfSpace.x16),
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: SfColors.onDanger,
+                borderRadius: SfRadius.controlR,
+              ),
+              child: Text(
+                'Đi vòng',
+                softWrap: false,
+                overflow: TextOverflow.visible,
+                style: SfType.titleCardSm.copyWith(color: SfColors.danger),
+              ),
             ),
           ),
         ],
@@ -495,39 +663,166 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
     );
   }
 
-  Widget _statusRow() => Row(
-    children: [
-      SfStatusPill(
-        _gps,
-        status: switch (_gps) {
-          'GPS tốt' => SfStatus.good,
-          'GPS yếu' => SfStatus.warning,
-          'Mất GPS' => SfStatus.danger,
-          _ => SfStatus.pending,
-        },
-        icon: Icons.gps_fixed_rounded,
-        dense: true,
-      ),
-      const SizedBox(width: SfSpace.x8),
-      SfConnectionChip(online: _online, pendingCount: _queueCount),
-    ],
+  Future<void> _rerouteAroundFlood() async {
+    final position = _position;
+    if (position == null) return;
+    await _requestRoute(position);
+  }
+
+  // ---- Chỉ số bên trái ----
+
+  Widget _metricPills() {
+    final speed = ((_position?.speed ?? 0) * 3.6).round();
+    final continuous = _continuousMinutes;
+    final overThreshold = continuous >= 180;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _pill(
+          icon: Icons.speed_rounded,
+          text: '$speed km/h',
+          iconColor: SfColors.green400,
+        ),
+        const SizedBox(height: SfSpace.x10),
+        _pill(
+          icon: Icons.timer_rounded,
+          text:
+              '${continuous ~/ 60}h${(continuous % 60).toString().padLeft(2, '0')}'
+              ' liên tục',
+          iconColor: overThreshold ? SfColors.amber : SfColors.green400,
+        ),
+      ],
+    );
+  }
+
+  Widget _pill({
+    required IconData icon,
+    required String text,
+    required Color iconColor,
+  }) => Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: SfSpace.x12,
+      vertical: SfSpace.x10,
+    ),
+    decoration: BoxDecoration(
+      color: SfColors.darkBg.withValues(alpha: 0.86),
+      borderRadius: SfRadius.pillR,
+      border: Border.all(color: SfColors.darkBorder),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 20, color: iconColor),
+        const SizedBox(width: SfSpace.x8),
+        Text(
+          text,
+          style: SfType.mono.copyWith(
+            color: SfColors.darkTextPrimary,
+            fontSize: SfTouch.driveFontFloor,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ),
   );
+
+  // ---- Cột phải: trạng thái tỉnh táo + trạng thái kết nối ----
+
+  Widget _rightRail() {
+    final cabin = ref.watch(cabinSafetyProvider);
+    final metrics = cabin.metrics;
+    final ready = cabin.active && metrics?.calibrated == true;
+    final riskLevel = ready ? drowsinessRiskLevel(metrics!.score) : null;
+    final riskColor = switch (riskLevel) {
+      null => SfColors.darkTextMuted,
+      <= 3 => SfColors.green400,
+      <= 5 => SfColors.amber,
+      _ => SfColors.danger,
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _pill(
+          icon: Icons.gps_fixed_rounded,
+          text: _gps,
+          iconColor: switch (_gps) {
+            'GPS tốt' => SfColors.green400,
+            'GPS yếu' => SfColors.amber,
+            'Mất GPS' => SfColors.danger,
+            _ => SfColors.darkTextMuted,
+          },
+        ),
+        const SizedBox(height: SfSpace.x10),
+        _pill(
+          icon: _online ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+          text: _online
+              ? (_queueCount == 0 ? 'Đã đồng bộ' : '$_queueCount chờ')
+              : 'Ngoại tuyến',
+          iconColor: _online ? SfColors.green400 : SfColors.amber,
+        ),
+        const SizedBox(height: SfSpace.x10),
+        SfPressable(
+          onTap: () => Navigator.push<void>(
+            context,
+            SfSlideRoute<void>(builder: (_) => const CabinCameraScreen()),
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: SfSpace.x12,
+              vertical: SfSpace.x10,
+            ),
+            decoration: BoxDecoration(
+              color: SfColors.darkBg.withValues(alpha: 0.86),
+              borderRadius: SfRadius.pillR,
+              border: Border.all(color: riskColor.withValues(alpha: 0.6)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  cabin.active
+                      ? Icons.visibility_rounded
+                      : Icons.visibility_off_rounded,
+                  size: 20,
+                  color: riskColor,
+                ),
+                const SizedBox(width: SfSpace.x8),
+                Text(
+                  riskLevel == null
+                      ? (cabin.enabled ? 'Đang hiệu chỉnh' : 'AI tắt')
+                      : drowsinessRiskLabel(riskLevel),
+                  style: SfType.titleCardSm.copyWith(
+                    color: riskColor,
+                    fontSize: SfTouch.driveFontFloor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   // ---- Bảng chặng 3 mức ----
 
   Widget _sheet() {
-    final cabin = ref.watch(cabinSafetyProvider);
-    final selected = _navigation?.routes.isNotEmpty == true
-        ? _navigation!.selected
-        : null;
-    final steps = (selected?['steps'] as List? ?? const [])
-        .whereType<Map>()
-        .map((step) => Map<String, dynamic>.from(step))
-        .toList();
-    final durationMinutes =
-        ((selected?['durationSeconds'] as num?)?.toDouble() ?? 0) / 60;
+    final session = _navigation;
+    final selected = session == null || session.isEmpty ? null : session.selected;
+    final navState = _navState;
+    final steps = selected?.steps ?? const <NavStep>[];
+    // Once guidance is running these come from live progress rather than from
+    // the figures the route was planned with.
+    final remaining =
+        navState?.remainingDuration ??
+        Duration(seconds: (selected?.reportedDurationSeconds ?? 0).round());
+    final durationMinutes = remaining.inSeconds / 60;
     final distanceKm =
-        ((selected?['distanceMeters'] as num?)?.toDouble() ?? 0) / 1000;
+        (navState?.remainingMeters ?? selected?.lengthMeters ?? 0) / 1000;
+    final eta = navState?.eta ?? DateTime.now().add(remaining);
 
     return SfSheet(
       controller: _sheetController,
@@ -541,48 +836,26 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
           SfSpace.x24,
         ),
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              SfMetric(
-                label: 'Tốc độ',
-                value: '${((_position?.speed ?? 0) * 3.6).round()}',
-                unit: 'km/h',
-                drive: true,
-              ),
-              const Spacer(),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'CÒN LẠI',
-                    style: SfType.label.copyWith(
-                      color: SfColors.darkTextSecondary,
-                      fontSize: SfTouch.driveFontFloor,
-                    ),
-                  ),
-                  const SizedBox(height: SfSpace.x4),
-                  Text(
-                    '${distanceKm.toStringAsFixed(1)} km',
-                    style: SfType.titleScreen.copyWith(
-                      color: SfColors.darkTextPrimary,
-                    ),
-                  ),
-                  Text(
-                    '${durationMinutes.ceil()} phút · ${_navigation?.safe == true ? 'tuyến an toàn' : 'còn rủi ro ngập'}',
-                    style: SfType.body.copyWith(
-                      color: _navigation?.safe == true
-                          ? SfColors.darkTextSecondary
-                          : SfColors.amber,
-                      fontSize: SfTouch.driveFontFloor,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          Text(
+            '${eta.hour.toString().padLeft(2, '0')}:'
+            '${eta.minute.toString().padLeft(2, '0')} đến nơi',
+            style: SfType.titleSub.copyWith(
+              color: SfColors.darkTextPrimary,
+              fontSize: 22,
+            ),
           ),
-          const SizedBox(height: SfSpace.x20),
-          _cabinRow(cabin),
+          const SizedBox(height: SfSpace.x4),
+          Text(
+            '${distanceKm.toStringAsFixed(1)} km · '
+            '${durationMinutes.ceil()} phút · '
+            '${widget.trip['endLocation'] ?? 'điểm đến'}',
+            style: SfType.bodySm.copyWith(
+              color: _navigation?.safe == false
+                  ? SfColors.amber
+                  : SfColors.darkTextMuted,
+              fontSize: SfTouch.driveFontFloor,
+            ),
+          ),
           const SizedBox(height: SfSpace.x20),
           _actions(),
           if (steps.isNotEmpty) ...[
@@ -591,119 +864,19 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
             const SizedBox(height: SfSpace.x12),
             SfTimeline(
               entries: [
-                for (final step in steps.take(12))
+                // Only the steps still ahead: a driver does not need the turn
+                // they took ten minutes ago.
+                for (final step in steps
+                    .skip(navState == null ? 0 : navState.legIndex)
+                    .take(12))
                   SfTimelineEntry(
-                    title: step['instruction']?.toString() ?? '--',
-                    meta: _stepDistance(step['distanceMeters']),
-                    status: SfStatus.pending,
+                    title: bannerInstruction(step),
+                    subtitle: formatDistance(step.lengthMeters),
+                    color: SfColors.green400,
                   ),
               ],
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _cabinRow(CabinSafetyState cabin) {
-    final metrics = cabin.metrics;
-    final ready = cabin.active && metrics?.calibrated == true;
-    final riskLevel = ready ? drowsinessRiskLevel(metrics!.score) : null;
-    final predictedLevel = ready
-        ? drowsinessRiskLevel(metrics!.predictedScore)
-        : null;
-    final riskColor = switch (riskLevel) {
-      null => SfColors.darkTextSecondary,
-      <= 3 => SfColors.mint,
-      <= 5 => SfColors.amber,
-      _ => SfColors.danger,
-    };
-
-    return Container(
-      padding: const EdgeInsets.all(SfSpace.x16),
-      decoration: BoxDecoration(
-        color: SfColors.darkSurfaceAlt,
-        borderRadius: SfRadius.controlR,
-        border: Border.all(color: riskColor.withValues(alpha: 0.55)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            cabin.active
-                ? Icons.visibility_rounded
-                : Icons.visibility_off_outlined,
-            size: 26,
-            color: cabin.active ? riskColor : SfColors.darkTextSecondary,
-          ),
-          const SizedBox(width: SfSpace.x12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Nguy cơ buồn ngủ',
-                  style: SfType.titleCard.copyWith(
-                    color: SfColors.darkTextPrimary,
-                    fontSize: SfTouch.driveFontFloor,
-                  ),
-                ),
-                const SizedBox(height: SfSpace.x4),
-                Text(
-                  riskLevel == null
-                      ? (cabin.enabled ? cabin.message : 'Đang tắt')
-                      : '${drowsinessRiskLabel(riskLevel)} · ${metrics!.statusText}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: SfType.body.copyWith(
-                    color: riskColor,
-                    fontSize: SfTouch.driveFontFloor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: SfSpace.x4),
-                Text(
-                  '${cabin.modelMode.label.toUpperCase()} · NGƯỠNG 1–10',
-                  style: SfType.label.copyWith(color: SfColors.darkTextMuted),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: SfSpace.x12),
-          Container(
-            width: 92,
-            padding: const EdgeInsets.symmetric(
-              horizontal: SfSpace.x8,
-              vertical: SfSpace.x8,
-            ),
-            decoration: BoxDecoration(
-              color: riskColor.withValues(alpha: 0.12),
-              borderRadius: SfRadius.controlR,
-            ),
-            child: Column(
-              children: [
-                Text(
-                  riskLevel?.toString() ?? '--',
-                  style: SfType.displayDrive.copyWith(
-                    color: riskColor,
-                    fontSize: 34,
-                  ),
-                ),
-                Text(
-                  '/10 hiện tại',
-                  style: SfType.label.copyWith(
-                    color: SfColors.darkTextSecondary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  predictedLevel == null
-                      ? 'Dự báo --'
-                      : 'Dự báo $predictedLevel/10',
-                  style: SfType.label.copyWith(color: riskColor),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -735,8 +908,8 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
         children: [
           Expanded(
             child: SfDriveAction(
-              label: 'Báo ngập',
-              icon: Icons.water_drop_rounded,
+              label: 'Báo đường',
+              icon: Icons.add_road_rounded,
               onPressed: () => Navigator.push(
                 context,
                 SfSlideRoute<void>(builder: (_) => const FloodReportScreen()),
@@ -760,42 +933,6 @@ class _DrivingModeScreenState extends ConsumerState<DrivingModeScreen> {
     ],
   );
 
-  // ---- Tiện ích ----
 
-  String _stepDistance(Object? metres) {
-    final value = (metres as num?)?.toDouble();
-    if (value == null) return '--';
-    return value >= 1000
-        ? '${(value / 1000).toStringAsFixed(1)} km'
-        : '${value.round()} m';
-  }
 
-  IconData _turnIcon(String? maneuver) {
-    final value = maneuver?.toLowerCase() ?? '';
-    if (value.contains('left')) return Icons.turn_left_rounded;
-    if (value.contains('right')) return Icons.turn_right_rounded;
-    if (value.contains('roundabout')) return Icons.roundabout_left_rounded;
-    if (value.contains('arrive')) return Icons.flag_rounded;
-    return Icons.straight_rounded;
-  }
-
-  double _distanceToSelectedRoute(Position position) {
-    if (_navigation == null || _navigation!.routes.isEmpty) return 0;
-    final geometry = _navigation!.selected['geometry'] as List? ?? const [];
-    if (geometry.isEmpty) return 0;
-    var minimum = double.infinity;
-    for (final raw in geometry) {
-      final point = raw as List;
-      final lat = (point[1] as num).toDouble();
-      final lng = (point[0] as num).toDouble();
-      final distance = Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        lat,
-        lng,
-      );
-      minimum = math.min(minimum, distance);
-    }
-    return minimum.isFinite ? minimum : 0;
-  }
 }

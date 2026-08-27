@@ -10,11 +10,15 @@ import '../flood/flood_report_screen.dart';
 import '../incidents/sos_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../navigation/route_planner_screen.dart';
-import '../permissions/permission_setup_screen.dart';
+import '../navigation/widgets/navigation_resume_card.dart';
 import '../safety/safety_summary_screen.dart';
 import '../trips/trip_detail_screen.dart';
 import '../trips/trips_today_screen.dart';
 
+/// Trang Nhà — màn quan trọng nhất.
+///
+/// Thứ tự khối từ trên xuống: header → thẻ chuyến đang chạy → giờ lái liên tục
+/// → tổng kết hôm nay → thao tác nhanh → SOS → trạng thái đồng bộ.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -37,6 +41,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _refresh() async {
     setState(_reload);
+    ref.invalidate(activeNavigationProvider);
     await _future;
   }
 
@@ -52,27 +57,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           builder: (context, snapshot) {
             final loading = snapshot.connectionState != ConnectionState.done;
             return ListView(
-              padding: const EdgeInsets.fromLTRB(
-                SfSpace.x16,
-                SfSpace.x8,
-                SfSpace.x16,
-                SfSpace.x40 + SfSpace.x40,
-              ),
+              padding: SfSpace.screen,
               children: [
                 _header(snapshot.data),
-                const SizedBox(height: SfSpace.x20),
-                if (loading)
-                  ...[
-                    SfSkeleton.card(lines: 4),
-                    const SizedBox(height: SfSpace.x12),
-                    SfSkeleton.card(),
-                  ]
-                else if (snapshot.hasError)
+                const SizedBox(height: SfSpace.x18),
+                // Phiên dẫn đường đang mở luôn đứng trên cùng: đó là việc tài
+                // xế đang làm dở, không phải một mục trong danh sách.
+                const NavigationResumeCard(),
+                if (loading) ...[
+                  SfSkeleton.card(lines: 4),
+                  const SizedBox(height: SfSpace.x12),
+                  SfSkeleton.card(),
+                ] else if (snapshot.hasError)
                   SfEmptyState(
                     icon: Icons.cloud_off_rounded,
                     title: 'Chưa tải được dữ liệu',
                     message:
-                        '${snapshot.error}\nKéo xuống để tải lại. Dữ liệu đã lưu vẫn dùng được khi ngoại tuyến.',
+                        '${snapshot.error}\nKéo xuống để tải lại. '
+                        'Dữ liệu đã lưu vẫn dùng được khi ngoại tuyến.',
                   )
                 else
                   ..._content(snapshot.requireData),
@@ -84,62 +86,70 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ),
   );
 
-  // ---- Đầu màn ----
+  // ---- 1. Header ----
 
   Widget _header(DriverBootstrap? data) {
     final p = context.sf;
     final driver = data?.driver ?? const <String, dynamic>{};
+    final unread = data?.notifications.length ?? 0;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const BrandMark(size: 40),
+        const BrandMark(size: 44),
         const SizedBox(width: SfSpace.x12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 _greeting(driver['fullName']?.toString()),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: SfType.titleScreen.copyWith(color: p.textPrimary),
               ),
-              const SizedBox(height: SfSpace.x4),
-              Text(
-                _driverStatusLabel(driver['status']?.toString()),
-                style: SfType.meta.copyWith(color: p.textSecondary),
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  const SfPulseDot(color: SfColors.green700),
+                  const SizedBox(width: SfSpace.x8),
+                  Flexible(
+                    child: Text(
+                      _statusLine(data),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: SfType.caption.copyWith(color: p.textMuted),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        IconButton(
-          tooltip: 'Quét phiếu offline',
-          onPressed: () => _open(const DrivingLogListScreen()),
-          icon: const Icon(Icons.document_scanner_outlined),
+        const SizedBox(width: SfSpace.x8),
+        SfIconButton(
+          icon: Icons.document_scanner_rounded,
+          tooltip: 'Quét phiếu',
+          onTap: () => _open(const DrivingLogListScreen()),
         ),
-        IconButton(
+        const SizedBox(width: SfSpace.x8),
+        SfIconButton(
+          icon: Icons.notifications_rounded,
           tooltip: 'Thông báo',
-          onPressed: () => _open(const NotificationsScreen()),
-          icon: Badge(
-            isLabelVisible: (data?.notifications.length ?? 0) > 0,
-            label: Text('${data?.notifications.length ?? 0}'),
-            child: const Icon(Icons.notifications_none_rounded),
-          ),
-        ),
-        PopupMenuButton<String>(
-          tooltip: 'Tuỳ chọn',
-          onSelected: (value) async {
-            if (value == 'permissions') _open(const PermissionSetupScreen());
-            if (value == 'logout') {
-              await ref.read(sessionProvider.notifier).logout();
-            }
-          },
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'permissions', child: Text('Quyền thiết bị')),
-            PopupMenuDivider(),
-            PopupMenuItem(value: 'logout', child: Text('Đăng xuất')),
-          ],
+          badge: unread,
+          onTap: () => _open(const NotificationsScreen()),
         ),
       ],
     );
+  }
+
+  /// "Đang lái · xe 30H-100.01"
+  String _statusLine(DriverBootstrap? data) {
+    final driver = data?.driver ?? const <String, dynamic>{};
+    final label = _driverStatusLabel(driver['status']?.toString());
+    final plate =
+        data?.currentTrip?['vehiclePlateNumber']?.toString() ??
+        data?.currentTrip?['plateNumber']?.toString();
+    return plate == null || plate.isEmpty ? label : '$label · xe $plate';
   }
 
   List<Widget> _content(DriverBootstrap data) {
@@ -147,37 +157,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return [
       _HeroTrip(
         trip: trip,
-        onOpen: trip == null
+        onDrive: trip == null
             ? null
             : () => _open(
                 TripDetailScreen(tripId: (trip['id'] as num).toInt()),
                 hero: 'trip-${trip['id']}',
               ),
+        onDetail: trip == null
+            ? null
+            : () =>
+                  _open(TripDetailScreen(tripId: (trip['id'] as num).toInt())),
       ),
-      const SizedBox(height: SfSpace.x24),
-      const SfSectionLabel('Giờ lái liên tục'),
-      const SizedBox(height: SfSpace.x8),
+      const SizedBox(height: SfSpace.x18),
       _drivingHours(data),
-      const SizedBox(height: SfSpace.x24),
-      SfSectionLabel(
-        'Hôm nay',
-        trailing: TextButton(
-          onPressed: () => _open(const TripsTodayScreen()),
-          child: Text('${data.todayTrips.length} chuyến'),
-        ),
-      ),
-      const SizedBox(height: SfSpace.x8),
+      const SizedBox(height: SfSpace.x18),
+      const SfSectionLabel('Hôm nay'),
+      const SizedBox(height: SfSpace.x10),
       _todayBoard(data),
-      const SizedBox(height: SfSpace.x24),
+      const SizedBox(height: SfSpace.x18),
       const SfSectionLabel('Thao tác nhanh'),
-      const SizedBox(height: SfSpace.x8),
+      const SizedBox(height: SfSpace.x10),
       _quickActions(data),
-      const SizedBox(height: SfSpace.x16),
-      _syncRow(),
+      const SizedBox(height: SfSpace.x14),
+      _sosBlock(),
+      const SizedBox(height: SfSpace.x14),
+      _SyncCard(onSynced: () => setState(() {})),
     ];
   }
 
-  // ---- Giờ lái ----
+  // ---- 3. Giờ lái liên tục ----
 
   Widget _drivingHours(DriverBootstrap data) {
     final safety = data.safety;
@@ -186,262 +194,171 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: SfDrivingHoursBar(
         continuousMinutes: _int(safety['continuousDrivingMinutes']),
         maxMinutes: _int(config['maxContinuousDrivingMinutes'], 240),
-        warning1Minutes: _int(config['warningLevel1Minutes'], 180),
-        warning2Minutes: _int(config['warningLevel2Minutes'], 210),
+        remindMinutes: _int(config['warningLevel1Minutes'], 180),
+        warnMinutes: _int(config['warningLevel2Minutes'], 210),
         criticalMinutes: _int(config['criticalWarningMinutes'], 230),
       ),
     );
   }
 
-  // ---- Bảng hôm nay ----
+  // ---- 4. Hôm nay ----
 
   Widget _todayBoard(DriverBootstrap data) {
     final p = context.sf;
     final safety = data.safety;
-    final score = _int(safety['safetyScore']);
+    final alerts = _int(safety['totalAlerts']);
     return SfCard(
       onTap: () => _open(SafetySummaryScreen(data: data)),
       child: Row(
         children: [
-          SfScoreRing(score: score),
-          const SizedBox(width: SfSpace.x20),
+          SfScoreRing(
+            score: _int(safety['safetyScore']),
+            size: 78,
+            caption: 'ĐIỂM',
+          ),
+          const SizedBox(width: SfSpace.x18),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _statLine(
-                  'Đã lái hôm nay',
-                  '${_int(safety['drivingTimeTodayMinutes'])} phút',
+                  'Đã lái',
+                  _duration(_int(safety['drivingTimeTodayMinutes'])),
                 ),
                 const SizedBox(height: SfSpace.x8),
                 _statLine('Chuyến đã giao', '${_int(safety['totalTrips'])}'),
                 const SizedBox(height: SfSpace.x8),
                 _statLine(
-                  'Cảnh báo tích luỹ',
-                  '${_int(safety['totalAlerts'])}',
-                ),
-                const SizedBox(height: SfSpace.x12),
-                Row(
-                  children: [
-                    Text(
-                      'Xem tổng kết an toàn',
-                      style: SfType.meta.copyWith(
-                        color: p.accent,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 18,
-                      color: p.accent,
-                    ),
-                  ],
+                  'Cảnh báo',
+                  '$alerts',
+                  valueColor: alerts > 0 ? SfColors.warning : null,
                 ),
               ],
             ),
           ),
+          Icon(Icons.chevron_right_rounded, size: 22, color: p.textMuted),
         ],
       ),
     );
   }
 
-  Widget _statLine(String label, String value) {
+  Widget _statLine(String label, String value, {Color? valueColor}) {
     final p = context.sf;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: SfType.meta.copyWith(color: p.textSecondary)),
+        Text(label, style: SfType.caption.copyWith(color: p.textMuted)),
         Text(
           value,
           style: SfType.mono.copyWith(
-            color: p.textPrimary,
-            fontWeight: FontWeight.w600,
+            color: valueColor ?? p.textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
           ),
         ),
       ],
     );
   }
 
-  // ---- Thao tác nhanh ----
+  // ---- 5. Thao tác nhanh ----
 
-  Widget _quickActions(DriverBootstrap data) => Column(
-    children: [
-      Row(
-        children: [
-          Expanded(
-            child: _quick(
-              Icons.map_outlined,
-              'Bản đồ an toàn',
-              '${data.floodPoints.length} điểm ngập',
-              () => _open(const RoutePlannerScreen()),
-            ),
-          ),
-          const SizedBox(width: SfSpace.x12),
-          Expanded(
-            child: _quick(
-              Icons.visibility_outlined,
-              'Chống buồn ngủ',
-              'Xử lý trên máy',
-              () => _open(const CabinCameraScreen()),
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: SfSpace.x12),
-      Row(
-        children: [
-          Expanded(
-            child: _quick(
-              Icons.route_outlined,
-              'Chuyến hôm nay',
-              '${data.todayTrips.length} chuyến',
-              () => _open(const TripsTodayScreen()),
-            ),
-          ),
-          const SizedBox(width: SfSpace.x12),
-          Expanded(
-            child: _quick(
-              Icons.water_drop_outlined,
-              'Báo điểm ngập',
-              'Gửi kèm ảnh',
-              () => _open(const FloodReportScreen()),
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: SfSpace.x12),
-      Row(
-        children: [
-          Expanded(
-            child: _quick(
-              Icons.document_scanner_outlined,
-              'Quét phiếu',
-              'OCR trên máy',
-              () => _open(const DrivingLogListScreen()),
-            ),
-          ),
-          const SizedBox(width: SfSpace.x12),
-          Expanded(
-            child: _quick(
-              Icons.table_view_outlined,
-              'Nhật trình phiếu',
-              'Xem và xuất Excel',
-              () => _open(const DrivingLogListScreen()),
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: SfSpace.x12),
-      // SOS đứng riêng, chiếm hết chiều ngang: nó không cùng cấp bậc với
-      // bốn thao tác trên.
-      SfCard(
-        onTap: () => _open(const SosScreen()),
-        emphasis: SfStatus.danger,
-        child: Row(
-          children: [
-            const Icon(Icons.sos_rounded, color: SfColors.danger, size: 28),
-            const SizedBox(width: SfSpace.x16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Gọi cứu hộ khẩn cấp',
-                    style: SfType.titleCard.copyWith(color: SfColors.danger),
-                  ),
-                  const SizedBox(height: SfSpace.x4),
-                  Text(
-                    'Gửi vị trí hiện tại tới tổng đài, ưu tiên cao nhất',
-                    style: SfType.meta.copyWith(
-                      color: context.sf.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: context.sf.textMuted,
-            ),
-          ],
-        ),
-      ),
-    ],
-  );
+  Widget _quickActions(DriverBootstrap data) {
+    final floods = data.floodPoints.length;
+    final today = data.todayTrips.length;
+    final running = data.todayTrips
+        .where((trip) => trip['status'] == 'IN_PROGRESS')
+        .length;
+    final waiting = today - running;
 
-  Widget _quick(
-    IconData icon,
-    String title,
-    String subtitle,
-    VoidCallback onTap,
-  ) {
-    final p = context.sf;
-    return SfCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(SfSpace.x16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: SfTouch.min,
-            height: SfTouch.min,
-            decoration: BoxDecoration(
-              color: p.accentTint,
-              borderRadius: SfRadius.controlR,
-            ),
-            child: Icon(icon, color: p.accent),
-          ),
-          const SizedBox(height: SfSpace.x12),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: SfType.titleCard.copyWith(color: p.textPrimary),
-          ),
-          const SizedBox(height: SfSpace.x4),
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: SfType.meta.copyWith(color: p.textSecondary),
-          ),
-        ],
+    final tiles = <Widget>[
+      SfQuickAction(
+        icon: Icons.map_rounded,
+        title: 'Bản đồ an toàn',
+        subtitle: '$floods điểm ngập gần tuyến',
+        onTap: () => _open(const RoutePlannerScreen()),
       ),
+      SfQuickAction(
+        icon: Icons.visibility_rounded,
+        title: 'Chống buồn ngủ',
+        subtitle: 'Xử lý trên máy · đang bật',
+        onTap: () => _open(const CabinCameraScreen()),
+      ),
+      SfQuickAction(
+        icon: Icons.route_rounded,
+        title: 'Chuyến hôm nay',
+        subtitle: '$waiting chưa đi · $running đang chạy',
+        onTap: () => _open(const TripsTodayScreen()),
+      ),
+      SfQuickAction(
+        icon: Icons.add_road_rounded,
+        title: 'Báo tình trạng đường',
+        subtitle: 'Ngập nước hoặc kẹt xe',
+        iconBackground: SfColors.infoBg,
+        iconForeground: SfColors.info,
+        onTap: () => _open(const FloodReportScreen()),
+      ),
+      SfQuickAction(
+        icon: Icons.document_scanner_rounded,
+        title: 'Quét phiếu',
+        subtitle: 'Chụp và OCR ngay',
+        onTap: () => _open(const DrivingLogListScreen()),
+      ),
+      SfQuickAction(
+        icon: Icons.receipt_long_rounded,
+        title: 'Nhật trình phiếu',
+        subtitle: 'Xem và xuất Excel',
+        onTap: () => _open(const DrivingLogListScreen()),
+      ),
+    ];
+
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      crossAxisSpacing: SfSpace.x12,
+      mainAxisSpacing: SfSpace.x12,
+      childAspectRatio: 1.32,
+      children: tiles,
     );
   }
 
-  // ---- Đồng bộ ----
+  // ---- 6. SOS ----
 
-  Widget _syncRow() {
-    final database = ref.read(databaseProvider);
-    return FutureBuilder<int>(
-      future: database.pendingCount(),
-      builder: (context, snapshot) {
-        final pending = snapshot.data ?? 0;
-        return SfCard(
-          padding: const EdgeInsets.symmetric(
-            horizontal: SfSpace.x16,
-            vertical: SfSpace.x12,
-          ),
-          child: Row(
+  Widget _sosBlock() => SfCard(
+    onTap: () => _open(const SosScreen()),
+    emphasis: SfStatus.danger,
+    tinted: true,
+    borderWidth: 1,
+    padding: const EdgeInsets.all(SfSpace.x14),
+    child: Row(
+      children: [
+        const SfIconTile(
+          icon: Icons.sos_rounded,
+          size: 44,
+          background: SfColors.danger,
+          foreground: SfColors.onAccent,
+        ),
+        const SizedBox(width: SfSpace.x14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              SfConnectionChip(online: true, pendingCount: pending),
-              const Spacer(),
-              TextButton(
-                onPressed: pending == 0
-                    ? null
-                    : () async {
-                        await ref.read(syncQueueProvider).syncNow();
-                        if (mounted) setState(() {});
-                      },
-                child: const Text('Đồng bộ ngay'),
+              Text(
+                'Cứu hộ khẩn cấp',
+                style: SfType.titleRow.copyWith(color: SfColors.dangerStrong),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Giữ 2 giây để gọi điều hành · ưu tiên cao nhất',
+                style: SfType.caption.copyWith(color: SfColors.danger),
               ),
             ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      ],
+    ),
+  );
 
   // ---- Tiện ích ----
 
@@ -451,8 +368,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _ => fallback,
   };
 
+  /// 214 → "3h34"
+  static String _duration(int minutes) =>
+      '${minutes ~/ 60}h${(minutes % 60).toString().padLeft(2, '0')}';
+
   String _driverStatusLabel(String? status) => switch (status) {
-    'DRIVING' => 'Đang trong ca lái',
+    'DRIVING' => 'Đang lái',
     'RESTING' => 'Đang tạm nghỉ',
     'HIGH_RISK' => 'Cần theo dõi an toàn',
     'SUSPENDED' => 'Tài khoản đang bị tạm dừng',
@@ -461,35 +382,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   };
 
   String _greeting(String? name) {
-    final hour = DateTime.now().hour;
-    final greeting = hour < 12
-        ? 'Chào buổi sáng'
-        : hour < 18
-        ? 'Chào buổi chiều'
-        : 'Chào buổi tối';
     final shortName = name?.trim().split(' ').last;
-    return shortName == null ? greeting : '$greeting, $shortName';
+    return shortName == null || shortName.isEmpty
+        ? 'Chào bạn'
+        : 'Chào $shortName';
   }
 
-  void _open(Widget screen, {String? hero}) => Navigator.push(
-    context,
-    hero == null
-        ? SfSlideRoute<void>(builder: (_) => screen)
-        : SfMorphRoute<void>(builder: (_) => screen),
-  ).then((_) {
-    if (mounted) setState(_reload);
-  });
+  void _open(Widget screen, {String? hero}) =>
+      Navigator.push(
+        context,
+        hero == null
+            ? SfSlideRoute<void>(builder: (_) => screen)
+            : SfMorphRoute<void>(builder: (_) => screen),
+      ).then((_) {
+        if (mounted) setState(_reload);
+      });
 }
 
-/// Thẻ chuyến đang chạy — thứ to nhất, tối nhất, đọc được đầu tiên trên màn.
+/// Thẻ chuyến đang chạy — thứ to nhất, đọc được đầu tiên trên màn.
 ///
-/// Nền tối giữa một màn sáng là cách nói "đây là việc đang diễn ra", đồng thời
-/// nối liền thị giác với Chế độ lái mà nút này mở ra.
+/// Gradient xanh giữa một màn sáng là cách nói "đây là việc đang diễn ra",
+/// đồng thời nối liền thị giác với Chế độ lái mà nút này mở ra.
 class _HeroTrip extends StatelessWidget {
-  const _HeroTrip({required this.trip, this.onOpen});
+  const _HeroTrip({required this.trip, this.onDrive, this.onDetail});
 
   final Map<String, dynamic>? trip;
-  final VoidCallback? onOpen;
+  final VoidCallback? onDrive;
+  final VoidCallback? onDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -527,18 +446,23 @@ class _HeroTrip extends StatelessWidget {
       _ => 0.0,
     };
     final code = data['tripCode']?.toString() ?? '--';
+    final highRisk =
+        data['riskLevel']?.toString() == 'HIGH' ||
+        status == 'INCIDENT' ||
+        status == 'DELAYED';
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: SfColors.navy,
-        borderRadius: SfRadius.cardR,
-      ),
-      padding: const EdgeInsets.all(SfSpace.x20),
+    return SfHeroCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
+              SfStatusPill.onHero(_statusLabel(status)),
+              if (highRisk) ...[
+                const SizedBox(width: SfSpace.x8),
+                const SfStatusPill.amber('Rủi ro cao'),
+              ],
+              const Spacer(),
               Hero(
                 tag: 'trip-${data['id']}',
                 child: Material(
@@ -546,94 +470,112 @@ class _HeroTrip extends StatelessWidget {
                   child: Text(
                     code,
                     style: SfType.mono.copyWith(
-                      color: SfColors.mint,
+                      color: SfColors.green300,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ),
-              const Spacer(),
-              _DarkPill(label: _statusLabel(status), status: _status(status)),
             ],
           ),
-          const SizedBox(height: SfSpace.x16),
-          Text(
-            data['startLocation']?.toString() ?? '--',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: SfType.body.copyWith(color: SfColors.darkTextSecondary),
+          const SizedBox(height: SfSpace.x18),
+          SfTimeline(
+            onHero: true,
+            entries: [
+              SfTimelineEntry(
+                title: data['startLocation']?.toString() ?? '--',
+                subtitle: _startMeta(data),
+              ),
+              SfTimelineEntry(
+                title: data['endLocation']?.toString() ?? '--',
+                subtitle: _endMeta(data),
+                isSquare: true,
+              ),
+            ],
           ),
-          const SizedBox(height: SfSpace.x4),
+          const SizedBox(height: SfSpace.x18),
+          SfProgressBar(
+            value: progress,
+            gradient: SfGradients.progressOnHero,
+            trackColor: SfColors.onAccent.withValues(alpha: 0.22),
+          ),
+          const SizedBox(height: SfSpace.x18),
           Row(
             children: [
-              const Icon(
-                Icons.south_east_rounded,
-                size: 20,
-                color: SfColors.mint,
-              ),
-              const SizedBox(width: SfSpace.x8),
               Expanded(
-                child: Text(
-                  data['endLocation']?.toString() ?? '--',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: SfType.titleScreen.copyWith(
-                    color: SfColors.darkTextPrimary,
+                child: SfPressable(
+                  onTap: onDrive,
+                  child: Container(
+                    height: SfTouch.primaryHeight,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: SfColors.onAccent,
+                      borderRadius: SfRadius.controlLgR,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.navigation_rounded,
+                          size: 20,
+                          color: SfColors.green700,
+                        ),
+                        const SizedBox(width: SfSpace.x8),
+                        Text(
+                          _actionLabel(status),
+                          style: SfType.titleCardSm.copyWith(
+                            color: SfColors.green700,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: SfSpace.x20),
-          ClipRRect(
-            borderRadius: SfRadius.pillR,
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: SfColors.darkSurfaceAlt,
-              valueColor: const AlwaysStoppedAnimation<Color>(SfColors.mint),
-            ),
-          ),
-          const SizedBox(height: SfSpace.x8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Tiến độ ${(progress * 100).round()}%',
-                style: SfType.mono.copyWith(color: SfColors.darkTextSecondary),
-              ),
-              Text(
-                data['vehiclePlateNumber']?.toString() ??
-                    data['plateNumber']?.toString() ??
-                    '',
-                style: SfType.mono.copyWith(color: SfColors.darkTextSecondary),
+              const SizedBox(width: SfSpace.x12),
+              SfIconButton(
+                icon: Icons.description_rounded,
+                size: SfTouch.primaryHeight,
+                onHero: true,
+                tooltip: 'Chi tiết chuyến',
+                onTap: onDetail,
               ),
             ],
-          ),
-          const SizedBox(height: SfSpace.x20),
-          SfDriveAction(
-            label: _actionLabel(status),
-            icon: Icons.navigation_rounded,
-            tone: SfColors.teal,
-            onPressed: onOpen,
           ),
         ],
       ),
     );
   }
 
-  static SfStatus _status(String status) => switch (status) {
-    'IN_PROGRESS' => SfStatus.good,
-    'RESTING' => SfStatus.pending,
-    'DELAYED' => SfStatus.warning,
-    'INCIDENT' => SfStatus.danger,
-    _ => SfStatus.pending,
-  };
+  static String? _startMeta(Map<String, dynamic> data) {
+    final time = data['startTime']?.toString();
+    return time == null || time.isEmpty
+        ? 'đã xuất phát'
+        : 'Khởi hành ${_time(time)} · đã xuất phát';
+  }
+
+  static String? _endMeta(Map<String, dynamic> data) {
+    final eta =
+        data['estimatedEndTime']?.toString() ?? data['endTime']?.toString();
+    final remaining = data['remainingDistanceKm'] ?? data['distanceKm'];
+    return [
+      if (eta != null && eta.isNotEmpty) 'Dự kiến ${_time(eta)}',
+      if (remaining is num) 'còn ${remaining.toStringAsFixed(1)} km',
+    ].join(' · ');
+  }
+
+  /// "2026-07-27T06:30:00" → "06:30"
+  static String _time(String value) {
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) return value;
+    return '${parsed.hour.toString().padLeft(2, '0')}:'
+        '${parsed.minute.toString().padLeft(2, '0')}';
+  }
 
   static String _statusLabel(String status) => switch (status) {
     'ASSIGNED' => 'Chờ nhận',
     'ACCEPTED' => 'Đã nhận',
-    'IN_PROGRESS' => 'Đang chạy',
+    'IN_PROGRESS' => 'Đang thực hiện',
     'RESTING' => 'Đang nghỉ',
     'DELAYED' => 'Trễ giờ',
     'INCIDENT' => 'Có sự cố',
@@ -644,45 +586,90 @@ class _HeroTrip extends StatelessWidget {
   static String _actionLabel(String status) => switch (status) {
     'ASSIGNED' => 'Xem và nhận chuyến',
     'ACCEPTED' => 'Chuẩn bị khởi hành',
-    'RESTING' => 'Tiếp tục chuyến',
-    _ => 'Mở chế độ lái',
+    'RESTING' => 'Tiếp tục lái',
+    _ => 'Tiếp tục lái',
   };
 }
 
-/// Pill trạng thái đặt trên nền tối của thẻ hero.
-class _DarkPill extends StatelessWidget {
-  const _DarkPill({required this.label, required this.status});
+/// Trạng thái đồng bộ: chờ → đang gửi → đã xong, đổi icon, màu và chữ.
+class _SyncCard extends ConsumerStatefulWidget {
+  const _SyncCard({required this.onSynced});
 
-  final String label;
-  final SfStatus status;
+  final VoidCallback onSynced;
 
   @override
-  Widget build(BuildContext context) {
-    final ink = status.inkOnDark;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: SfSpace.x12,
-        vertical: SfSpace.x4 + 2,
-      ),
-      decoration: BoxDecoration(
-        color: SfColors.darkSurfaceAlt,
-        borderRadius: SfRadius.pillR,
-        border: Border.all(color: ink.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(status.icon, size: 15, color: ink),
-          const SizedBox(width: SfSpace.x4),
-          Text(
-            label,
-            style: SfType.meta.copyWith(
-              color: ink,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
+  ConsumerState<_SyncCard> createState() => _SyncCardState();
+}
+
+enum _SyncPhase { idle, sending, done }
+
+class _SyncCardState extends ConsumerState<_SyncCard> {
+  _SyncPhase _phase = _SyncPhase.idle;
+  late Future<int> _pending;
+
+  @override
+  void initState() {
+    super.initState();
+    _pending = ref.read(databaseProvider).pendingCount();
   }
+
+  Future<void> _sync() async {
+    setState(() => _phase = _SyncPhase.sending);
+    try {
+      await ref.read(syncQueueProvider).syncNow();
+    } catch (_) {
+      // Ngoại tuyến là trạng thái bình thường — hàng đợi vẫn còn đó.
+    }
+    if (!mounted) return;
+    setState(() {
+      _phase = _SyncPhase.done;
+      _pending = ref.read(databaseProvider).pendingCount();
+    });
+    widget.onSynced();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<int>(
+    future: _pending,
+    builder: (context, snapshot) {
+      final pending = snapshot.data ?? 0;
+      final (icon, ink, text) = switch (_phase) {
+        _SyncPhase.sending => (
+          Icons.sync_rounded,
+          SfColors.warning,
+          'Đang gửi lên server…',
+        ),
+        _SyncPhase.done => (
+          Icons.cloud_done_rounded,
+          SfColors.green700,
+          'Đã đồng bộ xong · Lần cuối: vừa xong',
+        ),
+        _SyncPhase.idle when pending == 0 => (
+          Icons.cloud_done_rounded,
+          SfColors.green700,
+          'Không có mục nào chờ đồng bộ',
+        ),
+        _ => (
+          Icons.cloud_upload_rounded,
+          SfColors.warning,
+          '$pending mục đang chờ đồng bộ',
+        ),
+      };
+
+      return SfCard(
+        padding: const EdgeInsets.all(SfSpace.x14),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: ink),
+            const SizedBox(width: SfSpace.x10),
+            Expanded(
+              child: Text(text, style: SfType.caption.copyWith(color: ink)),
+            ),
+            if (pending > 0 && _phase != _SyncPhase.sending)
+              TextButton(onPressed: _sync, child: const Text('Đồng bộ')),
+          ],
+        ),
+      );
+    },
+  );
 }

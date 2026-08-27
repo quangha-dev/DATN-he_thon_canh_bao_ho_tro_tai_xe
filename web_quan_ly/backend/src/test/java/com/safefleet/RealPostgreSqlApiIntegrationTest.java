@@ -69,7 +69,7 @@ class RealPostgreSqlApiIntegrationTest {
     private static final AtomicInteger SEQUENCE = new AtomicInteger((int) (System.currentTimeMillis() % 1_000_000));
 
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg17")
             .withDatabaseName("safefleet_test")
             .withUsername("safefleet_test")
             .withPassword("safefleet_test");
@@ -80,6 +80,7 @@ class RealPostgreSqlApiIntegrationTest {
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("app.location.osrm-url", () -> "http://127.0.0.1:1/route/v1/driving");
+        registry.add("app.location.allow-deterministic-fallback", () -> "true");
         registry.add("app.location.photon-url", () -> "http://127.0.0.1:1/api/");
         registry.add(
                 "app.evidence.storage-path",
@@ -869,6 +870,7 @@ class RealPostgreSqlApiIntegrationTest {
 
         String firstEventId = "gps-" + SEQUENCE.incrementAndGet();
         String secondEventId = "gps-" + SEQUENCE.incrementAndGet();
+        String rejectedEventId = "gps-rejected-" + SEQUENCE.incrementAndGet();
         String batchId = "batch-" + SEQUENCE.incrementAndGet();
         ResponseEntity<JsonNode> batch = post("/api/v1/mobile/telemetry/batch", driver.token(), """
                 {
@@ -894,6 +896,15 @@ class RealPostgreSqlApiIntegrationTest {
                       "speed": 10.0,
                       "gpsStatus": "GOOD",
                       "createdAt": "2020-01-01T00:00:00"
+                    },
+                    {
+                      "clientEventId": "%s",
+                      "vehicleId": %d,
+                      "driverId": %d,
+                      "tripId": %d,
+                      "lat": 21.0287,
+                      "lng": 105.8544,
+                      "createdAt": "2099-01-01T00:00:00"
                     }
                   ]
                 }
@@ -904,13 +915,19 @@ class RealPostgreSqlApiIntegrationTest {
                 driver.driverId(),
                 tripId,
                 secondEventId,
-                fixture.vehicleId(),
-                driver.driverId(),
-                tripId
-        ));
-        assertSuccess(batch, HttpStatus.OK);
-        assertThat(data(batch).path("acceptedCount").asInt()).isEqualTo(2);
-        assertThat(data(batch).path("duplicateCount").asInt()).isZero();
+                 fixture.vehicleId(),
+                 driver.driverId(),
+                 tripId,
+                 rejectedEventId,
+                 fixture.vehicleId(),
+                 driver.driverId(),
+                 tripId
+         ));
+         assertSuccess(batch, HttpStatus.OK);
+         assertThat(data(batch).path("acceptedCount").asInt()).isEqualTo(2);
+         assertThat(data(batch).path("duplicateCount").asInt()).isZero();
+         assertThat(data(batch).path("rejectedCount").asInt()).isEqualTo(1);
+         assertThat(data(batch).path("items").get(2).path("status").asText()).isEqualTo("REJECTED");
 
         ResponseEntity<JsonNode> duplicateBatch = post("/api/v1/mobile/telemetry/batch", driver.token(), """
                 {
@@ -931,6 +948,15 @@ class RealPostgreSqlApiIntegrationTest {
                       "tripId": %d,
                       "lat": 20.0000,
                       "lng": 105.0000
+                    },
+                    {
+                      "clientEventId": "%s",
+                      "vehicleId": %d,
+                      "driverId": %d,
+                      "tripId": %d,
+                      "lat": 21.0287,
+                      "lng": 105.8544,
+                      "createdAt": "2099-01-01T00:00:00"
                     }
                   ]
                 }
@@ -943,11 +969,16 @@ class RealPostgreSqlApiIntegrationTest {
                 secondEventId,
                 fixture.vehicleId(),
                 driver.driverId(),
+                tripId,
+                rejectedEventId,
+                fixture.vehicleId(),
+                driver.driverId(),
                 tripId
         ));
         assertSuccess(duplicateBatch, HttpStatus.OK);
         assertThat(data(duplicateBatch).path("acceptedCount").asInt()).isEqualTo(2);
         assertThat(data(duplicateBatch).path("duplicateCount").asInt()).isZero();
+        assertThat(data(duplicateBatch).path("rejectedCount").asInt()).isEqualTo(1);
         assertThat(data(duplicateBatch).path("items").get(0).path("status").asText()).isEqualTo("ACCEPTED");
 
         ResponseEntity<JsonNode> duplicateEventsInNewBatch = post("/api/v1/mobile/telemetry/batch", driver.token(), """
@@ -1170,7 +1201,8 @@ class RealPostgreSqlApiIntegrationTest {
                 {
                   "lat": 21.0312,
                   "lng": 105.7811,
-                  "address": "Integration offline flood",
+                  "address": "Integration offline traffic jam",
+                  "hazardType": "TRAFFIC_JAM",
                   "severity": "HIGH",
                   "clientEventId": "%s"
                 }
@@ -1190,7 +1222,59 @@ class RealPostgreSqlApiIntegrationTest {
         long floodId = data(flood).path("id").asLong();
         assertThat(data(floodReplay).path("id").asLong()).isEqualTo(floodId);
         assertThat(data(flood).path("clientEventId").asText()).isEqualTo(floodClientEventId);
+        assertThat(data(flood).path("hazardType").asText()).isEqualTo("TRAFFIC_JAM");
         assertThat(data(flood).path("receivedAt").asText()).isNotBlank();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT hazard_type FROM flood_reports WHERE client_event_id = ?",
+                String.class,
+                floodClientEventId
+        )).isEqualTo("TRAFFIC_JAM");
+
+        String segmentEventId = "flood-segment-" + SEQUENCE.incrementAndGet();
+        ResponseEntity<JsonNode> segment = post(
+                "/api/v1/flood-reports/hazards",
+                driver.token(),
+                """
+                        {
+                          "lat": 21.0312,
+                          "lng": 105.7811,
+                          "address": "Integration flooded road segment",
+                          "severity": "BLOCKED",
+                          "source": "DRIVER_REPORT",
+                          "clientEventId": "%s",
+                          "geometryType": "SEGMENT",
+                          "geometry": [
+                            {"lat": 21.0308, "lng": 105.7805},
+                            {"lat": 21.0318, "lng": 105.7821}
+                          ],
+                          "radiusMeters": 80
+                        }
+                        """.formatted(segmentEventId)
+        );
+        assertSuccess(segment, HttpStatus.OK);
+        assertThat(data(segment).path("geometryType").asText()).isEqualTo("SEGMENT");
+        assertThat(data(segment).path("geometryJson").asText()).contains("21.0308");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT geometry_type FROM flood_reports WHERE client_event_id = ?",
+                String.class,
+                segmentEventId
+        )).isEqualTo("SEGMENT");
+
+        ResponseEntity<JsonNode> spoofedSource = post(
+                "/api/v1/flood-reports/hazards",
+                driver.token(),
+                """
+                        {
+                          "lat": 21.0312,
+                          "lng": 105.7811,
+                          "severity": "HIGH",
+                          "source": "MANUAL",
+                          "geometryType": "POINT"
+                        }
+                        """
+        );
+        assertFailure(spoofedSource, HttpStatus.FORBIDDEN,
+                "Tài xế chỉ được tạo nguồn DRIVER_REPORT");
 
         String safetyClientEventId = "safety-" + SEQUENCE.incrementAndGet();
         ResponseEntity<JsonNode> safety = post("/api/v1/mobile/safety-events", driver.token(), """

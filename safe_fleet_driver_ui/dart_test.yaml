@@ -1,0 +1,6 @@
+tags:
+  preview:
+    # Renders PNG previews of the guidance surfaces. Needs the bundled fonts and
+    # writes goldens, so it is opt-in:
+    #   SF_RENDER_PREVIEW=1 flutter test test/navigation_preview_test.dart --update-goldens
+    skip: false

@@ -30,19 +30,4 @@ void main() {
     expect(bootstrap.floodPoints, hasLength(1));
     expect(bootstrap.notifications, hasLength(1));
   });
-
-  test('navigation selects backend recommended alternative', () {
-    final navigation = NavigationRoute.fromJson({
-      'sessionId': 'session-1',
-      'safe': true,
-      'selectedRouteIndex': 1,
-      'routes': [
-        {'routeIndex': 0, 'provider': 'OSRM'},
-        {'routeIndex': 1, 'provider': 'LOCAL_DETERMINISTIC'},
-      ],
-    });
-
-    expect(navigation.safe, isTrue);
-    expect(navigation.selected['routeIndex'], 1);
-  });
 }

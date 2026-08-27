@@ -25,6 +25,23 @@ const FLOOD_MARKER_COLOR: Record<string, string> = {
   impassable: "var(--sf-danger)",
 };
 
+function makeMarkerAccessible(element: HTMLDivElement, label: string, activate?: () => void) {
+  element.setAttribute("aria-label", label);
+  if (!activate) {
+    element.setAttribute("role", "img");
+    return;
+  }
+  element.setAttribute("role", "button");
+  element.tabIndex = 0;
+  element.addEventListener("click", activate);
+  element.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      activate();
+    }
+  });
+}
+
 /** Điều khiển bản đồ từ bên ngoài — trang bản đồ realtime tự vẽ nút zoom
     theo bản thiết kế nên cần gọi được zoom/flyTo của MapLibre. */
 export interface MapViewHandle {
@@ -69,6 +86,7 @@ function MapViewImpl({
   const markersRef = useRef<Record<string, any>>({});
   const routeMarkersRef = useRef<Record<string, any>>({});
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [baseMapUnavailable, setBaseMapUnavailable] = useState(false);
 
   // Initialize Map
   useEffect(() => {
@@ -83,20 +101,21 @@ function MapViewImpl({
         style: {
           version: 8,
           sources: {
-            "osm-tiles": {
+            "carto-basemap": {
               type: "raster",
               tiles: [MAP_CONFIG.tileUrl],
               tileSize: 256,
               attribution: MAP_CONFIG.attribution,
+              maxzoom: 20,
             },
           },
           layers: [
             {
-              id: "osm-layer",
+              id: "carto-basemap-layer",
               type: "raster",
-              source: "osm-tiles",
+              source: "carto-basemap",
               minzoom: 0,
-              maxzoom: 19,
+              maxzoom: 20,
             },
           ],
         },
@@ -105,14 +124,24 @@ function MapViewImpl({
         interactive: interactive,
       });
 
+      // Giữ map instance ngay khi khởi tạo. Sự kiện `load` của MapLibre có thể
+      // không bao giờ phát nếu máy trạm không tải được raster tile; khi đó marker
+      // theo dõi xe/điểm ngập vẫn phải hiển thị trên lớp nền dự phòng.
+      mapRef.current = map;
+
       if (interactive && showNativeControls) {
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
       }
 
-      map.on("load", () => {
-        mapRef.current = map;
+      map.on("style.load", () => {
         setMapLoaded(true);
       });
+
+      map.on("error", () => {
+        setBaseMapUnavailable(true);
+        setMapLoaded(true);
+      });
+
     });
 
     return () => {
@@ -191,9 +220,11 @@ function MapViewImpl({
           el.appendChild(badge);
         }
 
-        el.addEventListener("click", () => {
-          if (onVehicleClick) onVehicleClick(vehicle);
-        });
+        makeMarkerAccessible(
+          el,
+          `Xe ${vehicle.plate}`,
+          onVehicleClick ? () => onVehicleClick(vehicle) : undefined
+        );
 
         // Add or update marker
         if (markersRef.current[id]) {
@@ -221,17 +252,26 @@ function MapViewImpl({
           "z-20",
           point.severity === "impassable" && "animate-sf-pulse-ring"
         );
-        el.style.background = FLOOD_MARKER_COLOR[point.severity] ?? "var(--sf-primary)";
+        const trafficJam = point.hazardType === "traffic_jam";
+        el.style.background = trafficJam
+          ? point.severity === "impassable"
+            ? "var(--sf-danger)"
+            : "var(--sf-warning)"
+          : FLOOD_MARKER_COLOR[point.severity] ?? "var(--sf-primary)";
         el.style.color = "#ffffff";
         el.style.borderColor = "var(--sf-bg-card)";
 
         const iconEl = document.createElement("div");
-        iconEl.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 5-5.28M17.75 7L14 3.25M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"></path></svg>`;
+        iconEl.innerHTML = trafficJam
+          ? `<svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3v-5l2-5h14l2 5v5h-2"></path><path d="M5 17v2h3v-2h8v2h3v-2"></path><path d="M6.5 12h11"></path><circle cx="7.5" cy="15" r="1"></circle><circle cx="16.5" cy="15" r="1"></circle></svg>`
+          : `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 5-5.28M17.75 7L14 3.25M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"></path></svg>`;
         el.appendChild(iconEl);
 
-        el.addEventListener("click", () => {
-          if (onFloodPointClick) onFloodPointClick(point);
-        });
+        makeMarkerAccessible(
+          el,
+          `${trafficJam ? "Ùn tắc" : "Điểm ngập"}: ${point.location}`,
+          onFloodPointClick ? () => onFloodPointClick(point) : undefined
+        );
 
         if (markersRef.current[id]) {
           markersRef.current[id].setLngLat([point.lng, point.lat]);
@@ -257,9 +297,11 @@ function MapViewImpl({
         iconEl.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
         el.appendChild(iconEl);
 
-        el.addEventListener("click", () => {
-          if (onIncidentClick) onIncidentClick(incident);
-        });
+        makeMarkerAccessible(
+          el,
+          `Sự cố xe ${incident.vehiclePlate}`,
+          onIncidentClick ? () => onIncidentClick(incident) : undefined
+        );
 
         if (markersRef.current[id]) {
           markersRef.current[id].setLngLat([incident.lng, incident.lat]);
@@ -397,8 +439,16 @@ function MapViewImpl({
   }, [selectedVehicleId, vehicles, mapLoaded]);
 
   return (
-    <div className="relative w-full h-full min-h-[300px]">
+    <div className="sf-map-fallback relative h-full min-h-[300px] w-full overflow-hidden">
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+      {baseMapUnavailable && (
+        <div
+          role="status"
+          className="pointer-events-none absolute bottom-3 left-1/2 z-20 max-w-[calc(100%-24px)] -translate-x-1/2 rounded-full border border-[var(--sf-border)] bg-[var(--sf-bg-card)]/95 px-3.5 py-2 text-center text-[11.5px] font-medium text-sf-text-secondary shadow-[var(--sf-shadow-md)] backdrop-blur"
+        >
+          Nền bản đồ đang ngoại tuyến · dữ liệu vị trí vẫn được hiển thị
+        </div>
+      )}
     </div>
   );
 }

@@ -18,6 +18,7 @@ public record NavigationRouteCandidateResponse(
         Boolean recommended,
         String provider,
         Boolean fallback,
+        List<List<Double>> navigationWaypoints,
         List<List<Double>> geometry,
         List<NavigationStepResponse> steps,
         List<String> warnings

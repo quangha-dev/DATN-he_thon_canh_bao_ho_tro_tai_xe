@@ -837,6 +837,7 @@ public class MobileAppService {
                 request.lat(),
                 request.lng(),
                 request.address(),
+                request.hazardType(),
                 request.severity(),
                 FloodSource.DRIVER_REPORT,
                 driver.getId(),
@@ -954,6 +955,7 @@ public class MobileAppService {
                         request.lat(),
                         request.lng(),
                         request.address(),
+                        null,
                         request.floodSeverity() == null
                                 ? FloodSeverity.MEDIUM
                                 : request.floodSeverity(),

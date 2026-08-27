@@ -17,6 +17,8 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install --no-cache-dir -r req
 COPY safefleet_ai/service ./service
 COPY safefleet_ai/tests ./tests
 COPY safefleet_ai/training ./training
+COPY safefleet_ai/evaluation ./evaluation
+COPY safefleet_ai/knowledge ./knowledge
 COPY safefleet_ai/models/safefleet_temporal_rules.json ./models/safefleet_temporal_rules.json
 CMD ["python", "-m", "pytest", "-q"]
 
@@ -27,6 +29,7 @@ RUN apt-get update \
     && groupadd --system safefleet \
     && useradd --system --gid safefleet --home-dir /app safefleet
 COPY safefleet_ai/service ./service
+COPY safefleet_ai/knowledge ./knowledge
 COPY safefleet_ai/models/ocr /app/ocr_models
 RUN mkdir -p /models /data && chown -R safefleet:safefleet /app /models /data
 USER safefleet

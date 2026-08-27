@@ -51,6 +51,14 @@ const EMPTY_FORM = {
   model: "",
   year: "",
   loadCapacity: "",
+  heightMeters: "",
+  widthMeters: "",
+  lengthMeters: "",
+  grossWeightTons: "",
+  axleLoadTons: "",
+  axleCount: "",
+  topSpeedKph: "",
+  hazardousGoods: "false",
   seatCount: "",
   fuelType: "DIESEL",
   status: "AVAILABLE",
@@ -160,6 +168,14 @@ export default function VehiclesPage() {
       model: vehicle.model || "",
       year: vehicle.year ? String(vehicle.year) : "",
       loadCapacity: vehicle.capacity ? String(vehicle.capacity) : "",
+      heightMeters: vehicle.heightMeters ? String(vehicle.heightMeters) : "",
+      widthMeters: vehicle.widthMeters ? String(vehicle.widthMeters) : "",
+      lengthMeters: vehicle.lengthMeters ? String(vehicle.lengthMeters) : "",
+      grossWeightTons: vehicle.grossWeightTons ? String(vehicle.grossWeightTons) : "",
+      axleLoadTons: vehicle.axleLoadTons ? String(vehicle.axleLoadTons) : "",
+      axleCount: vehicle.axleCount ? String(vehicle.axleCount) : "",
+      topSpeedKph: vehicle.topSpeedKph ? String(vehicle.topSpeedKph) : "",
+      hazardousGoods: vehicle.hazardousGoods ? "true" : "false",
       seatCount: vehicle.seatCount ? String(vehicle.seatCount) : "",
       fuelType: vehicle.fuelType || "DIESEL",
       status: vehicle.backendStatus || "AVAILABLE",
@@ -176,6 +192,14 @@ export default function VehiclesPage() {
     model: form.model.trim() || undefined,
     year: form.year ? Number(form.year) : null,
     loadCapacity: form.loadCapacity ? Number(form.loadCapacity) : null,
+    heightMeters: form.heightMeters ? Number(form.heightMeters) : null,
+    widthMeters: form.widthMeters ? Number(form.widthMeters) : null,
+    lengthMeters: form.lengthMeters ? Number(form.lengthMeters) : null,
+    grossWeightTons: form.grossWeightTons ? Number(form.grossWeightTons) : null,
+    axleLoadTons: form.axleLoadTons ? Number(form.axleLoadTons) : null,
+    axleCount: form.axleCount ? Number(form.axleCount) : null,
+    topSpeedKph: form.topSpeedKph ? Number(form.topSpeedKph) : null,
+    hazardousGoods: form.hazardousGoods === "true",
     seatCount: form.seatCount ? Number(form.seatCount) : null,
     fuelType: form.fuelType || null,
     status: form.status,
@@ -214,6 +238,14 @@ export default function VehiclesPage() {
         model: vehicle.model || undefined,
         year: vehicle.year || null,
         loadCapacity: vehicle.capacity || null,
+        heightMeters: vehicle.heightMeters || null,
+        widthMeters: vehicle.widthMeters || null,
+        lengthMeters: vehicle.lengthMeters || null,
+        grossWeightTons: vehicle.grossWeightTons || null,
+        axleLoadTons: vehicle.axleLoadTons || null,
+        axleCount: vehicle.axleCount || null,
+        topSpeedKph: vehicle.topSpeedKph || null,
+        hazardousGoods: vehicle.hazardousGoods || false,
         seatCount: vehicle.seatCount || null,
         fuelType: vehicle.fuelType || null,
         status: "INACTIVE",
@@ -468,7 +500,7 @@ export default function VehiclesPage() {
         open={editorOpen}
         onClose={() => !saving && setEditorOpen(false)}
         title={editing ? `Chỉnh sửa ${editing.plate}` : "Thêm phương tiện"}
-        subtitle="Thông tin hồ sơ, phân công tài xế và hạn giấy tờ."
+        subtitle="Kích thước và tổng tải được dùng để loại các cầu, hầm và đường không an toàn."
         size="lg"
         footer={
           <>
@@ -486,6 +518,14 @@ export default function VehiclesPage() {
           <VehicleField label="Model" value={form.model} onChange={(value) => setForm((prev) => ({ ...prev, model: value }))} />
           <VehicleField label="Năm sản xuất" type="number" value={form.year} onChange={(value) => setForm((prev) => ({ ...prev, year: value }))} />
           <VehicleField label="Tải trọng" type="number" value={form.loadCapacity} onChange={(value) => setForm((prev) => ({ ...prev, loadCapacity: value }))} />
+          <VehicleField label="Chiều cao (m)" type="number" value={form.heightMeters} onChange={(value) => setForm((prev) => ({ ...prev, heightMeters: value }))} />
+          <VehicleField label="Chiều rộng (m)" type="number" value={form.widthMeters} onChange={(value) => setForm((prev) => ({ ...prev, widthMeters: value }))} />
+          <VehicleField label="Chiều dài (m)" type="number" value={form.lengthMeters} onChange={(value) => setForm((prev) => ({ ...prev, lengthMeters: value }))} />
+          <VehicleField label="Tổng tải (tấn)" type="number" value={form.grossWeightTons} onChange={(value) => setForm((prev) => ({ ...prev, grossWeightTons: value }))} />
+          <VehicleField label="Tải mỗi trục (tấn)" type="number" value={form.axleLoadTons} onChange={(value) => setForm((prev) => ({ ...prev, axleLoadTons: value }))} />
+          <VehicleField label="Số trục" type="number" value={form.axleCount} onChange={(value) => setForm((prev) => ({ ...prev, axleCount: value }))} />
+          <VehicleField label="Tốc độ tối đa (km/h)" type="number" value={form.topSpeedKph} onChange={(value) => setForm((prev) => ({ ...prev, topSpeedKph: value }))} />
+          <VehicleSelect label="Hàng nguy hiểm" value={form.hazardousGoods} onChange={(value) => setForm((prev) => ({ ...prev, hazardousGoods: value }))} options={[["false", "Không"], ["true", "Có"]]} />
           <VehicleField label="Số chỗ" type="number" value={form.seatCount} onChange={(value) => setForm((prev) => ({ ...prev, seatCount: value }))} />
           <VehicleSelect label="Nhiên liệu" value={form.fuelType} onChange={(value) => setForm((prev) => ({ ...prev, fuelType: value }))} options={[["DIESEL", "Dầu"], ["GASOLINE", "Xăng"], ["ELECTRIC", "Điện"], ["HYBRID", "Hybrid"]]} />
           <VehicleSelect label="Trạng thái" value={form.status} onChange={(value) => setForm((prev) => ({ ...prev, status: value }))} options={[["AVAILABLE", "Sẵn sàng"], ["RESTING", "Đang nghỉ"], ["MAINTENANCE", "Bảo trì"], ["OFFLINE", "Mất kết nối"], ["INACTIVE", "Ngừng sử dụng"]]} />

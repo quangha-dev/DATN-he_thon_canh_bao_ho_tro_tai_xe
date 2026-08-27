@@ -1,11 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 
 import '../../app.dart';
+import '../../core/agent/agent_conversation_provider.dart';
 import '../../core/widgets/ui.dart';
 
 class AgentVoiceSheet extends ConsumerStatefulWidget {
@@ -20,25 +22,38 @@ class AgentVoiceSheet extends ConsumerStatefulWidget {
 class _AgentVoiceSheetState extends ConsumerState<AgentVoiceSheet> {
   final _controller = TextEditingController();
   final _speech = SpeechToText();
-  final _tts = FlutterTts();
   bool _busy = false;
   bool _listening = false;
   String? _speechError;
 
+  /// Giữ sẵn notifier: đọc `ref` trong dispose() là không an toàn vì lúc đó
+  /// widget đã rời khỏi cây.
+  late final AgentConversationController _agent;
+
+  @override
+  void initState() {
+    super.initState();
+    _agent = ref.read(agentConversationProvider.notifier);
+  }
+
   @override
   void dispose() {
     _speech.cancel();
-    _tts.stop();
     _controller.dispose();
+    // Trả micro lại cho chế độ nghe nền khi đóng sheet.
+    unawaited(_agent.resumeWake());
     super.dispose();
   }
 
   Future<void> _toggleListening() async {
     if (_listening) {
       await _speech.stop();
+      await _agent.resumeWake();
       if (mounted) setState(() => _listening = false);
       return;
     }
+    // Chỉ một bộ nhận dạng được giữ micro tại một thời điểm.
+    await _agent.suspendWake();
     final available = await _speech.initialize(
       onStatus: (status) {
         if (!mounted) return;
@@ -90,11 +105,8 @@ class _AgentVoiceSheetState extends ConsumerState<AgentVoiceSheet> {
     }
   }
 
-  Future<void> _speak(String text) async {
-    await _tts.setLanguage('vi-VN');
-    await _tts.setSpeechRate(0.48);
-    await _tts.speak(text);
-  }
+  /// Đọc bằng đúng giọng trợ lý dùng ở mọi nơi khác trong app.
+  Future<void> _speak(String text) => _agent.speakAside(text);
 
   Future<void> _submit() async {
     final transcript = _controller.text.trim();
@@ -131,7 +143,7 @@ class _AgentVoiceSheetState extends ConsumerState<AgentVoiceSheet> {
           command['intent'] == 'SEND_SOS' ? Icons.sos : Icons.security,
           color: command['intent'] == 'SEND_SOS'
               ? SfColors.danger
-              : SfColors.teal,
+              : SfColors.green700,
         ),
         title: const Text('Xác nhận trước khi thực hiện'),
         content: Text(_confirmationText(command['intent']?.toString())),

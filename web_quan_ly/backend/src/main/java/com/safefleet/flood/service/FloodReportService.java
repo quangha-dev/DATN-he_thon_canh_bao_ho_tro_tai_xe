@@ -1,14 +1,19 @@
 package com.safefleet.flood.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.safefleet.account.entity.UserAccount;
 import com.safefleet.account.repository.UserAccountRepository;
 import com.safefleet.common.dto.PageResponse;
 import com.safefleet.common.exception.ForbiddenActionException;
+import com.safefleet.common.exception.BadRequestException;
 import com.safefleet.common.exception.NotFoundException;
 import com.safefleet.common.util.GeoUtils;
 import com.safefleet.driver.entity.Driver;
 import com.safefleet.driver.repository.DriverRepository;
 import com.safefleet.flood.dto.request.CreateFloodReportRequest;
+import com.safefleet.flood.dto.request.CreateFloodHazardRequest;
+import com.safefleet.flood.dto.request.FloodGeometryPoint;
 import com.safefleet.flood.dto.request.FloodActionRequest;
 import com.safefleet.flood.dto.request.RouteCheckRequest;
 import com.safefleet.flood.dto.response.FloodReportResponse;
@@ -16,8 +21,10 @@ import com.safefleet.flood.dto.response.RouteRiskSummaryResponse;
 import com.safefleet.flood.dto.response.FloodWarningResponse;
 import com.safefleet.flood.entity.FloodReport;
 import com.safefleet.flood.enums.FloodSeverity;
+import com.safefleet.flood.enums.FloodGeometryType;
 import com.safefleet.flood.enums.FloodSource;
 import com.safefleet.flood.enums.FloodStatus;
+import com.safefleet.flood.enums.RoadHazardType;
 import com.safefleet.flood.mapper.FloodReportMapper;
 import com.safefleet.flood.repository.FloodReportRepository;
 import com.safefleet.infrastructure.security.SecurityUtils;
@@ -53,10 +60,32 @@ public class FloodReportService {
     private final NotificationService notificationService;
     private final SystemSettingService settingService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public FloodReportResponse create(CreateFloodReportRequest request) {
+        return createHazard(new CreateFloodHazardRequest(
+                request.lat(),
+                request.lng(),
+                request.address(),
+                request.hazardType(),
+                request.severity(),
+                request.source(),
+                request.reportedByDriverId(),
+                request.imageUrl(),
+                request.clientEventId(),
+                FloodGeometryType.POINT,
+                List.of(),
+                120.0
+        ));
+    }
+
+    @Transactional
+    public FloodReportResponse createHazard(CreateFloodHazardRequest request) {
         Driver driver = resolveReporter(request.reportedByDriverId());
+        if (SecurityUtils.hasRole("DRIVER") && request.source() != FloodSource.DRIVER_REPORT) {
+            throw new ForbiddenActionException("Tài xế chỉ được tạo nguồn DRIVER_REPORT");
+        }
         String clientEventId = normalizeClientEventId(request.clientEventId());
         if (driver != null && clientEventId != null) {
             var duplicate = floodReportRepository
@@ -72,11 +101,15 @@ public class FloodReportService {
         report.setLat(request.lat());
         report.setLng(request.lng());
         report.setAddress(request.address());
+        report.setHazardType(request.hazardType() == null ? RoadHazardType.FLOOD : request.hazardType());
         report.setSeverity(request.severity());
         report.setSource(request.source());
         report.setReportedByDriver(driver);
         report.setImageUrl(request.imageUrl());
         report.setClientEventId(clientEventId);
+        report.setGeometryType(request.geometryType());
+        report.setGeometryJson(validatedGeometryJson(request.geometryType(), request.geometry()));
+        report.setRadiusMeters(request.radiusMeters() == null ? 120.0 : request.radiusMeters());
         report.setExpiredAt(LocalDateTime.now().plusMinutes(
                 settingService.getInt(SystemSettingService.FLOOD_EXPIRATION_MINUTES, 180)
         ));
@@ -84,6 +117,31 @@ public class FloodReportService {
         FloodReport saved = floodReportRepository.save(report);
         publish(saved);
         return FloodReportMapper.toResponse(saved);
+    }
+
+    private String validatedGeometryJson(FloodGeometryType type,
+                                         List<FloodGeometryPoint> rawGeometry) {
+        List<FloodGeometryPoint> geometry = rawGeometry == null ? List.of() : rawGeometry;
+        if (type == FloodGeometryType.POINT) {
+            return null;
+        }
+        int minimum = type == FloodGeometryType.SEGMENT ? 2 : 3;
+        if (geometry.size() < minimum) {
+            throw new BadRequestException(type == FloodGeometryType.SEGMENT
+                    ? "Tuyến ngập phải có ít nhất 2 điểm"
+                    : "Vùng ngập phải có ít nhất 3 điểm");
+        }
+        List<FloodGeometryPoint> normalized = new ArrayList<>(geometry);
+        if (type == FloodGeometryType.POLYGON) {
+            FloodGeometryPoint first = normalized.getFirst();
+            FloodGeometryPoint last = normalized.getLast();
+            if (!first.equals(last)) normalized.add(first);
+        }
+        try {
+            return objectMapper.writeValueAsString(normalized);
+        } catch (JsonProcessingException exception) {
+            throw new BadRequestException("Hình học vùng ngập không hợp lệ");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -141,7 +199,7 @@ public class FloodReportService {
     public FloodWarningResponse warnNearby(Long id) {
         FloodReport report = findReport(id);
         if (report.getStatus() == FloodStatus.RESOLVED || !notExpired(report)) {
-            throw new com.safefleet.common.exception.BadRequestException("Không thể gửi cảnh báo cho điểm ngập đã hết hiệu lực");
+            throw new com.safefleet.common.exception.BadRequestException("Không thể gửi cảnh báo cho điểm đã hết hiệu lực");
         }
         Set<Long> notifiedUsers = new HashSet<>();
         driverRepository.findAll().stream()
@@ -154,11 +212,18 @@ public class FloodReportService {
                         driver.getCurrentVehicle().getLastLat(), driver.getCurrentVehicle().getLastLng(),
                         report.getLat(), report.getLng()) <= DRIVER_WARNING_RADIUS_KM)
                 .filter(driver -> notifiedUsers.add(driver.getUser().getId()))
-                .forEach(driver -> notificationService.createForUser(
-                        driver.getUser().getId(), NotificationType.FLOOD,
-                        "Cảnh báo điểm ngập gần xe",
-                        report.getAddress() == null ? "Phát hiện điểm ngập trong bán kính 10 km" : report.getAddress(),
-                        "FLOOD_REPORT", report.getId()));
+                .forEach(driver -> {
+                    boolean trafficJam = report.getHazardType() == RoadHazardType.TRAFFIC_JAM;
+                    notificationService.createForUser(
+                            driver.getUser().getId(), NotificationType.FLOOD,
+                            trafficJam ? "Cảnh báo kẹt xe gần xe" : "Cảnh báo điểm ngập gần xe",
+                            report.getAddress() == null
+                                    ? (trafficJam
+                                            ? "Phát hiện điểm tắc nghẽn trong bán kính 10 km"
+                                            : "Phát hiện điểm ngập trong bán kính 10 km")
+                                    : report.getAddress(),
+                            "FLOOD_REPORT", report.getId());
+                });
         return new FloodWarningResponse(report.getId(), notifiedUsers.size(), DRIVER_WARNING_RADIUS_KM);
     }
 

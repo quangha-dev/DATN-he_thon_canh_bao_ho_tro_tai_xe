@@ -91,7 +91,20 @@ void main() {
         'clientEventId': 'flood-1',
         'lat': 21.01,
         'lng': 105.81,
+        'hazardType': 'TRAFFIC_JAM',
         'severity': 'HIGH',
+      });
+      await queue.enqueueFloodHazard({
+        'clientEventId': 'hazard-1',
+        'lat': 21.01,
+        'lng': 105.81,
+        'severity': 'BLOCKED',
+        'source': 'DRIVER_REPORT',
+        'geometryType': 'SEGMENT',
+        'geometry': [
+          {'lat': 21.01, 'lng': 105.81},
+          {'lat': 21.02, 'lng': 105.82},
+        ],
       });
       await queue.enqueueWorkflow(
         tripId: 7,
@@ -109,16 +122,21 @@ void main() {
         'lng': 105.82,
       });
 
-      expect(await queue.syncNow(), 5);
+      expect(await queue.syncNow(), 6);
       expect(api.calls.map((call) => call.path), [
         '/mobile/incidents/sos',
         '/mobile/safety-events',
         '/mobile/trips/7/pause-workflow',
         '/mobile/flood-reports/quick',
+        '/flood-reports/hazards',
         '/mobile/telemetry/batch',
       ]);
       final workflowBody = Map<String, dynamic>.from(api.calls[2].data! as Map);
       expect(workflowBody['clientEventId'], 'workflow-1');
+      final trafficJamBody = Map<String, dynamic>.from(
+        api.calls[3].data! as Map,
+      );
+      expect(trafficJamBody['hazardType'], 'TRAFFIC_JAM');
       expect(await database.pendingCount(), 0);
     },
   );
@@ -157,5 +175,17 @@ void main() {
     expect(pending, hasLength(1));
     expect(pending.single['status'], 'FAILED');
     expect(pending.single['attempts'], 1);
+  });
+
+  test('background database close does not invalidate UI connection', () async {
+    final backgroundDatabase = LocalDatabase(databaseName: databaseName);
+    await database.cache('ui-alive', {'value': true});
+    expect(await backgroundDatabase.pendingCount(), 0);
+
+    await backgroundDatabase.close();
+
+    expect(await database.cached<Map<String, dynamic>>('ui-alive'), {
+      'value': true,
+    });
   });
 }

@@ -8,7 +8,9 @@ FROM node:22-alpine AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG BACKEND_INTERNAL_URL=http://backend:8080
+ARG NEXT_PUBLIC_MAP_TILE_URL=https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png
 ENV BACKEND_INTERNAL_URL=${BACKEND_INTERNAL_URL}
+ENV NEXT_PUBLIC_MAP_TILE_URL=${NEXT_PUBLIC_MAP_TILE_URL}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

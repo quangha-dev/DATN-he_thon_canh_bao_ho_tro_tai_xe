@@ -19,7 +19,10 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "9.0.1" apply false
+    // Navigation SDK 7.x includes Cronet artifacts that AGP 9 currently
+    // rejects for sharing a legacy namespace. Keep the Google sample's
+    // supported AGP line until that upstream incompatibility is resolved.
+    id("com.android.application") version "8.13.2" apply false
     id("org.jetbrains.kotlin.android") version "2.3.20" apply false
 }
 

@@ -46,31 +46,6 @@ class DriverBootstrap {
       : const [];
 }
 
-class NavigationRoute {
-  const NavigationRoute({
-    required this.sessionId,
-    required this.safe,
-    required this.selectedRouteIndex,
-    required this.routes,
-  });
-
-  final String sessionId;
-  final bool safe;
-  final int selectedRouteIndex;
-  final List<Map<String, dynamic>> routes;
-
-  factory NavigationRoute.fromJson(Map<String, dynamic> json) =>
-      NavigationRoute(
-        sessionId: json['sessionId']?.toString() ?? '',
-        safe: json['safe'] == true,
-        selectedRouteIndex: (json['selectedRouteIndex'] as num?)?.toInt() ?? 0,
-        routes: DriverBootstrap.maps(json['routes']),
-      );
-
-  Map<String, dynamic> get selected =>
-      routes[selectedRouteIndex.clamp(0, routes.length - 1)];
-}
-
 class LocationPoint {
   const LocationPoint({
     required this.name,

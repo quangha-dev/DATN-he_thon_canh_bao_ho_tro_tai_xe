@@ -17,6 +17,7 @@ safefleet_ai/.local/
 safefleet_ai/artifacts/
 safefleet_ai/.pytest-tmp/
 safefleet_ai/.pytest_tmp_agent*/
+safefleet_ai/.pytest-tmp-*/
 
 # Node.js
 node_modules/

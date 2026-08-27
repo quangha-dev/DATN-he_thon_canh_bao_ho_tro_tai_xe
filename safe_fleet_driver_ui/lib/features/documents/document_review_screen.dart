@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../app.dart';
 import '../../core/widgets/ui.dart';
@@ -198,11 +199,6 @@ class _DocumentReviewScreenState extends ConsumerState<DocumentReviewScreen> {
     final voucherNumber = preserveLockedOcrFields
         ? base.voucherNumber
         : _voucher.text.trim();
-    final operationalComplete =
-        voucherDate != null &&
-        driverName.isNotEmpty &&
-        projectAddress.isNotEmpty &&
-        (tripCount ?? 0) > 0;
     return base.copyWith(
       voucherDate: voucherDate,
       clearVoucherDate: voucherDate == null,
@@ -230,15 +226,16 @@ class _DocumentReviewScreenState extends ConsumerState<DocumentReviewScreen> {
       // Việc người dùng nhập đủ trường không đồng nghĩa OCR máy tính đã xong.
       // Trong luồng hàng đợi, phiếu phải tiếp tục là bản nháp cho tới khi
       // DocumentOcrSyncQueue nhận và ghép kết quả thật từ máy chủ.
-      status: _serverOcrPending && base.isComputerOcrPending
-          ? DrivingLogStatus.draft
-          : operationalComplete
+      status: base.status == DrivingLogStatus.exported
+          ? DrivingLogStatus.exported
+          : base.isConfirmed
           ? DrivingLogStatus.verified
           : DrivingLogStatus.draft,
     );
   }
 
   Future<void> _save() async {
+    if (_entry.isConfirmed) return;
     if (_entry.qualityLevel == ScanQualityLevel.red) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
@@ -255,6 +252,45 @@ class _DocumentReviewScreenState extends ConsumerState<DocumentReviewScreen> {
     }
   }
 
+  Future<void> _confirm() async {
+    if (_saving || _entry.isConfirmed || _serverOcrPending) return;
+    if (_entry.qualityLevel == ScanQualityLevel.red) return;
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      final repository = ref.read(drivingLogRepositoryProvider);
+      final latest = await repository.find(_entry.id) ?? _entry;
+      if (latest.isConfirmed) {
+        _entry = latest;
+        if (mounted) setState(() {});
+        return;
+      }
+      final updated = _entryFromForm(latestEntry: latest);
+      final missing = updated.missingFields;
+      if (missing.isNotEmpty) {
+        throw StateError(
+          'Cần bổ sung trước khi xác nhận: ${missing.join(', ')}',
+        );
+      }
+      final confirmed = await repository.confirmOnce(
+        updated,
+        confirmationId: const Uuid().v4(),
+      );
+      _entry = confirmed;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Phiếu đã được xác nhận và khóa chỉnh sửa.'),
+        ),
+      );
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (mounted) showError(context, error);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.sf;
@@ -262,169 +298,172 @@ class _DocumentReviewScreenState extends ConsumerState<DocumentReviewScreen> {
     final red = entry.qualityLevel == ScanQualityLevel.red;
     return Scaffold(
       backgroundColor: p.bg,
-      appBar: AppBar(
-        title: Text(
-          _serverOcrPending || _serverOcrCompleted
-              ? 'Bổ sung dữ liệu phiếu'
-              : 'Đối chiếu phiếu',
-        ),
-        actions: [
-          TextButton(
-            onPressed: _saving || red ? null : _save,
-            child: const Text('Lưu'),
+      body: Column(
+        children: [
+          SfGradientHeader(
+            title: _serverOcrPending || _serverOcrCompleted
+                ? 'Bổ sung dữ liệu phiếu'
+                : 'Kiểm tra phiếu',
+            subtitle:
+                'Sửa ô sai rồi lưu · máy đọc được '
+                '${entry.qualityScore}%',
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              flex: 4,
-              child: _ImageComparisonHeader(
-                entry: entry,
-                onOpen: () => Navigator.push<void>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => DocumentImageScreen(entry: entry),
-                  ),
+          Expanded(
+            flex: 4,
+            child: _ImageComparisonHeader(
+              entry: entry,
+              onOpen: () => Navigator.push<void>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DocumentImageScreen(entry: entry),
                 ),
               ),
             ),
-            Expanded(
-              flex: 6,
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  padding: SfSpace.screen,
-                  children: [
-                    if (_serverOcrPending)
-                      const _QueuedOcrEditingBanner()
-                    else ...[
-                      if (!_serverOcrCompleted) ...[
-                        _QualityBanner(entry),
-                        const SizedBox(height: SfSpace.x8),
-                      ],
-                      _ExtractionBanner(entry),
-                      if (_serverOcrCompleted) ...[
-                        const SizedBox(height: SfSpace.x8),
-                        const _CompletedOcrEditingBanner(),
-                      ],
+          ),
+          Expanded(
+            flex: 6,
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: SfSpace.screen,
+                children: [
+                  if (_serverOcrPending)
+                    const _QueuedOcrEditingBanner()
+                  else if (entry.isConfirmed)
+                    _ConfirmedDocumentBanner(entry: entry)
+                  else ...[
+                    if (!_serverOcrCompleted) ...[
+                      _QualityBanner(entry),
+                      const SizedBox(height: SfSpace.x8),
                     ],
-                    if (red) ...[
-                      const SizedBox(height: SfSpace.x16),
-                      FilledButton.icon(
-                        onPressed: () => Navigator.pop(context, false),
-                        icon: const Icon(Icons.camera_alt_outlined),
-                        label: const Text('Chụp lại phiếu'),
-                      ),
-                    ] else ...[
-                      const SizedBox(height: SfSpace.x16),
-                      Text(
-                        _serverOcrPending
-                            ? 'Các trường có biểu tượng khóa đang được máy tính OCR và chỉ sửa được sau khi xử lý xong. Bạn vẫn có thể nhập, lưu các trường bổ sung ngay.'
-                            : _serverOcrCompleted
-                            ? 'OCR máy tính đã hoàn tất. Bổ sung các trường còn thiếu để hoàn thiện phiếu; form này không gửi lại OCR.'
-                            : 'So sánh từng ô với ảnh phía trên. Ô vàng là dữ liệu OCR cần kiểm tra; ô đỏ là dữ liệu bắt buộc còn thiếu.',
-                        style: SfType.meta.copyWith(color: p.textSecondary),
-                      ),
-                      const SizedBox(height: SfSpace.x20),
-                      const SfSectionLabel('Thông tin trên phiếu'),
+                    _ExtractionBanner(entry),
+                    if (_serverOcrCompleted) ...[
                       const SizedBox(height: SfSpace.x8),
-                      _dateField(),
-                      _field(
-                        fieldKey: const ValueKey('voucher-field'),
-                        controller: _voucher,
-                        label: 'Số phiếu',
-                        confidenceKey: 'voucherNumber',
-                        lockedByOcr: _serverOcrPending,
-                      ),
-                      _field(
-                        fieldKey: const ValueKey('vehicle-plate-field'),
-                        controller: _plate,
-                        label: 'Biển số xe',
-                        confidenceKey: 'vehiclePlate',
-                        lockedByOcr: _serverOcrPending,
-                      ),
-                      _field(
-                        fieldKey: const ValueKey('project-address-field'),
-                        controller: _project,
-                        label: _serverOcrPending
-                            ? 'Tên - địa chỉ công trình (OCR sẽ bổ sung)'
-                            : 'Tên - địa chỉ công trình *',
-                        confidenceKey: 'projectAddress',
-                        maxLines: 3,
-                        requiredField: !_serverOcrPending,
-                        lockedByOcr: _serverOcrPending,
-                      ),
-                      const SizedBox(height: SfSpace.x12),
-                      const SfSectionLabel('Thông tin nhật trình'),
-                      const SizedBox(height: SfSpace.x8),
-                      _field(
-                        fieldKey: const ValueKey('driver-name-field'),
-                        controller: _driver,
-                        label: _serverOcrPending
-                            ? 'Tên lái xe'
-                            : 'Tên lái xe *',
-                        confidenceKey: 'driverName',
-                        requiredField: !_serverOcrPending,
-                        lockedByOcr: _serverOcrPending,
-                      ),
-                      _field(
-                        fieldKey: const ValueKey('assistant-name-field'),
-                        controller: _assistant,
-                        label: 'Tên phụ xe',
-                      ),
-                      _field(
-                        fieldKey: const ValueKey('trip-count-field'),
-                        controller: _trips,
-                        label: _serverOcrPending ? 'Số chuyến' : 'Số chuyến *',
-                        confidenceKey: 'tripCount',
-                        keyboardType: TextInputType.number,
-                        requiredField: !_serverOcrPending,
-                        lockedByOcr: _serverOcrPending,
-                      ),
-                      const SizedBox(height: SfSpace.x12),
-                      const SfSectionLabel('Chi phí bổ sung'),
-                      const SizedBox(height: SfSpace.x8),
-                      _moneyField(_meal, 'Ăn ca'),
-                      _moneyField(_rule, 'Luật'),
-                      _moneyField(_tyre, 'Làm lốp'),
-                      _moneyField(_other, 'Chi phí khác'),
-                      _field(
-                        fieldKey: const ValueKey('manager-confirmation-field'),
-                        controller: _manager,
-                        label: 'Xác nhận người quản lý',
-                        helper: 'Có thể bổ sung sau khi quản lý xác nhận.',
-                      ),
-                      const SizedBox(height: SfSpace.x16),
-                      FilledButton.icon(
-                        onPressed: _saving ? null : _save,
-                        icon: _saving
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.save_outlined),
-                        label: Text(
-                          _saving
-                              ? 'Đang lưu...'
-                              : _serverOcrPending
-                              ? 'Lưu thông tin bổ sung'
-                              : _serverOcrCompleted
-                              ? 'Lưu thông tin bổ sung'
-                              : 'Xác nhận và lưu trên máy',
-                        ),
-                      ),
-                      const SizedBox(height: SfSpace.x24),
+                      const _CompletedOcrEditingBanner(),
                     ],
                   ],
-                ),
+                  if (red) ...[
+                    const SizedBox(height: SfSpace.x16),
+                    FilledButton.icon(
+                      onPressed: () => Navigator.pop(context, false),
+                      icon: const Icon(Icons.camera_alt_outlined),
+                      label: const Text('Chụp lại phiếu'),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: SfSpace.x16),
+                    Text(
+                      _serverOcrPending
+                          ? 'Các trường có biểu tượng khóa đang được máy tính OCR và chỉ sửa được sau khi xử lý xong. Bạn vẫn có thể nhập, lưu các trường bổ sung ngay.'
+                          : _serverOcrCompleted
+                          ? 'OCR máy tính đã hoàn tất. Bổ sung các trường còn thiếu để hoàn thiện phiếu; form này không gửi lại OCR.'
+                          : 'So sánh từng ô với ảnh phía trên. Ô vàng là dữ liệu OCR cần kiểm tra; ô đỏ là dữ liệu bắt buộc còn thiếu.',
+                      style: SfType.meta.copyWith(color: p.textSecondary),
+                    ),
+                    const SizedBox(height: SfSpace.x20),
+                    const SfSectionLabel('Thông tin trên phiếu'),
+                    const SizedBox(height: SfSpace.x8),
+                    _dateField(),
+                    _field(
+                      fieldKey: const ValueKey('voucher-field'),
+                      controller: _voucher,
+                      label: 'Số phiếu',
+                      confidenceKey: 'voucherNumber',
+                      lockedByOcr: _serverOcrPending,
+                    ),
+                    _field(
+                      fieldKey: const ValueKey('vehicle-plate-field'),
+                      controller: _plate,
+                      label: 'Biển số xe',
+                      confidenceKey: 'vehiclePlate',
+                      lockedByOcr: _serverOcrPending,
+                    ),
+                    _field(
+                      fieldKey: const ValueKey('project-address-field'),
+                      controller: _project,
+                      label: _serverOcrPending
+                          ? 'Tên - địa chỉ công trình (OCR sẽ bổ sung)'
+                          : 'Tên - địa chỉ công trình *',
+                      confidenceKey: 'projectAddress',
+                      maxLines: 3,
+                      requiredField: !_serverOcrPending,
+                      lockedByOcr: _serverOcrPending,
+                    ),
+                    const SizedBox(height: SfSpace.x12),
+                    const SfSectionLabel('Thông tin nhật trình'),
+                    const SizedBox(height: SfSpace.x8),
+                    _field(
+                      fieldKey: const ValueKey('driver-name-field'),
+                      controller: _driver,
+                      label: _serverOcrPending ? 'Tên lái xe' : 'Tên lái xe *',
+                      confidenceKey: 'driverName',
+                      requiredField: !_serverOcrPending,
+                      lockedByOcr: _serverOcrPending,
+                    ),
+                    _field(
+                      fieldKey: const ValueKey('assistant-name-field'),
+                      controller: _assistant,
+                      label: 'Tên phụ xe',
+                    ),
+                    _field(
+                      fieldKey: const ValueKey('trip-count-field'),
+                      controller: _trips,
+                      label: _serverOcrPending ? 'Số chuyến' : 'Số chuyến *',
+                      confidenceKey: 'tripCount',
+                      keyboardType: TextInputType.number,
+                      requiredField: !_serverOcrPending,
+                      lockedByOcr: _serverOcrPending,
+                    ),
+                    const SizedBox(height: SfSpace.x12),
+                    const SfSectionLabel('Chi phí bổ sung'),
+                    const SizedBox(height: SfSpace.x8),
+                    _moneyField(_meal, 'Ăn ca'),
+                    _moneyField(_rule, 'Luật'),
+                    _moneyField(_tyre, 'Làm lốp'),
+                    _moneyField(_other, 'Chi phí khác'),
+                    _field(
+                      fieldKey: const ValueKey('manager-confirmation-field'),
+                      controller: _manager,
+                      label: 'Xác nhận người quản lý',
+                      helper: 'Có thể bổ sung sau khi quản lý xác nhận.',
+                    ),
+                    const SizedBox(height: SfSpace.x16),
+                    OutlinedButton.icon(
+                      onPressed: _saving || entry.isConfirmed ? null : _save,
+                      icon: _saving
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(_saving ? 'Đang lưu...' : 'Lưu bản nháp'),
+                    ),
+                    const SizedBox(height: SfSpace.x10),
+                    FilledButton.icon(
+                      key: const ValueKey('confirm-document-once'),
+                      onPressed:
+                          _saving || _serverOcrPending || entry.isConfirmed
+                          ? null
+                          : _confirm,
+                      icon: Icon(
+                        entry.isConfirmed
+                            ? Icons.lock_rounded
+                            : Icons.verified_rounded,
+                      ),
+                      label: Text(
+                        entry.isConfirmed
+                            ? 'Phiếu đã xác nhận'
+                            : _serverOcrPending
+                            ? 'Chờ OCR hoàn tất để xác nhận'
+                            : 'Xác nhận phiếu (chỉ một lần)',
+                      ),
+                    ),
+                    const SizedBox(height: SfSpace.x24),
+                  ],
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -432,20 +471,24 @@ class _DocumentReviewScreenState extends ConsumerState<DocumentReviewScreen> {
   Widget _dateField() {
     final confidence = _entry.fieldConfidences['voucherDate'] ?? 0;
     final lockedByOcr = _serverOcrPending;
+    final locked = lockedByOcr || _entry.isConfirmed;
     return Padding(
       padding: const EdgeInsets.only(bottom: SfSpace.x12),
       child: InkWell(
         key: const ValueKey('voucher-date-field'),
         borderRadius: SfRadius.controlR,
-        onTap: lockedByOcr ? null : _pickDate,
+        onTap: locked ? null : _pickDate,
         child: InputDecorator(
           decoration: _decoration(
             label: _serverOcrPending ? 'Ngày' : 'Ngày *',
             confidence: confidence,
             missing: _date == null,
-            lockedByOcr: lockedByOcr,
+            lockedByOcr: locked,
+            lockedHelper: _entry.isConfirmed
+                ? 'Phiếu đã xác nhận và không thể sửa'
+                : null,
             suffixIcon: Icon(
-              lockedByOcr
+              locked
                   ? Icons.lock_clock_outlined
                   : Icons.calendar_month_outlined,
             ),
@@ -480,6 +523,7 @@ class _DocumentReviewScreenState extends ConsumerState<DocumentReviewScreen> {
     bool lockedByOcr = false,
     TextInputType? keyboardType,
   }) {
+    final locked = lockedByOcr || _entry.isConfirmed;
     final confidence = confidenceKey == null
         ? 1.0
         : _entry.fieldConfidences[confidenceKey] ?? 0;
@@ -488,8 +532,8 @@ class _DocumentReviewScreenState extends ConsumerState<DocumentReviewScreen> {
       child: TextFormField(
         key: fieldKey,
         controller: controller,
-        readOnly: lockedByOcr,
-        canRequestFocus: !lockedByOcr,
+        readOnly: locked,
+        canRequestFocus: !locked,
         maxLines: maxLines,
         keyboardType: keyboardType,
         inputFormatters: keyboardType == TextInputType.number
@@ -506,9 +550,16 @@ class _DocumentReviewScreenState extends ConsumerState<DocumentReviewScreen> {
           missing: requiredField && controller.text.trim().isEmpty,
           helper: helper,
           suffixText: suffixText,
-          lockedByOcr: lockedByOcr,
-          suffixIcon: lockedByOcr
-              ? const Icon(Icons.lock_clock_outlined)
+          lockedByOcr: locked,
+          lockedHelper: _entry.isConfirmed
+              ? 'Phiếu đã xác nhận và không thể sửa'
+              : null,
+          suffixIcon: locked
+              ? Icon(
+                  _entry.isConfirmed
+                      ? Icons.lock_rounded
+                      : Icons.lock_clock_outlined,
+                )
               : null,
         ),
       ),
@@ -523,6 +574,7 @@ class _DocumentReviewScreenState extends ConsumerState<DocumentReviewScreen> {
     String? suffixText,
     Widget? suffixIcon,
     bool lockedByOcr = false,
+    String? lockedHelper,
   }) {
     final color = lockedByOcr
         ? context.sf.border
@@ -534,7 +586,7 @@ class _DocumentReviewScreenState extends ConsumerState<DocumentReviewScreen> {
     return InputDecoration(
       labelText: label,
       helperText: lockedByOcr
-          ? 'Máy tính đang nhận dạng trường này'
+          ? lockedHelper ?? 'Máy tính đang nhận dạng trường này'
           : helper ?? (confidence < 0.8 ? 'Cần đối chiếu với ảnh' : null),
       suffixText: suffixText,
       suffixIcon: suffixIcon,
@@ -617,7 +669,7 @@ class _QualityBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final (color, tint, label, icon) = switch (entry.qualityLevel) {
       ScanQualityLevel.green => (
-        SfColors.success,
+        SfColors.green700,
         context.sf.goodTint,
         'Chất lượng ảnh · Xanh',
         Icons.check_circle_outline,
@@ -710,6 +762,45 @@ class _QueuedOcrEditingBanner extends StatelessWidget {
   );
 }
 
+class _ConfirmedDocumentBanner extends StatelessWidget {
+  const _ConfirmedDocumentBanner({required this.entry});
+
+  final DrivingLogEntry entry;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(SfSpace.x12),
+    decoration: BoxDecoration(
+      color: context.sf.goodTint,
+      borderRadius: SfRadius.controlR,
+      border: Border.all(color: SfColors.green700),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.verified_user_rounded, color: SfColors.green700),
+        const SizedBox(width: SfSpace.x12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Phiếu đã xác nhận',
+                style: SfType.titleCard.copyWith(color: SfColors.green700),
+              ),
+              const SizedBox(height: SfSpace.x4),
+              Text(
+                'Mã ${entry.confirmationId ?? '--'} · dữ liệu đã khóa và nút xác nhận không thể dùng lần hai.',
+                style: SfType.meta.copyWith(color: context.sf.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _CompletedOcrEditingBanner extends StatelessWidget {
   const _CompletedOcrEditingBanner();
 
@@ -719,12 +810,12 @@ class _CompletedOcrEditingBanner extends StatelessWidget {
     decoration: BoxDecoration(
       color: context.sf.goodTint,
       borderRadius: SfRadius.controlR,
-      border: Border.all(color: SfColors.success),
+      border: Border.all(color: SfColors.green700),
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.cloud_done_outlined, color: SfColors.success),
+        const Icon(Icons.cloud_done_outlined, color: SfColors.green700),
         const SizedBox(width: SfSpace.x12),
         Expanded(
           child: Column(
@@ -732,7 +823,7 @@ class _CompletedOcrEditingBanner extends StatelessWidget {
             children: [
               Text(
                 'OCR máy tính đã hoàn tất',
-                style: SfType.titleCard.copyWith(color: SfColors.success),
+                style: SfType.titleCard.copyWith(color: SfColors.green700),
               ),
               const SizedBox(height: SfSpace.x4),
               Text(
@@ -764,7 +855,7 @@ class _ExtractionBanner extends StatelessWidget {
       if (!dateReady) 'ngày tháng',
       if (!projectReady) 'tên công trình',
     ];
-    final color = ready ? SfColors.success : SfColors.amber;
+    final color = ready ? SfColors.green700 : SfColors.amber;
     final tint = ready ? context.sf.goodTint : context.sf.warnTint;
     return Container(
       padding: const EdgeInsets.all(SfSpace.x12),

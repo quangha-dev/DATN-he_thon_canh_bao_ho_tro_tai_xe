@@ -177,6 +177,18 @@ export default function RealtimeMapPage() {
 
   const query = searchQuery.trim().toLowerCase();
 
+  const handleSearchPick = (item: DetailItem) => {
+    setSelectedItem(item);
+    setSearchQuery("");
+    if (item.type === "vehicle") {
+      if (item.data.lat !== null && item.data.lng !== null) {
+        mapRef.current?.flyTo(item.data.lat, item.data.lng);
+      }
+      return;
+    }
+    mapRef.current?.flyTo(item.data.lat, item.data.lng);
+  };
+
   const searchResults = useMemo(() => {
     if (!query) return [];
     const out: {
@@ -185,7 +197,7 @@ export default function RealtimeMapPage() {
       title: string;
       sub: string;
       tone: string;
-      pick: () => void;
+      item: DetailItem;
     }[] = [];
 
     vehicles.forEach((v) => {
@@ -197,11 +209,7 @@ export default function RealtimeMapPage() {
         title: v.plate,
         sub: `${v.currentDriverName ?? "Chưa gán tài xế"} · ${v.type}`,
         tone: "primary",
-        pick: () => {
-          setSelectedItem({ type: "vehicle", data: v });
-          setSearchQuery("");
-          if (v.lat !== null && v.lng !== null) mapRef.current?.flyTo(v.lat, v.lng);
-        },
+        item: { type: "vehicle", data: v },
       });
     });
 
@@ -214,11 +222,7 @@ export default function RealtimeMapPage() {
         title: p.location,
         sub: `${FLOOD_SEVERITY_LABELS[p.severity] ?? p.severity} · ${p.reportCount} báo cáo`,
         tone: "info",
-        pick: () => {
-          setSelectedItem({ type: "flood", data: p });
-          setSearchQuery("");
-          mapRef.current?.flyTo(p.lat, p.lng);
-        },
+        item: { type: "flood", data: p },
       });
     });
 
@@ -331,7 +335,7 @@ export default function RealtimeMapPage() {
                     <button
                       key={r.key}
                       type="button"
-                      onClick={r.pick}
+                      onClick={() => handleSearchPick(r.item)}
                       className="flex cursor-pointer items-center gap-3 rounded-[14px] px-3 py-2.5 text-left transition-colors hover:bg-[var(--sf-bg-inset)]"
                     >
                       <span

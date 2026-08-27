@@ -36,6 +36,46 @@ class DrivingLogRepository {
     return rows.isEmpty ? null : DrivingLogEntry.fromDatabase(rows.first);
   }
 
+  /// Khóa phiếu trong cùng một transaction. Mọi lần bấm lại chỉ trả về bản
+  /// xác nhận đầu tiên, không tạo xác nhận hoặc thay đổi dữ liệu lần hai.
+  Future<DrivingLogEntry> confirmOnce(
+    DrivingLogEntry entry, {
+    required String confirmationId,
+  }) async {
+    final db = await _localDatabase.database;
+    return db.transaction((transaction) async {
+      final now = DateTime.now();
+      final confirmed = entry.copyWith(
+        status: DrivingLogStatus.verified,
+        confirmationId: confirmationId,
+        confirmedAt: now,
+        updatedAt: now,
+      );
+      final updated = await transaction.update(
+        'driving_log_entries',
+        confirmed.toDatabase(),
+        where: 'id = ? AND confirmed_at IS NULL',
+        whereArgs: [entry.id],
+      );
+      if (updated == 1) return confirmed;
+
+      final rows = await transaction.query(
+        'driving_log_entries',
+        where: 'id = ?',
+        whereArgs: [entry.id],
+        limit: 1,
+      );
+      if (rows.isEmpty) {
+        throw StateError('Phiếu không còn tồn tại để xác nhận');
+      }
+      final existing = DrivingLogEntry.fromDatabase(rows.first);
+      if (!existing.isConfirmed) {
+        throw StateError('Không thể khóa xác nhận phiếu');
+      }
+      return existing;
+    });
+  }
+
   Future<List<DrivingLogEntry>> list({DateTime? month}) async {
     final db = await _localDatabase.database;
     late final List<Map<String, Object?>> rows;
@@ -69,7 +109,7 @@ class DrivingLogRepository {
       batch.update(
         'driving_log_entries',
         {'status': 'EXPORTED', 'updated_at': now},
-        where: 'id = ?',
+        where: 'id = ? AND confirmed_at IS NOT NULL',
         whereArgs: [id],
       );
     }

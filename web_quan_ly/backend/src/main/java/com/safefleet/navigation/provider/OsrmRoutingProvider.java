@@ -28,6 +28,9 @@ public class OsrmRoutingProvider implements RoutingProvider {
     @Value("${app.location.osrm-url:https://router.project-osrm.org/route/v1/driving}")
     private String osrmUrl;
 
+    @Value("${app.location.allow-deterministic-fallback:false}")
+    private boolean allowDeterministicFallback;
+
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(3))
             .build();
@@ -57,22 +60,12 @@ public class OsrmRoutingProvider implements RoutingProvider {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
                 List<ProviderRoute> parsed = parseRoutes(response.body());
-                if (!parsed.isEmpty()) {
-                    if (!alternatives || parsed.size() >= 3) {
-                        return parsed;
-                    }
-                    List<ProviderRoute> completed = new ArrayList<>(parsed);
-                    List<ProviderRoute> localAlternatives = fallbackRoutes(points, true);
-                    for (int index = 1; index < localAlternatives.size() && completed.size() < 3; index++) {
-                        completed.add(localAlternatives.get(index));
-                    }
-                    return completed;
-                }
+                if (!parsed.isEmpty()) return parsed;
             }
         } catch (Exception ignored) {
-            // The public provider is best-effort; deterministic routes keep the app testable offline.
+            // The caller decides whether absence of a road-graph route is recoverable.
         }
-        return fallbackRoutes(points, alternatives);
+        return allowDeterministicFallback ? fallbackRoutes(points, alternatives) : List.of();
     }
 
     private List<ProviderRoute> parseRoutes(String body) throws Exception {
@@ -92,6 +85,7 @@ public class OsrmRoutingProvider implements RoutingProvider {
                 continue;
             }
             List<TurnStep> steps = new ArrayList<>();
+            int shapeCursor = 0;
             for (JsonNode leg : route.path("legs")) {
                 for (JsonNode step : leg.path("steps")) {
                     JsonNode maneuver = step.path("maneuver");
@@ -99,17 +93,29 @@ public class OsrmRoutingProvider implements RoutingProvider {
                     GeoPoint point = location.isArray() && location.size() >= 2
                             ? new GeoPoint(location.get(1).asDouble(), location.get(0).asDouble())
                             : geometry.get(0);
-                    String type = maneuver.path("type").asText("");
-                    String modifier = maneuver.path("modifier").asText("");
+                    // OSRM does not report a shape index. Maneuvers are ordered
+                    // along the route, so a forward-only scan keeps this linear
+                    // overall instead of rescanning the whole polyline per step.
+                    shapeCursor = nearestVertexFrom(geometry, point, shapeCursor);
                     String roadName = step.path("name").asText("");
+                    ManeuverType type = ManeuverType.fromOsrm(
+                            maneuver.path("type").asText(""),
+                            maneuver.path("modifier").asText("")
+                    );
+                    Integer roundaboutExit = maneuver.has("exit")
+                            ? maneuver.path("exit").asInt()
+                            : null;
                     steps.add(new TurnStep(
-                            instruction(type, modifier, roadName),
+                            ManeuverNarrator.describe(type, roadName, roundaboutExit, null, null),
                             roadName,
                             step.path("distance").asDouble(),
                             step.path("duration").asDouble(),
                             type,
-                            modifier,
-                            point
+                            point,
+                            shapeCursor,
+                            roundaboutExit,
+                            null,
+                            null
                     ));
                 }
             }
@@ -119,7 +125,8 @@ public class OsrmRoutingProvider implements RoutingProvider {
                     geometry,
                     steps,
                     "OSRM",
-                    false
+                    false,
+                    List.of()
             ));
         }
         return result;
@@ -158,28 +165,45 @@ public class OsrmRoutingProvider implements RoutingProvider {
                     "",
                     segment,
                     segment / (FALLBACK_SPEED_KMH * 1000 / 3600),
-                    "continue",
-                    "straight",
-                    from
+                    index == points.size() - 1 ? ManeuverType.ARRIVE : ManeuverType.CONTINUE,
+                    from,
+                    index - 1,
+                    null,
+                    null,
+                    null
             ));
         }
         double duration = distance / (FALLBACK_SPEED_KMH * 1000 / 3600);
-        return new ProviderRoute(distance, duration, List.copyOf(points), steps, "LOCAL_DETERMINISTIC", true);
+        List<GeoPoint> navigationWaypoints = points.size() <= 2
+                ? List.of()
+                : List.copyOf(points.subList(1, points.size() - 1));
+        return new ProviderRoute(
+                distance,
+                duration,
+                List.copyOf(points),
+                steps,
+                "LOCAL_DETERMINISTIC",
+                true,
+                navigationWaypoints
+        );
     }
 
-    private String instruction(String type, String modifier, String roadName) {
-        String action = switch (modifier) {
-            case "left", "slight left", "sharp left" -> "Rẽ trái";
-            case "right", "slight right", "sharp right" -> "Rẽ phải";
-            case "uturn" -> "Quay đầu";
-            default -> switch (type) {
-                case "arrive" -> "Đã đến nơi";
-                case "depart" -> "Bắt đầu";
-                case "roundabout", "rotary" -> "Đi vào vòng xuyến";
-                default -> "Tiếp tục";
-            };
-        };
-        return roadName == null || roadName.isBlank() ? action : action + " vào " + roadName;
+    private int nearestVertexFrom(List<GeoPoint> geometry, GeoPoint target, int fromIndex) {
+        int best = Math.min(fromIndex, geometry.size() - 1);
+        double bestDistance = Double.MAX_VALUE;
+        for (int index = best; index < geometry.size(); index++) {
+            double distance = haversineMeters(geometry.get(index), target);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = index;
+            }
+            // The polyline is dense; once we are moving away from the maneuver
+            // by more than a block it cannot come back closer on this step.
+            if (bestDistance < 5 || distance > bestDistance + 300) {
+                break;
+            }
+        }
+        return best;
     }
 
     private double haversineMeters(GeoPoint first, GeoPoint second) {

@@ -8,6 +8,8 @@ import com.safefleet.location.service.LocationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -39,6 +41,15 @@ public class LocationController {
             @RequestParam @Size(min = 2, max = 120) String query,
             @RequestParam(defaultValue = "6") @Min(1) @Max(10) Integer limit) {
         return ApiResponse.ok(locationService.autocomplete(query, limit));
+    }
+
+    @Operation(summary = "Name a point picked on the map")
+    @GetMapping("/reverse")
+    @PreAuthorize("hasAnyRole('ADMIN','FLEET_MANAGER','DISPATCHER','SAFETY_OFFICER')")
+    public ApiResponse<LocationSuggestionResponse> reverse(
+            @RequestParam @DecimalMin("-90.0") @DecimalMax("90.0") Double lat,
+            @RequestParam @DecimalMin("-180.0") @DecimalMax("180.0") Double lng) {
+        return ApiResponse.ok(locationService.reverse(lat, lng));
     }
 
     @Operation(summary = "Calculate route distance and ETA using OSRM with local fallback")
