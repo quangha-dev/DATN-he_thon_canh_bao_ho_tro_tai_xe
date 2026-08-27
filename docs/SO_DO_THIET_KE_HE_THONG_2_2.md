@@ -19,39 +19,39 @@ Tài liệu này cung cấp ba sơ đồ Mermaid dùng cho mục 2.2 của báo 
 
 ### 2.2.1.1. Biểu đồ ngữ cảnh
 
-Biểu đồ ngữ cảnh chỉ thể hiện actor, SafeFleet như một hệ thống duy nhất và các hệ thống hỗ trợ bên ngoài. Các thành phần nội bộ như backend, database và AI service không được tách ra ở mức này.
+Biểu đồ ngữ cảnh được xây dựng theo dạng **DFD mức ngữ cảnh (Context Diagram/Level 0)**. Toàn bộ SafeFleet được biểu diễn bằng một tiến trình duy nhất mang số **(0)**. Bên ngoài ranh giới hệ thống có hai tác nhân nghiệp vụ là **Lái xe**, **Quản lý** và ba hệ thống hỗ trợ gồm **Dịch vụ bản đồ và định tuyến**, **Dịch vụ AI bên ngoài**, **Dịch vụ thông báo đẩy**.
 
-```mermaid
-flowchart LR
-    Driver["LÁI XE<br/>Ứng dụng SafeFleet Driver"]
-    Manager["QUẢN LÝ<br/>Web quản lý SafeFleet"]
-    SafeFleet["HỆ THỐNG SAFEFLEET<br/>Quản lý đội xe và hỗ trợ an toàn"]
+Các mũi tên chỉ biểu diễn **luồng dữ liệu**, không biểu diễn thứ tự xử lý hay giao thức kỹ thuật. Vì vậy, sơ đồ không tách ứng dụng Flutter, web Next.js, backend, AI service nội bộ, PostgreSQL hoặc MinIO; các thành phần này được trình bày ở Hình 2.9 và Hình 2.10.
 
-    MapPlatform["NỀN TẢNG BẢN ĐỒ VÀ ĐỊNH TUYẾN<br/>Map tiles, Photon, Valhalla / OSRM"]
-    OpenAI["DỊCH VỤ AI BÊN NGOÀI<br/>OpenAI API"]
-    Firebase["DỊCH VỤ THÔNG BÁO BÊN NGOÀI<br/>Firebase Cloud Messaging"]
-
-    Driver -->|"Đăng nhập; nhận và thực hiện chuyến;<br/>gửi GPS, cảnh báo, SOS và câu hỏi"| SafeFleet
-    SafeFleet -->|"Chuyến được giao; dẫn đường;<br/>cảnh báo, thông báo và trợ lý"| Driver
-
-    Manager -->|"Quản lý tài xế, tài khoản, xe, chuyến;<br/>xử lý cảnh báo, sự cố, báo cáo và hỏi Agent"| SafeFleet
-    SafeFleet -->|"Dashboard, bản đồ realtime;<br/>cảnh báo, báo cáo và kết quả Agent"| Manager
-
-    SafeFleet -->|"Yêu cầu tile, địa điểm và tuyến đường"| MapPlatform
-    MapPlatform -->|"Bản đồ, tọa độ và phương án tuyến"| SafeFleet
-
-    SafeFleet -->|"Prompt và ngữ cảnh tối thiểu theo policy<br/>(yêu cầu kiến trúc đích)"| OpenAI
-    OpenAI -->|"Kết quả suy luận"| SafeFleet
-
-    SafeFleet -->|"Yêu cầu gửi push"| Firebase
-    Firebase -->|"Push notification"| Driver
-```
+![Biểu đồ ngữ cảnh của hệ thống SafeFleet](assets/hinh-2-8-bieu-do-ngu-canh-safefleet.svg)
 
 **Hình 2.8. Biểu đồ ngữ cảnh của SafeFleet**
 
-#### Giải thích ranh giới
+**Mã draw.io độc lập:** [Hình 2.8 — mxGraphModel](drawio/kien-truc-he-thong-2-2/hinh-2-8-bieu-do-ngu-canh.mxgraph.xml)
 
-SafeFleet bao gồm ứng dụng lái xe, web quản lý, backend, AI service và các kho dữ liệu do hệ thống sở hữu. OpenAI, Firebase và các nền tảng bản đồ được xem là hệ thống hỗ trợ bên ngoài. Valhalla vẫn được biểu diễn ở nhóm nền tảng hỗ trợ tại mức ngữ cảnh dù instance production có thể self-host trong cùng VPS, vì nó nằm ngoài miền nghiệp vụ SafeFleet. Ở mức ngữ cảnh không biểu diễn REST API, WebSocket hay container vì đây là chi tiết của hai sơ đồ tiếp theo.
+#### Mô tả các luồng dữ liệu
+
+| Mã | Nguồn → đích | Nội dung dữ liệu |
+|---|---|---|
+| D1 | Lái xe → SafeFleet | Thông tin đăng nhập; xác nhận nhận hoặc từ chối chuyến; thao tác bắt đầu/kết thúc chuyến; vị trí GPS và telemetry; chỉ số/cảnh báo an toàn; SOS, bằng chứng và câu hỏi gửi trợ lý. |
+| D2 | SafeFleet → Lái xe | Kết quả xác thực và hồ sơ; chuyến được giao; tuyến và chỉ dẫn điều hướng; mức nguy cơ buồn ngủ 1–10; cảnh báo an toàn, trạng thái SOS, thông báo và câu trả lời của trợ lý. |
+| D3 | Quản lý → SafeFleet | Thông tin đăng nhập; dữ liệu và thao tác quản lý tài khoản, tài xế, phương tiện, thiết bị, chuyến; lệnh điều phối; xử lý cảnh báo/sự cố; yêu cầu tra cứu, báo cáo và Agent. |
+| D4 | SafeFleet → Quản lý | Kết quả xác thực/phân quyền; danh sách và hồ sơ đội xe; trạng thái chuyến; vị trí thời gian thực; cảnh báo, sự cố, dữ liệu bảo trì/kho; báo cáo thống kê và kết quả Agent. |
+| D5 | SafeFleet → Dịch vụ bản đồ và định tuyến | Từ khóa tìm kiếm địa điểm, tọa độ điểm đi/đến, vị trí hiện tại, tùy chọn phương tiện và yêu cầu tính hoặc tính lại tuyến. |
+| D6 | Dịch vụ bản đồ và định tuyến → SafeFleet | Map tiles, kết quả geocoding, tọa độ, hình học tuyến, khoảng cách, thời gian dự kiến và phương án tuyến thay thế. |
+| D7 | SafeFleet → Dịch vụ AI bên ngoài | Yêu cầu suy luận cùng phần ngữ cảnh tối thiểu cần thiết sau khi áp dụng kiểm soát quyền và chính sách giảm thiểu/che dữ liệu nhạy cảm. |
+| D8 | Dịch vụ AI bên ngoài → SafeFleet | Kết quả suy luận ngôn ngữ để hệ thống kiểm tra, định dạng và trả về đúng actor. Dịch vụ ngoài không trực tiếp thao tác cơ sở dữ liệu. |
+| D9 | SafeFleet → Dịch vụ thông báo đẩy | Mã thiết bị, tiêu đề/nội dung thông báo và dữ liệu điều hướng tối thiểu cho các sự kiện như giao chuyến, thay đổi chuyến, cảnh báo hoặc SOS. |
+| D10 | Dịch vụ thông báo đẩy → SafeFleet | Mã thông điệp hoặc lỗi khi nhà cung cấp tiếp nhận yêu cầu, bao gồm token không hợp lệ và lỗi dịch vụ, để SafeFleet cập nhật trạng thái và áp dụng retry có giới hạn. Luồng này không được hiểu là biên nhận người dùng đã đọc thông báo. |
+
+#### Ranh giới và quy tắc đọc Hình 2.8
+
+1. **Lái xe** và **Quản lý** là con người ở ngoài ranh giới hệ thống; ứng dụng tài xế và web quản lý là các thành phần bên trong SafeFleet.
+2. Mọi luồng đều đi qua tiến trình **(0) Hệ thống SafeFleet**. Không có luồng trực tiếp giữa hai actor hoặc giữa actor và dịch vụ ngoài ở mức ngữ cảnh.
+3. SafeFleet bao gồm các ứng dụng client, backend, AI service nội bộ và kho dữ liệu do hệ thống sở hữu. Vì vậy không vẽ PostgreSQL, MinIO, REST API, WebSocket hoặc container trong Hình 2.8.
+4. Dịch vụ AI bên ngoài chỉ là nhà cung cấp suy luận, ví dụ OpenAI API; nó khác với AI service nội bộ dùng để điều phối Agent, RAG và OCR.
+5. Nhóm bản đồ/định tuyến là một phụ thuộc logic ngoài miền nghiệp vụ SafeFleet. Việc Valhalla có thể được self-host cùng VPS là chi tiết triển khai và được thể hiện ở Hình 2.10.
+6. Firebase Cloud Messaging được khái quát thành dịch vụ thông báo đẩy. Ở mức ngữ cảnh, thông báo tới Lái xe được xem là đầu ra D2 của SafeFleet; không vẽ Firebase gửi thẳng tới actor.
 
 ---
 
@@ -138,6 +138,8 @@ flowchart TB
 ```
 
 **Hình 2.9. Kiến trúc tổng thể của SafeFleet**
+
+**Mã draw.io độc lập:** [Hình 2.9 — mxGraphModel](drawio/kien-truc-he-thong-2-2/hinh-2-9-kien-truc-tong-the.mxgraph.xml)
 
 #### Điểm cần đọc đúng trong Hình 2.9
 
@@ -240,6 +242,10 @@ flowchart TB
 ```
 
 **Hình 2.10. Kiến trúc triển khai của SafeFleet**
+
+**Mã draw.io độc lập:** [Hình 2.10 — mxGraphModel](drawio/kien-truc-he-thong-2-2/hinh-2-10-kien-truc-trien-khai.mxgraph.xml)
+
+**Bản draw.io gồm ba trang riêng:** [SafeFleet — kiến trúc 3 trang](drawio/kien-truc-he-thong-2-2/safefleet-kien-truc-3-trang.drawio). Toàn bộ ba đoạn mã để sao chép trực tiếp được tập hợp tại [Mã mxGraphModel cho mục 2.2](drawio/kien-truc-he-thong-2-2/MA_MXGRAPH_SO_DO_THIET_KE_HE_THONG_2_2.md).
 
 #### Cổng và giao thức
 

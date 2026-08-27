@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="840" viewBox="0 0 1600 840" role="img" aria-labelledby="title desc">
+  <title id="title">Biểu đồ ngữ cảnh của hệ thống SafeFleet</title>
+  <desc id="desc">SafeFleet nằm ở giữa dưới dạng một khối ngang màu xanh. Lái xe, Quản lý và Dịch vụ bản đồ nằm phía trên. Dịch vụ AI và Dịch vụ thông báo đẩy nằm phía dưới. Các đường nối vuông góc mô tả luồng dữ liệu hai chiều.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#202020"/>
+    </marker>
+    <style>
+      .flow { fill: none; stroke: #202020; stroke-width: 1.5; marker-end: url(#arrow); }
+      .entity { fill: #fff2cc; stroke: #b7a05a; stroke-width: 1.2; }
+      .external-system { fill: #e2edf6; stroke: #8ca8bd; stroke-width: 1.2; }
+      .system { fill: #d9eaf7; stroke: #6f91ad; stroke-width: 1.6; }
+      .label-bg { fill: #ffffff; fill-opacity: 0.97; }
+      .entity-text { font-family: Arial, sans-serif; font-size: 18px; font-weight: 600; fill: #1f1f1f; text-anchor: middle; }
+      .system-title { font-family: Arial, sans-serif; font-size: 22px; font-weight: 700; fill: #1a1a1a; text-anchor: middle; }
+      .system-subtitle { font-family: Arial, sans-serif; font-size: 17px; fill: #1a1a1a; text-anchor: middle; }
+      .flow-text { font-family: Arial, sans-serif; font-size: 12.5px; fill: #171717; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="840" fill="#ffffff"/>
+
+  <!-- Luồng phía trên: Lái xe -->
+  <path class="flow" d="M 70 345 V 78 H 145"/>
+  <path class="flow" d="M 175 345 V 130"/>
+  <path class="flow" d="M 235 345 V 130"/>
+  <path class="flow" d="M 315 130 V 345"/>
+  <path class="flow" d="M 365 130 V 345"/>
+  <path class="flow" d="M 415 85 H 485 V 345"/>
+
+  <!-- Luồng phía trên: Quản lý -->
+  <path class="flow" d="M 590 345 V 78 H 665"/>
+  <path class="flow" d="M 695 345 V 130"/>
+  <path class="flow" d="M 755 345 V 130"/>
+  <path class="flow" d="M 835 130 V 345"/>
+  <path class="flow" d="M 885 130 V 345"/>
+  <path class="flow" d="M 935 85 H 1005 V 345"/>
+
+  <!-- Luồng phía trên: Bản đồ và định tuyến -->
+  <path class="flow" d="M 1110 345 V 78 H 1185"/>
+  <path class="flow" d="M 1320 130 V 345"/>
+
+  <!-- Luồng phía dưới -->
+  <path class="flow" d="M 370 460 V 700"/>
+  <path class="flow" d="M 530 700 V 460"/>
+  <path class="flow" d="M 1070 460 V 700"/>
+  <path class="flow" d="M 1230 700 V 460"/>
+
+  <!-- Nhãn luồng Lái xe -->
+  <g>
+    <rect class="label-bg" x="8" y="174" width="124" height="54" rx="4"/>
+    <text class="flow-text" x="70" y="193">
+      <tspan x="70" dy="0">Kết quả xác thực</tspan>
+      <tspan x="70" dy="17">và thông tin</tspan>
+      <tspan x="70" dy="17">hồ sơ</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="107" y="245" width="136" height="54" rx="4"/>
+    <text class="flow-text" x="175" y="264">
+      <tspan x="175" dy="0">Thông tin chuyến</tspan>
+      <tspan x="175" dy="17">và chỉ dẫn</tspan>
+      <tspan x="175" dy="17">tuyến đường</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="180" y="160" width="142" height="54" rx="4"/>
+    <text class="flow-text" x="251" y="179">
+      <tspan x="251" dy="0">Cảnh báo, thông báo</tspan>
+      <tspan x="251" dy="17">và câu trả lời</tspan>
+      <tspan x="251" dy="17">trợ lý</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="267" y="221" width="96" height="37" rx="4"/>
+    <text class="flow-text" x="315" y="240">
+      <tspan x="315" dy="0">Thông tin</tspan>
+      <tspan x="315" dy="17">xác thực</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="316" y="275" width="132" height="54" rx="4"/>
+    <text class="flow-text" x="382" y="294">
+      <tspan x="382" dy="0">Xác nhận và</tspan>
+      <tspan x="382" dy="17">trạng thái</tspan>
+      <tspan x="382" dy="17">chuyến đi</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="416" y="145" width="138" height="71" rx="4"/>
+    <text class="flow-text" x="485" y="164">
+      <tspan x="485" dy="0">GPS, telemetry,</tspan>
+      <tspan x="485" dy="17">trạng thái an toàn,</tspan>
+      <tspan x="485" dy="17">SOS và câu hỏi</tspan>
+    </text>
+  </g>
+
+  <!-- Nhãn luồng Quản lý -->
+  <g>
+    <rect class="label-bg" x="526" y="174" width="128" height="54" rx="4"/>
+    <text class="flow-text" x="590" y="193">
+      <tspan x="590" dy="0">Kết quả xác thực</tspan>
+      <tspan x="590" dy="17">và thông tin</tspan>
+      <tspan x="590" dy="17">phân quyền</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="625" y="245" width="140" height="54" rx="4"/>
+    <text class="flow-text" x="695" y="264">
+      <tspan x="695" dy="0">Dữ liệu đội xe</tspan>
+      <tspan x="695" dy="17">và giám sát</tspan>
+      <tspan x="695" dy="17">thời gian thực</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="702" y="151" width="144" height="71" rx="4"/>
+    <text class="flow-text" x="774" y="170">
+      <tspan x="774" dy="0">Cảnh báo, sự cố,</tspan>
+      <tspan x="774" dy="17">báo cáo và</tspan>
+      <tspan x="774" dy="17">kết quả Agent</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="787" y="225" width="96" height="37" rx="4"/>
+    <text class="flow-text" x="835" y="244">
+      <tspan x="835" dy="0">Thông tin</tspan>
+      <tspan x="835" dy="17">xác thực</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="842" y="275" width="136" height="54" rx="4"/>
+    <text class="flow-text" x="910" y="294">
+      <tspan x="910" dy="0">Dữ liệu quản lý</tspan>
+      <tspan x="910" dy="17">và lệnh</tspan>
+      <tspan x="910" dy="17">điều phối</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="936" y="142" width="142" height="88" rx="4"/>
+    <text class="flow-text" x="1007" y="161">
+      <tspan x="1007" dy="0">Yêu cầu xử lý</tspan>
+      <tspan x="1007" dy="17">cảnh báo, sự cố,</tspan>
+      <tspan x="1007" dy="17">báo cáo và</tspan>
+      <tspan x="1007" dy="17">Agent</tspan>
+    </text>
+  </g>
+
+  <!-- Nhãn luồng Bản đồ -->
+  <g>
+    <rect class="label-bg" x="1037" y="176" width="146" height="71" rx="4"/>
+    <text class="flow-text" x="1110" y="195">
+      <tspan x="1110" dy="0">Từ khóa, tọa độ</tspan>
+      <tspan x="1110" dy="17">và yêu cầu</tspan>
+      <tspan x="1110" dy="17">tìm tuyến</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="1240" y="246" width="160" height="71" rx="4"/>
+    <text class="flow-text" x="1320" y="265">
+      <tspan x="1320" dy="0">Bản đồ, địa điểm,</tspan>
+      <tspan x="1320" dy="17">phương án tuyến</tspan>
+      <tspan x="1320" dy="17">và ETA</tspan>
+    </text>
+  </g>
+
+  <!-- Nhãn luồng phía dưới -->
+  <g>
+    <rect class="label-bg" x="284" y="535" width="172" height="71" rx="4"/>
+    <text class="flow-text" x="370" y="554">
+      <tspan x="370" dy="0">Yêu cầu suy luận</tspan>
+      <tspan x="370" dy="17">và ngữ cảnh</tspan>
+      <tspan x="370" dy="17">đã kiểm soát</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="475" y="572" width="110" height="37" rx="4"/>
+    <text class="flow-text" x="530" y="591">
+      <tspan x="530" dy="0">Kết quả</tspan>
+      <tspan x="530" dy="17">suy luận</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="988" y="535" width="164" height="54" rx="4"/>
+    <text class="flow-text" x="1070" y="554">
+      <tspan x="1070" dy="0">Nội dung thông báo</tspan>
+      <tspan x="1070" dy="17">và mã thiết bị</tspan>
+    </text>
+  </g>
+  <g>
+    <rect class="label-bg" x="1150" y="582" width="160" height="54" rx="4"/>
+    <text class="flow-text" x="1230" y="601">
+      <tspan x="1230" dy="0">Mã thông điệp và</tspan>
+      <tspan x="1230" dy="17">lỗi nhà cung cấp</tspan>
+    </text>
+  </g>
+
+  <!-- Các thực thể ngoài -->
+  <rect class="entity" x="145" y="40" width="270" height="90"/>
+  <text class="entity-text" x="280" y="91">LÁI XE</text>
+
+  <rect class="entity" x="665" y="40" width="270" height="90"/>
+  <text class="entity-text" x="800" y="91">QUẢN LÝ</text>
+
+  <rect class="external-system" x="1185" y="40" width="270" height="90"/>
+  <text class="entity-text" x="1320" y="79">
+    <tspan x="1320" dy="0">DỊCH VỤ BẢN ĐỒ</tspan>
+    <tspan x="1320" dy="23">VÀ ĐỊNH TUYẾN</tspan>
+  </text>
+
+  <rect class="external-system" x="300" y="700" width="300" height="90"/>
+  <text class="entity-text" x="450" y="739">
+    <tspan x="450" dy="0">DỊCH VỤ AI</tspan>
+    <tspan x="450" dy="23">BÊN NGOÀI</tspan>
+  </text>
+
+  <rect class="external-system" x="1000" y="700" width="300" height="90"/>
+  <text class="entity-text" x="1150" y="739">
+    <tspan x="1150" dy="0">DỊCH VỤ</tspan>
+    <tspan x="1150" dy="23">THÔNG BÁO ĐẨY</tspan>
+  </text>
+
+  <!-- Tiến trình trung tâm -->
+  <rect class="system" x="40" y="345" width="1520" height="115" rx="16" ry="16"/>
+  <text class="system-title" x="800" y="393">(0) HỆ THỐNG SAFEFLEET</text>
+  <text class="system-subtitle" x="800" y="425">Quản lý đội xe, điều phối chuyến và hỗ trợ an toàn lái xe</text>
+</svg>

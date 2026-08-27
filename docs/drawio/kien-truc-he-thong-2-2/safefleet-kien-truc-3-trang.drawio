@@ -1,0 +1,446 @@
+<mxfile host="app.diagrams.net" pages="3">
+  <diagram id="safefleet-architecture-1" name="Hình 2.8 - Biểu đồ ngữ cảnh">
+    <mxGraphModel dx="1319" dy="743" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ctx_title" value="HÌNH 2.8 — BIỂU ĐỒ NGỮ CẢNH CỦA SAFEFLEET" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=20;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="70" width="2340" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_driver" value="LÁI XE" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#b7a05a;strokeWidth=1.2;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="160" y="200" width="420" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_manager" value="QUẢN LÝ" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#b7a05a;strokeWidth=1.2;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="900" y="200" width="420" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_map" value="DỊCH VỤ BẢN ĐỒ&lt;br&gt;VÀ ĐỊNH TUYẾN" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1760" y="200" width="460" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_system" value="&lt;b&gt;(0) HỆ THỐNG SAFEFLEET&lt;/b&gt;&lt;br&gt;Quản lý đội xe, điều phối chuyến và hỗ trợ an toàn lái xe" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d9eaf7;strokeColor=#6f91ad;strokeWidth=1.6;fontFamily=Arial;fontSize=17;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="900" width="2280" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_ai" value="DỊCH VỤ AI&lt;br&gt;BÊN NGOÀI" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="430" y="1340" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_push" value="DỊCH VỤ&lt;br&gt;THÔNG BÁO ĐẨY" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1580" y="1340" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_caption" value="Hình 2.8. Biểu đồ ngữ cảnh của SafeFleet" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=15;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="600" y="1530" width="1200" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.65;exitY=1;exitDx=0;exitDy=0;entryX=0.164;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_driver" target="ctx_system">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.79;exitY=1;exitDx=0;exitDy=0;entryX=0.19;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_driver" target="ctx_system">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.93;exitY=1;exitDx=0;exitDy=0;entryX=0.216;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_driver" target="ctx_system">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.061;exitY=0;exitDx=0;exitDy=0;entryX=0.095;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_system" target="ctx_driver">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.101;exitY=0;exitDx=0;exitDy=0;entryX=0.348;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_system" target="ctx_driver">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.141;exitY=0;exitDx=0;exitDy=0;entryX=0.564;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_system" target="ctx_driver">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.595;exitY=1;exitDx=0;exitDy=0;entryX=0.478;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_manager" target="ctx_system">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.762;exitY=1;exitDx=0;exitDy=0;entryX=0.509;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_manager" target="ctx_system">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.929;exitY=1;exitDx=0;exitDy=0;entryX=0.539;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_manager" target="ctx_system">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.382;exitY=0;exitDx=0;exitDy=0;entryX=0.071;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_system" target="ctx_manager">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.413;exitY=0;exitDx=0;exitDy=0;entryX=0.238;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_system" target="ctx_manager">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.443;exitY=0;exitDx=0;exitDy=0;entryX=0.405;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_system" target="ctx_manager">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.785;exitY=0;exitDx=0;exitDy=0;entryX=0.196;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_system" target="ctx_map">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.674;exitY=1;exitDx=0;exitDy=0;entryX=0.882;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_map" target="ctx_system">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.206;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_system" target="ctx_ai">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.294;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_ai" target="ctx_system">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.711;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_system" target="ctx_push">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=10;html=1;endArrow=block;endFill=1;strokeColor=#202020;strokeWidth=1.5;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.798;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx_push" target="ctx_system">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d2a" value="Kết quả xác thực&lt;br&gt;và hồ sơ" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="70" y="390" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d2b" value="Thông tin chuyến&lt;br&gt;và chỉ dẫn tuyến" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="185" y="560" width="235" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d2c" value="Cảnh báo, thông báo&lt;br&gt;và câu trả lời" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="300" y="730" width="235" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d1a" value="Thông tin xác thực" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="350" y="650" width="190" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d1b" value="Xác nhận và&lt;br&gt;trạng thái chuyến" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="425" y="490" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d1c" value="GPS, telemetry,&lt;br&gt;SOS và câu hỏi" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="500" y="345" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d4a" value="Kết quả xác thực&lt;br&gt;và phân quyền" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="790" y="390" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d4b" value="Dữ liệu đội xe và&lt;br&gt;giám sát realtime" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="920" y="560" width="235" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d4c" value="Cảnh báo, sự cố,&lt;br&gt;báo cáo và kết quả Agent" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="730" width="250" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d3a" value="Thông tin xác thực" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="650" width="190" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d3b" value="Dữ liệu quản lý&lt;br&gt;và lệnh điều phối" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="490" width="225" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d3c" value="Yêu cầu xử lý sự cố,&lt;br&gt;báo cáo và Agent" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="345" width="235" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d5" value="Từ khóa, tọa độ và&lt;br&gt;yêu cầu tìm tuyến" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="1660" y="470" width="250" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d6" value="Bản đồ, địa điểm,&lt;br&gt;phương án tuyến và ETA" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="1940" y="680" width="270" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d7" value="Yêu cầu suy luận và&lt;br&gt;ngữ cảnh đã kiểm soát" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="355" y="1090" width="270" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d8" value="Kết quả suy luận" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="635" y="1210" width="190" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d9" value="Nội dung thông báo&lt;br&gt;và mã thiết bị" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="1515" y="1090" width="240" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_label_d10" value="Mã thông điệp và&lt;br&gt;lỗi nhà cung cấp" style="text;html=1;whiteSpace=wrap;overflow=hidden;strokeColor=#ffffff;fillColor=#ffffff;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=14;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="1790" y="1210" width="240" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="safefleet-architecture-2" name="Hình 2.9 - Kiến trúc tổng thể">
+    <mxGraphModel dx="1319" dy="743" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="logic_title" value="HÌNH 2.9 — KIẾN TRÚC TỔNG THỂ CỦA SAFEFLEET" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=20;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="350" width="2340" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_clients_bg" value="TẦNG NGƯỜI DÙNG VÀ ỨNG DỤNG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3f8fc;strokeColor=#6f91ad;strokeWidth=1.2;align=left;verticalAlign=top;spacingTop=8;spacingLeft=10;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="390" width="400" height="430" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_backend_bg" value="TẦNG BACKEND API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3f8fc;strokeColor=#6f91ad;strokeWidth=1.2;align=left;verticalAlign=top;spacingTop=8;spacingLeft=10;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="470" y="390" width="470" height="430" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_ai_bg" value="TẦNG DỊCH VỤ AI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f0fa;strokeColor=#9673a6;strokeWidth=1.2;align=left;verticalAlign=top;spacingTop=8;spacingLeft=10;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="970" y="390" width="430" height="430" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_data_bg" value="DỮ LIỆU VÀ BẰNG CHỨNG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f2f8f2;strokeColor=#82b366;strokeWidth=1.2;align=left;verticalAlign=top;spacingTop=8;spacingLeft=10;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1430" y="390" width="420" height="430" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_ext_bg" value="DỊCH VỤ BÊN NGOÀI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3f8fc;strokeColor=#6f91ad;strokeWidth=1.2;align=left;verticalAlign=top;spacingTop=8;spacingLeft=10;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1880" y="390" width="480" height="430" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_driver" value="Lái xe" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#b7a05a;strokeWidth=1.2;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="65" y="430" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_manager" value="Quản lý" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#b7a05a;strokeWidth=1.2;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="245" y="430" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_mobile" value="&lt;b&gt;Flutter Driver App&lt;/b&gt;&lt;br&gt;Android / iOS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="65" y="510" width="150" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_web" value="&lt;b&gt;Next.js Web&lt;/b&gt;&lt;br&gt;Dashboard quản lý" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="245" y="510" width="150" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_local_ai" value="Drowsiness Engine&lt;br&gt;Risk 1–10 + cảnh báo tại chỗ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="65" y="625" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_offline" value="SQLite + Sync Queue&lt;br&gt;Retry + idempotency" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="245" y="625" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_backend" value="&lt;b&gt;Spring Boot Modular Monolith&lt;/b&gt;&lt;br&gt;REST · JWT/RBAC · transaction · audit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="510" y="440" width="390" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_modules" value="Fleet · Trip · Safety · Incident&lt;br&gt;Flood · Notification · Document · Report" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="510" y="560" width="390" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_realtime" value="STOMP WebSocket + background jobs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="510" y="690" width="390" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_ai_service" value="&lt;b&gt;FastAPI AI Service&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="440" width="350" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_agent" value="Agent Orchestrator&lt;br&gt;Plan · Execute · Check · Replan" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="535" width="165" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_tools" value="MCP Tool Registry&lt;br&gt;RBAC + audit metadata" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1195" y="535" width="165" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_rag" value="RAG Engine&lt;br&gt;Hybrid search + citation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="665" width="165" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_ocr" value="OCR Pipeline&lt;br&gt;Tesseract + VietOCR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1195" y="665" width="165" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_postgres" value="&lt;b&gt;PostgreSQL 17 + pgvector&lt;/b&gt;&lt;br&gt;Nghiệp vụ · lịch sử · audit · vector" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1470" y="450" width="340" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_minio" value="&lt;b&gt;MinIO&lt;/b&gt;&lt;br&gt;Ảnh, chứng từ và evidence private" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1470" y="585" width="340" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_redis" value="Redis — MỤC TIÊU GIAI ĐOẠN 2&lt;br&gt;Cache · queue · lock · scale-out" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;fontFamily=Arial;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1470" y="715" width="340" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_openai" value="OpenAI API" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1920" y="440" width="190" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_fcm" value="Firebase FCM" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="2130" y="440" width="190" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_route" value="Photon · Valhalla · OSRM&lt;br&gt;Geocoding và routing" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1920" y="565" width="400" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_tiles" value="Map Tile Provider" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1920" y="690" width="400" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_caption" value="Hình 2.9. Kiến trúc tổng thể của SafeFleet" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=15;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="600" y="1320" width="1200" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_driver" target="logic_mobile">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_manager" target="logic_web">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_21" value="L1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.35;exitY=1;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_mobile" target="logic_local_ai">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_22" value="L2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_mobile" target="logic_offline">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_23" value="L3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.45;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_mobile" target="logic_backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_24" value="L4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.6;exitDx=0;exitDy=0;entryX=0;entryY=0.55;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_web" target="logic_backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_25" value="L5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_backend" target="logic_ai_service">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_26" value="L6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_ai_service" target="logic_backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_27" value="L7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_backend" target="logic_postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_28" value="L8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_backend" target="logic_minio">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_29" value="L9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.4;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_rag" target="logic_postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_30" value="L10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.2;exitDx=0;exitDy=0;entryX=0;entryY=0.45;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_agent" target="logic_openai">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_31" value="L11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.1;exitDx=0;exitDy=0;entryX=0;entryY=0.55;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_backend" target="logic_fcm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_32" value="L12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.55;exitDx=0;exitDy=0;entryX=0;entryY=0.45;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_backend" target="logic_route">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_33" value="L13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.85;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.45;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_mobile" target="logic_tiles">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_34" value="L14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.95;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_web" target="logic_tiles">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_35" value="L15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.9;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=1;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="logic_backend" target="logic_redis">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_legend_left" value="&lt;b&gt;L1&lt;/b&gt; — Camera / Face Mesh&lt;br&gt;&lt;br&gt;&lt;b&gt;L2&lt;/b&gt; — Offline queue&lt;br&gt;&lt;br&gt;&lt;b&gt;L3&lt;/b&gt; — HTTPS REST&lt;br&gt;&lt;br&gt;&lt;b&gt;L4&lt;/b&gt; — HTTPS REST + WSS/STOMP&lt;br&gt;&lt;br&gt;&lt;b&gt;L5&lt;/b&gt; — Agent / OCR request&lt;br&gt;&lt;br&gt;&lt;b&gt;L6&lt;/b&gt; — Kết quả Agent / OCR&lt;br&gt;&lt;br&gt;&lt;b&gt;L7&lt;/b&gt; — JPA / JDBC&lt;br&gt;&lt;br&gt;&lt;b&gt;L8&lt;/b&gt; — S3 API" style="rounded=1;whiteSpace=wrap;html=1;overflow=hidden;fillColor=#ffffff;strokeColor=#999999;strokeWidth=1;align=left;verticalAlign=top;spacingTop=10;spacingLeft=12;spacingRight=10;fontFamily=Arial;fontSize=13;fontColor=#202020;" vertex="1" parent="1">
+          <mxGeometry x="80" y="950" width="1090" height="330" as="geometry" />
+        </mxCell>
+        <mxCell id="logic_legend_right" value="&lt;b&gt;L9&lt;/b&gt; — Hybrid/vector query&lt;br&gt;&lt;br&gt;&lt;b&gt;L10&lt;/b&gt; — Suy luận ngôn ngữ&lt;br&gt;&lt;br&gt;&lt;b&gt;L11&lt;/b&gt; — Push request&lt;br&gt;&lt;br&gt;&lt;b&gt;L12&lt;/b&gt; — Geocoding / route&lt;br&gt;&lt;br&gt;&lt;b&gt;L13&lt;/b&gt; — Map tiles&lt;br&gt;&lt;br&gt;&lt;b&gt;L14&lt;/b&gt; — Map tiles&lt;br&gt;&lt;br&gt;&lt;b&gt;L15&lt;/b&gt; — Mục tiêu: cache / queue / lock" style="rounded=1;whiteSpace=wrap;html=1;overflow=hidden;fillColor=#ffffff;strokeColor=#999999;strokeWidth=1;align=left;verticalAlign=top;spacingTop=10;spacingLeft=12;spacingRight=10;fontFamily=Arial;fontSize=13;fontColor=#202020;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="950" width="1090" height="330" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="safefleet-architecture-3" name="Hình 2.10 - Kiến trúc triển khai">
+    <mxGraphModel dx="1319" dy="743" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="deploy_title" value="HÌNH 2.10 — KIẾN TRÚC TRIỂN KHAI CỦA SAFEFLEET" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=20;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="250" width="2340" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_vps_bg" value="UBUNTU VPS PRODUCTION — Docker network: safefleet" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f7f7f7;strokeColor=#555555;strokeWidth=1.6;align=left;verticalAlign=top;spacingTop=8;spacingLeft=10;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="300" width="1460" height="610" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_docker_bg" value="MẠNG NỘI BỘ DOCKER — không public Internet" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3f8fc;strokeColor=#6f91ad;strokeWidth=1.2;align=left;verticalAlign=top;spacingTop=8;spacingLeft=10;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="430" y="460" width="1320" height="330" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_android" value="Điện thoại Android&lt;br&gt;SafeFleet Driver App" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#b7a05a;strokeWidth=1.2;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="370" width="230" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_browser" value="Trình duyệt web&lt;br&gt;Quản lý SafeFleet" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#b7a05a;strokeWidth=1.2;fontFamily=Arial;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="580" width="230" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_dns" value="DNS&lt;br&gt;fleet.example.com" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="275" y="475" width="150" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_firewall" value="Firewall&lt;br&gt;80/443 public · SSH allowlist" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="500" y="340" width="250" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_caddy" value="&lt;b&gt;Caddy&lt;/b&gt;&lt;br&gt;TLS · HTTPS/WSS · security headers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="930" y="340" width="320" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_frontend" value="frontend&lt;br&gt;Next.js :3000" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="470" y="510" width="190" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_backend" value="backend&lt;br&gt;Spring Boot :8080&lt;br&gt;REST + STOMP + jobs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="510" width="230" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_ai" value="ai-service&lt;br&gt;FastAPI :8000" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="970" y="510" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_postgres" value="postgres&lt;br&gt;PostgreSQL 17 + pgvector" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1210" y="510" width="230" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_minio" value="minio&lt;br&gt;S3 API :9000" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="510" width="200" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_valhalla" value="valhalla&lt;br&gt;Routing :8002" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="470" y="660" width="190" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_redis" value="redis — MỤC TIÊU&lt;br&gt;:6379" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;fontFamily=Arial;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="700" y="660" width="190" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_observe" value="Prometheus · Grafana · Loki&lt;br&gt;MỤC TIÊU GIAI ĐOẠN 2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;fontFamily=Arial;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="930" y="660" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_volumes" value="Docker volumes&lt;br&gt;postgres · minio · AI models · Valhalla · Caddy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="660" width="430" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_backup" value="/opt/safefleet/backups&lt;br&gt;pg_dump · MinIO mirror · checksum" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Arial;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="710" y="820" width="450" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_openai" value="OpenAI API" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1910" y="315" width="190" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_firebase" value="Firebase Cloud Messaging" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="2140" y="315" width="220" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_map" value="Map tiles + Photon&lt;br&gt;OSRM fallback" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1910" y="440" width="450" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_offsite" value="Object storage / VPS thứ hai&lt;br&gt;Backup mã hóa off-site — mục tiêu" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;fontFamily=Arial;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1910" y="570" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_github" value="GitHub Actions" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1910" y="710" width="190" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_ghcr" value="GHCR&lt;br&gt;Image theo Git SHA" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e2edf6;strokeColor=#8ca8bd;strokeWidth=1.2;fontFamily=Arial;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="2140" y="710" width="220" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_caption" value="Hình 2.10. Kiến trúc triển khai của SafeFleet" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=15;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="600" y="1500" width="1200" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_36" value="D1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_android" target="deploy_dns">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_37" value="D2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_browser" target="deploy_dns">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_38" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_dns" target="deploy_firewall">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_39" value="D3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_firewall" target="deploy_caddy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_40" value="D4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.2;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_caddy" target="deploy_frontend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_41" value="D5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_caddy" target="deploy_backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_42" value="D6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.4;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_backend" target="deploy_ai">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_43" value="D7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.75;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_ai" target="deploy_backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_44" value="D8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_backend" target="deploy_postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_45" value="D9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_ai" target="deploy_postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_46" value="D10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.85;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_backend" target="deploy_minio">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_47" value="D11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.7;entryY=0;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_backend" target="deploy_valhalla">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_48" value="D12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_backend" target="deploy_firebase">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_49" value="D13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.15;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_ai" target="deploy_openai">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_50" value="D14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.55;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_backend" target="deploy_map">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_51" value="D15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.3;entryY=0;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_postgres" target="deploy_volumes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_52" value="D16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_minio" target="deploy_volumes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_53" value="D17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.7;entryY=0;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_postgres" target="deploy_backup">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_54" value="D18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.95;entryY=0;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_minio" target="deploy_backup">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_55" value="D19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=1;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_backup" target="deploy_offsite">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_56" value="D20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_github" target="deploy_ghcr">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arch_edge_57" value="D21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#333333;strokeWidth=1.2;fontSize=12;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.78;entryDx=0;entryDy=0;jumpStyle=arc;jumpSize=8;" edge="1" parent="1" source="deploy_ghcr" target="deploy_vps_bg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_legend_left" value="&lt;b&gt;D1&lt;/b&gt; — HTTPS REST&lt;br&gt;&lt;br&gt;&lt;b&gt;D2&lt;/b&gt; — HTTPS + WSS&lt;br&gt;&lt;br&gt;&lt;b&gt;D3&lt;/b&gt; — HTTPS / WSS&lt;br&gt;&lt;br&gt;&lt;b&gt;D4&lt;/b&gt; — /&lt;br&gt;&lt;br&gt;&lt;b&gt;D5&lt;/b&gt; — /api/* · /ws-native*&lt;br&gt;&lt;br&gt;&lt;b&gt;D6&lt;/b&gt; — REST nội bộ + service token&lt;br&gt;&lt;br&gt;&lt;b&gt;D7&lt;/b&gt; — MCP tool + JWT người dùng&lt;br&gt;&lt;br&gt;&lt;b&gt;D8&lt;/b&gt; — JDBC&lt;br&gt;&lt;br&gt;&lt;b&gt;D9&lt;/b&gt; — RAG / pgvector&lt;br&gt;&lt;br&gt;&lt;b&gt;D10&lt;/b&gt; — S3 API&lt;br&gt;&lt;br&gt;&lt;b&gt;D11&lt;/b&gt; — Routing HTTP" style="rounded=1;whiteSpace=wrap;html=1;overflow=hidden;fillColor=#ffffff;strokeColor=#999999;strokeWidth=1;align=left;verticalAlign=top;spacingTop=10;spacingLeft=12;spacingRight=10;fontFamily=Arial;fontSize=13;fontColor=#202020;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1050" width="1090" height="410" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_legend_right" value="&lt;b&gt;D12&lt;/b&gt; — FCM Admin SDK&lt;br&gt;&lt;br&gt;&lt;b&gt;D13&lt;/b&gt; — HTTPS&lt;br&gt;&lt;br&gt;&lt;b&gt;D14&lt;/b&gt; — Geocoding / fallback&lt;br&gt;&lt;br&gt;&lt;b&gt;D15&lt;/b&gt; — persistent volume&lt;br&gt;&lt;br&gt;&lt;b&gt;D16&lt;/b&gt; — persistent volume&lt;br&gt;&lt;br&gt;&lt;b&gt;D17&lt;/b&gt; — pg_dump&lt;br&gt;&lt;br&gt;&lt;b&gt;D18&lt;/b&gt; — mc mirror&lt;br&gt;&lt;br&gt;&lt;b&gt;D19&lt;/b&gt; — Mã hóa và sao chép&lt;br&gt;&lt;br&gt;&lt;b&gt;D20&lt;/b&gt; — Build + push image&lt;br&gt;&lt;br&gt;&lt;b&gt;D21&lt;/b&gt; — Deploy theo Git SHA" style="rounded=1;whiteSpace=wrap;html=1;overflow=hidden;fillColor=#ffffff;strokeColor=#999999;strokeWidth=1;align=left;verticalAlign=top;spacingTop=10;spacingLeft=12;spacingRight=10;fontFamily=Arial;fontSize=13;fontColor=#202020;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="1050" width="1090" height="410" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
