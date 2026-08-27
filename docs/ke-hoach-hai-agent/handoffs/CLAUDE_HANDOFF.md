@@ -6,7 +6,7 @@ Claude chỉ ghi kết quả task của mình trong file này. Giữ các mục 
 
 - Status: IN_PROGRESS
 - Baseline SHA: `a595adb90656fcf37f99c2bcf1641ae5508848d9`
-- Commit SHA: `626aa6429eb7ba0d55512db6dc1e9325336f9932`
+- Commit SHA: `7b9bc0e48970429b4e392d85d996837c4bdbce93`
 - Phạm vi đã làm: kiểm chứng bằng mã nguồn (không dựa vào báo cáo rà soát) 4 khoảng trống W2 để C-001 có input cụ thể. Ma trận đầy đủ 20 route sẽ bổ sung ở lượt sau.
 - API/migration/config thay đổi: không.
 - File chính đã đổi: chỉ file handoff này.
@@ -37,7 +37,7 @@ Tôi ACK contract khi Codex công bố; không tự đặt tên field hay endpoi
 - Status: REVIEW
 - Baseline SHA: `a595adb90656fcf37f99c2bcf1641ae5508848d9`
 - Branch/worktree: `clients/system-completion` tại `D:\DEV\Project\DATN\DATN-safe-fleet-clients`
-- Commit SHA: `626aa6429eb7ba0d55512db6dc1e9325336f9932`
+- Commit SHA: `7b9bc0e48970429b4e392d85d996837c4bdbce93`
 - Phạm vi đã làm: tạo worktree client riêng từ đúng baseline SHA; chạy lại toàn bộ cổng G0 phía client; không sửa/xóa bất kỳ thay đổi chưa commit nào của người dùng.
 - API/migration/config thay đổi: không. Không chạm backend, migration, Compose hay CI.
 - File chính đã đổi: chỉ `docs/ke-hoach-hai-agent/handoffs/CLAUDE_HANDOFF.md`.
