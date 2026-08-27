@@ -123,7 +123,14 @@ jobs:
         run: flutter pub get
       # Khong co keystore thi Gradle ky bang debug key: cai duoc de pilot nhung
       # khong phat hanh Play Store duoc. Khong bao gio commit keystore vao repo.
+      # Gradle nem loi neu thieu keystore, nen chi build khi da co secret.
+      - name: Explain skipped release build
+        if: env.SAFEEFLEET_ANDROID_STORE_FILE == ''
+        run: >-
+          echo "::notice::Bo qua ban phat hanh vi chua cau hinh secret
+          ANDROID_KEYSTORE_BASE64. Xem deploy/vps/RUNBOOK.md muc 8."
       - name: Build release AAB and split APKs
+        if: env.SAFEEFLEET_ANDROID_STORE_FILE != ''
         working-directory: safe_fleet_driver_ui
         env:
           SAFEEFLEET_ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -135,6 +142,7 @@ jobs:
           flutter build apk --release --split-per-abi \
             --dart-define=API_BASE_URL=https://${{ vars.APP_DOMAIN }}/api/v1
       - name: Report artifact sizes
+        if: env.SAFEEFLEET_ANDROID_STORE_FILE != ''
         working-directory: safe_fleet_driver_ui
         run: |
           echo '### Kich thuoc ban phat hanh' >> "$GITHUB_STEP_SUMMARY"
@@ -144,6 +152,7 @@ jobs:
                 printf -- '- `%s` — %s\n' "$f" "$(du -h "$f" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
               done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: env.SAFEEFLEET_ANDROID_STORE_FILE != ''
         with:
           name: safefleet-driver-release
           retention-days: 14

@@ -181,16 +181,37 @@ mức A: chỉ TLS 1.2/1.3, HSTS một năm, session ticket tắt.
 
 ## 7. Cài app tài xế
 
-APK release đã build sẵn trỏ về `https://safefleet.duckdns.org/api/v1`.
-Chọn đúng file theo CPU máy: hầu hết điện thoại hiện nay dùng `arm64-v8a`.
+Dự án **bắt buộc** ký release: `android/app/build.gradle.kts` ném lỗi nếu
+thiếu bốn biến `SAFEEFLEET_ANDROID_*`. Đây là chủ ý, để không ai lỡ phát hành
+một bản ký bằng khoá debug.
+
+Vì vậy có hai đường:
+
+**Đường nhanh — bản debug để pilot.** Đã build sẵn, trỏ về
+`https://safefleet.duckdns.org/api/v1`, tách theo ABI. Hầu hết điện thoại hiện
+nay dùng `arm64-v8a`:
 
 ```bash
-adb install -r app-arm64-v8a-release.apk
+adb install -r app-arm64-v8a-debug.apk
 ```
 
-Bản này ký bằng **khoá debug** vì chưa có keystore phát hành. Cài trực tiếp thì
-được, đưa lên Play Store thì không. Khi cần bản chính thức, tạo keystore rồi
-nạp vào GitHub Secrets theo mục 8.
+Bản debug chạy chậm hơn và nặng hơn nhiều, nhưng kết nối VPS đầy đủ qua HTTPS.
+
+**Đường chính thức — bản release đã ký.** Tạo keystore rồi build:
+
+```bash
+keytool -genkey -v -keystore safefleet-release.jks   -keyalg RSA -keysize 4096 -validity 10000 -alias safefleet
+
+export SAFEEFLEET_ANDROID_STORE_FILE=/duong/dan/safefleet-release.jks
+export SAFEEFLEET_ANDROID_STORE_PASSWORD=<mat-khau-kho>
+export SAFEEFLEET_ANDROID_KEY_ALIAS=safefleet
+export SAFEEFLEET_ANDROID_KEY_PASSWORD=<mat-khau-khoa>
+
+flutter build apk --release --split-per-abi   --dart-define=API_BASE_URL=https://safefleet.duckdns.org/api/v1
+```
+
+Giữ file `.jks` ở nơi an toàn và **không bao giờ commit**. Mất keystore là mất
+khả năng cập nhật app đã phát hành.
 
 ---
 
