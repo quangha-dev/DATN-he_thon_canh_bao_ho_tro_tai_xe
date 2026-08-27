@@ -2,6 +2,55 @@
 
 Claude chỉ ghi kết quả task của mình trong file này. Giữ các mục mới nhất ở trên cùng và không xóa lịch sử.
 
+## [RÀ SOÁT] Trạng thái CI/CD và self-hosted runner — 2026-08-27 08:10
+
+- Status: REVIEW (chỉ rà soát, không sửa — `.github/**` và `deploy/**` thuộc Codex)
+- Baseline SHA: `a595adb90656fcf37f99c2bcf1641ae5508848d9`
+- Phạm vi: trả lời câu hỏi của người dùng "đã cấu hình CI/CD chưa và self-hosted runner chưa".
+
+### Kết luận
+
+1. **CI/CD có file, chưa từng chạy.** `.github/workflows/ci-cd.yml` (8.205 byte, 7 job) nằm trong baseline commit. Nhưng `git ls-remote --heads origin` cho thấy GitHub chỉ có đúng một nhánh `main` tại `f380cd0` (18/08/2026), và `git ls-tree -r origin/main` **không có `.github/` lẫn `deploy/`**. Baseline local đã tách nhánh khỏi `origin/main` và đi trước 10 commit. Chưa có một lần workflow run nào.
+2. **Không có self-hosted runner.** Cả 7 job đều `runs-on: ubuntu-latest`; grep `self-hosted` = 0 kết quả. Máy phát triển hiện tại không có service `actions.runner.*`, không có tiến trình `Runner.Listener`/`Runner.Worker`, không có thư mục `actions-runner*` ở gốc `C:\` hay `D:\`. Mô hình deploy là push-based: runner GitHub-hosted SSH vào VPS, không phải runner đặt trên VPS.
+
+### BLOCKER-CI-1 — `compose-validate` sẽ fail ngay lần chạy đầu tiên
+
+Job `compose-validate` bắt đầu bằng `cp deploy/vps/.env.production.example .env.validation`. File đó **có trên đĩa nhưng không có trong Git**:
+
+```
+git check-ignore -v deploy/vps/.env.production.example
+=> .gitignore:3:.env.*   deploy/vps/.env.production.example
+```
+
+`.gitignore` dòng 3 `.env.*` nuốt file này; dòng 4 `!.env.example` chỉ cứu được `.env.example` ở gốc, không cứu `deploy/vps/.env.production.example`. Mọi checkout của CI đều thiếu file ⇒ job fail ở bước đầu, kéo theo `publish-images` và `deploy-production` không bao giờ chạy.
+
+Đề xuất (Codex thực hiện): thêm ngoại lệ `!deploy/vps/.env.production.example` vào `.gitignore` rồi commit file, sau khi xác nhận nội dung chỉ chứa placeholder.
+
+### Khoảng trống trong vùng Claude (job `mobile-test`)
+
+Job hiện chỉ có `flutter pub get` → `analyze` → `test` → `build apk --debug`. Ba thiếu sót liên quan trực tiếp tới task của tôi:
+
+| Thiếu | Ảnh hưởng |
+|---|---|
+| Không có build release/AAB/signing | CL-104 chưa có gì trong CI; không đo được kích thước artifact phát hành (xem quan sát APK debug 601 MB ở CL-000) |
+| Không có cổng checksum model | Đúng BLOCKER-CL000-2: CI sẽ build và publish với model ngủ gật sai mà không cảnh báo |
+| `integration_test/` không chạy | `stgt_tflite_model_test.dart` là thứ duy nhất chạm `.tflite` thật, cần thiết bị/emulator nên không có trong CI |
+
+Tôi sẽ đề xuất bước CI cụ thể cho `mobile-test` khi làm CL-104; không tự sửa `.github/**`.
+
+### Secret/feature flag cần cấu hình
+
+Workflow yêu cầu 10 secret + 1 variable, chưa có bằng chứng đã cấu hình trên GitHub Environment `production`:
+`GHCR_USERNAME`, `GHCR_READ_TOKEN`, `OCR_MODELS_ARCHIVE_URL`, `OCR_MODELS_ARCHIVE_SHA`, `OCR_MODELS_DOWNLOAD_TOKEN`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_PRIVATE_KEY`, `VPS_KNOWN_HOSTS`, `GITHUB_TOKEN` (mặc định), và `vars.APP_DOMAIN`.
+
+### Điểm làm tốt cần giữ
+
+Mọi `uses:` đều ghim theo commit SHA thay vì tag — chống được supply-chain attack qua tag bị dời. Deploy có `concurrency` group và `cancel-in-progress: false`, tránh hai lần deploy chồng nhau.
+
+### Task phía agent kia có thể bắt đầu
+
+- Codex: xử lý BLOCKER-CI-1; quyết định thời điểm push `.github/` + `deploy/` lên GitHub và cấu hình Environment/secret; xác nhận có dùng self-hosted runner hay giữ GitHub-hosted.
+
 ## [CL-001] Inventory route/screen/UX gap — 2026-08-27 07:55
 
 - Status: IN_PROGRESS
