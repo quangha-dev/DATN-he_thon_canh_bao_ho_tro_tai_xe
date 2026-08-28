@@ -15,6 +15,7 @@ __pycache__/
 venv/
 env/
 .pytest_cache/
+.test-artifacts/
 .mypy_cache/
 safefleet_ai/.local/
 safefleet_ai/artifacts/
