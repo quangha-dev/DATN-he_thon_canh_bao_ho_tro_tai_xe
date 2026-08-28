@@ -42,9 +42,9 @@ if (
     } && !hasReleaseSigning
 ) {
     throw GradleException(
-        "Release signing is required. Set SAFEFLEET_ANDROID_STORE_FILE, " +
-            "SAFEEFLEET_ANDROID_STORE_PASSWORD, SAFEFLEET_ANDROID_KEY_ALIAS " +
-            "and SAFEFLEET_ANDROID_KEY_PASSWORD.",
+        "Release signing is required. Set SAFEEFLEET_ANDROID_STORE_FILE, " +
+            "SAFEEFLEET_ANDROID_STORE_PASSWORD, SAFEEFLEET_ANDROID_KEY_ALIAS " +
+            "and SAFEEFLEET_ANDROID_KEY_PASSWORD.",
     )
 }
 

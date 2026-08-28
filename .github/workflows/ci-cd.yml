@@ -72,6 +72,18 @@ jobs:
       - name: Install dependencies
         working-directory: safe_fleet_driver_ui
         run: flutter pub get
+      - name: Verify bundled drowsiness model matches its metadata
+        working-directory: safe_fleet_driver_ui/assets/models
+        run: |
+          declared="$(python3 -c "import json;print(json.load(open('drowsiness_model.json'))['runtime_sha256'].upper())")"
+          actual="$(sha256sum drowsiness_model.tflite | cut -d' ' -f1 | tr 'a-z' 'A-Z')"
+          echo "declared=$declared"
+          echo "actual  =$actual"
+          if [ "$declared" != "$actual" ]; then
+            echo "::error::drowsiness_model.tflite khong khop runtime_sha256 trong metadata." \
+                 "Phat hien ngu gat la tinh nang an toan; khong duoc build voi model khong xac dinh."
+            exit 1
+          fi
       - name: Analyze
         working-directory: safe_fleet_driver_ui
         run: flutter analyze
@@ -81,6 +93,72 @@ jobs:
       - name: Compile Android debug APK
         working-directory: safe_fleet_driver_ui
         run: flutter build apk --debug --dart-define=API_BASE_URL=https://ci.invalid/api/v1
+
+  mobile-release:
+    name: Android release artifact
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: mobile-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: 3.44.5
+          channel: stable
+          cache: true
+      # Khong co secret keystore thi bo qua buoc nay; Gradle se ky bang debug key.
+      - name: Restore release keystore
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "SAFEEFLEET_ANDROID_STORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+      - name: Install dependencies
+        working-directory: safe_fleet_driver_ui
+        run: flutter pub get
+      # Khong co keystore thi Gradle ky bang debug key: cai duoc de pilot nhung
+      # khong phat hanh Play Store duoc. Khong bao gio commit keystore vao repo.
+      # Gradle nem loi neu thieu keystore, nen chi build khi da co secret.
+      - name: Explain skipped release build
+        if: env.SAFEEFLEET_ANDROID_STORE_FILE == ''
+        run: >-
+          echo "::notice::Bo qua ban phat hanh vi chua cau hinh secret
+          ANDROID_KEYSTORE_BASE64. Xem deploy/vps/RUNBOOK.md muc 8."
+      - name: Build release AAB and split APKs
+        if: env.SAFEEFLEET_ANDROID_STORE_FILE != ''
+        working-directory: safe_fleet_driver_ui
+        env:
+          SAFEEFLEET_ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SAFEEFLEET_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          SAFEEFLEET_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          flutter build appbundle --release \
+            --dart-define=API_BASE_URL=https://${{ vars.APP_DOMAIN }}/api/v1
+          flutter build apk --release --split-per-abi \
+            --dart-define=API_BASE_URL=https://${{ vars.APP_DOMAIN }}/api/v1
+      - name: Report artifact sizes
+        if: env.SAFEEFLEET_ANDROID_STORE_FILE != ''
+        working-directory: safe_fleet_driver_ui
+        run: |
+          echo '### Kich thuoc ban phat hanh' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          find build/app/outputs -name '*.aab' -o -name '*.apk' \
+            | sort | while read -r f; do
+                printf -- '- `%s` — %s\n' "$f" "$(du -h "$f" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+              done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: env.SAFEEFLEET_ANDROID_STORE_FILE != ''
+        with:
+          name: safefleet-driver-release
+          retention-days: 14
+          path: |
+            safe_fleet_driver_ui/build/app/outputs/bundle/release/*.aab
+            safe_fleet_driver_ui/build/app/outputs/flutter-apk/*.apk
 
   compose-validate:
     name: Validate production composition
@@ -99,7 +177,33 @@ jobs:
           -f deploy/vps/docker-compose.vps.yml
           config --quiet
       - name: Validate deployment scripts
-        run: bash -n deploy/vps/backup.sh deploy/vps/health-check.sh deploy/vps/deploy.sh
+        run: >-
+          bash -n deploy/vps/backup.sh deploy/vps/health-check.sh
+          deploy/vps/deploy.sh deploy/vps/init-tls.sh
+      # Sai mot dau ngoac trong nginx.conf lam ca he thong khong len duoc.
+      # Bat loi o CI thay vi luc deploy: dung chinh image cua production, cap
+      # chung chi tu ky de nginx -t chay duoc ma khong can Let's Encrypt.
+      - name: Validate nginx edge configuration
+        run: |
+          set -euo pipefail
+          domain=ci.invalid
+          docker volume create safefleet-ci-tls >/dev/null
+          docker run --rm -v safefleet-ci-tls:/etc/letsencrypt --entrypoint sh \
+            certbot/certbot:latest -c "
+              mkdir -p /etc/letsencrypt/live/$domain
+              openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+                -keyout /etc/letsencrypt/live/$domain/privkey.pem \
+                -out /etc/letsencrypt/live/$domain/fullchain.pem \
+                -subj '/CN=$domain' 2>/dev/null
+            "
+          docker run --rm \
+            --add-host backend:127.0.0.1 --add-host frontend:127.0.0.1 \
+            -e APP_DOMAIN=$domain -e NGINX_ENVSUBST_FILTER='^APP_' \
+            -v "$PWD/deploy/vps/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
+            -v "$PWD/deploy/vps/nginx/templates:/etc/nginx/templates:ro" \
+            -v safefleet-ci-tls:/etc/letsencrypt:ro \
+            nginx:1.29-alpine sh -c '/docker-entrypoint.sh nginx -t'
+          docker volume rm safefleet-ci-tls >/dev/null
 
   publish-images:
     name: Publish ${{ matrix.image }} image
