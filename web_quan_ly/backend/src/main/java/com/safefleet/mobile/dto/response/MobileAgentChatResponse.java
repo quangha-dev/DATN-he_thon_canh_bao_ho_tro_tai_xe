@@ -11,7 +11,8 @@ public record MobileAgentChatResponse(
         List<AgentStep> steps,
         boolean replanned,
         List<ClientAction> clientActions,
-        ConfirmationRequest confirmationRequest
+        ConfirmationRequest confirmationRequest,
+        AgentRunMetrics runMetrics
 ) {
     public record AgentStep(
             Integer index,
@@ -43,6 +44,16 @@ public record MobileAgentChatResponse(
             String severity,
             String description,
             String prompt
+    ) {
+    }
+
+    public record AgentRunMetrics(
+            Long durationMs,
+            Integer modelCalls,
+            Integer inputTokens,
+            Integer outputTokens,
+            Integer totalTokens,
+            Double estimatedCostUsd
     ) {
     }
 }

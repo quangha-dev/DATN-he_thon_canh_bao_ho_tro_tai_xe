@@ -51,6 +51,15 @@ class AgentConfirmationRequest(CamelModel):
     prompt: str
 
 
+class AgentRunMetrics(CamelModel):
+    duration_ms: int = 0
+    model_calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    estimated_cost_usd: float | None = None
+
+
 class AgentChatResponse(CamelModel):
     response_text: str
     model: str
@@ -61,6 +70,7 @@ class AgentChatResponse(CamelModel):
     replanned: bool = False
     client_actions: list[AgentClientAction] = Field(default_factory=list)
     confirmation_request: AgentConfirmationRequest | None = None
+    run_metrics: AgentRunMetrics | None = None
 
 
 class AgentConfigurationUpdate(CamelModel):

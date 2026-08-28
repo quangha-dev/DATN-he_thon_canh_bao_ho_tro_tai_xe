@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 import urllib.error
 import urllib.request
+from contextvars import ContextVar, Token
 from typing import Any
 
 from service.agent.models import RuntimeConfiguration
@@ -13,7 +15,29 @@ class OpenAiError(RuntimeError):
     pass
 
 
+_USAGE: ContextVar[dict[str, int] | None] = ContextVar("openai_usage", default=None)
+
+
 class OpenAiClient:
+    def begin_usage_tracking(self) -> Token:
+        return _USAGE.set(
+            {"model_calls": 0, "input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+        )
+
+    def end_usage_tracking(self, token: Token) -> dict[str, int | float | None]:
+        usage = dict(_USAGE.get() or {})
+        _USAGE.reset(token)
+        input_rate = _optional_rate("OPENAI_INPUT_COST_PER_MILLION_USD")
+        output_rate = _optional_rate("OPENAI_OUTPUT_COST_PER_MILLION_USD")
+        estimated_cost: float | None = None
+        if input_rate is not None and output_rate is not None:
+            estimated_cost = round(
+                int(usage.get("input_tokens") or 0) * input_rate / 1_000_000
+                + int(usage.get("output_tokens") or 0) * output_rate / 1_000_000,
+                8,
+            )
+        return {**usage, "estimated_cost_usd": estimated_cost}
+
     def response_text(
         self,
         configuration: RuntimeConfiguration,
@@ -142,7 +166,9 @@ class OpenAiClient:
             try:
                 with urllib.request.urlopen(request, timeout=35) as response:
                     content = response.read()
-                return json.loads(content.decode("utf-8")) if content else {}
+                decoded = json.loads(content.decode("utf-8")) if content else {}
+                self._record_usage(decoded)
+                return decoded
             except urllib.error.HTTPError as exception:
                 detail = self._http_error_detail(exception)
                 retryable = exception.code == 429 or 500 <= exception.code < 600
@@ -162,6 +188,20 @@ class OpenAiClient:
                     continue
                 raise OpenAiError("Không thể kết nối OpenAI") from exception
         raise OpenAiError("Không thể kết nối OpenAI")
+
+    @staticmethod
+    def _record_usage(payload: dict[str, Any]) -> None:
+        tracked = _USAGE.get()
+        if tracked is None:
+            return
+        usage = payload.get("usage") or {}
+        input_tokens = int(usage.get("input_tokens") or usage.get("prompt_tokens") or 0)
+        output_tokens = int(usage.get("output_tokens") or usage.get("completion_tokens") or 0)
+        total_tokens = int(usage.get("total_tokens") or (input_tokens + output_tokens))
+        tracked["model_calls"] += 1
+        tracked["input_tokens"] += input_tokens
+        tracked["output_tokens"] += output_tokens
+        tracked["total_tokens"] += total_tokens
 
     @staticmethod
     def _http_error_detail(exception: urllib.error.HTTPError) -> str:
@@ -191,3 +231,14 @@ class OpenAiClient:
     def _require_key(configuration: RuntimeConfiguration) -> None:
         if not configuration.api_key:
             raise OpenAiError("OpenAI API key chưa được cấu hình trên web quản lý")
+
+
+def _optional_rate(name: str) -> float | None:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        return None
+    return value if value >= 0 else None

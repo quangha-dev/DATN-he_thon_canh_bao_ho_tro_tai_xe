@@ -2,28 +2,33 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
 
 from service.agent.clarification import (
     OTHER_DRIVER_RESPONSE,
+    PROMPT_INJECTION_RESPONSE,
     TRIP_SCOPE_QUESTION,
     UNSUPPORTED_WEATHER_RESPONSE,
     has_explicit_date_scope,
     needs_trip_scope_clarification,
     normalize_vietnamese,
     requests_other_driver_data,
+    requests_prompt_override_or_secrets,
     requests_ranked_upcoming_scope,
     requests_unsupported_weather,
     requests_upcoming_scope,
 )
 from service.agent.configuration import AgentConfigurationStore
+from service.agent.critical_workflows import run_critical_workflow
 from service.agent.models import (
     AgentChatRequest,
     AgentChatResponse,
     AgentClientAction,
     AgentConfirmationRequest,
+    AgentRunMetrics,
     AgentStep,
 )
 from service.mcp.client import SafeFleetMcpClient, openai_tool_definitions
@@ -50,6 +55,27 @@ class AgentOrchestrator:
         self._mcp_client_factory = mcp_client_factory or SafeFleetMcpClient
 
     def respond(self, request: AgentChatRequest, user_authorization: str) -> AgentChatResponse:
+        started = time.perf_counter()
+        begin_tracking = getattr(self._openai, "begin_usage_tracking", None)
+        end_tracking = getattr(self._openai, "end_usage_tracking", None)
+        usage_token = begin_tracking() if callable(begin_tracking) else None
+        usage: dict[str, Any] = {}
+        try:
+            response = self._respond(request, user_authorization)
+        finally:
+            if usage_token is not None and callable(end_tracking):
+                usage = end_tracking(usage_token)
+        response.run_metrics = AgentRunMetrics(
+            duration_ms=max(0, round((time.perf_counter() - started) * 1000)),
+            model_calls=int(usage.get("model_calls") or 0),
+            input_tokens=int(usage.get("input_tokens") or 0),
+            output_tokens=int(usage.get("output_tokens") or 0),
+            total_tokens=int(usage.get("total_tokens") or 0),
+            estimated_cost_usd=usage.get("estimated_cost_usd"),
+        )
+        return response
+
+    def _respond(self, request: AgentChatRequest, user_authorization: str) -> AgentChatResponse:
         configuration = self._configuration_store.runtime()
         if not configuration.enabled or not configuration.api_key:
             return AgentChatResponse(
@@ -59,6 +85,12 @@ class AgentOrchestrator:
             )
 
         question = request.messages[-1].content
+        if requests_prompt_override_or_secrets(question):
+            return AgentChatResponse(
+                response_text=PROMPT_INJECTION_RESPONSE,
+                model=configuration.model,
+                status="GUARDRAIL_BLOCKED",
+            )
         if requests_unsupported_weather(question):
             return AgentChatResponse(
                 response_text=UNSUPPORTED_WEATHER_RESPONSE,
@@ -98,6 +130,11 @@ class AgentOrchestrator:
             if shortcut is not None:
                 return shortcut
             shortcut = self._open_mobile_screen_shortcut(
+                question, configuration.model, mcp_client, allowed_tools
+            )
+            if shortcut is not None:
+                return shortcut
+            shortcut = self._critical_workflow_shortcut(
                 question, configuration.model, mcp_client, allowed_tools
             )
             if shortcut is not None:
@@ -705,7 +742,15 @@ class AgentOrchestrator:
             "ket qua chuyen",
             "chenh lech ke hoach",
         )
-        if any(signal in focus for signal in summary_signals) and (
+        assignment_checklist_only = (
+            "phan cong hien tai" in focus
+            and "checklist" in focus
+            and not any(
+                signal in focus
+                for signal in ("tom tat", "tong ket", "nextaction", "hanh dong tiep theo", "can lam gi")
+            )
+        )
+        if not assignment_checklist_only and any(signal in focus for signal in summary_signals) and (
             trip_id is not None or upcoming or "phan cong" in focus
         ):
             add("get_trip_summary")
@@ -1213,6 +1258,50 @@ class AgentOrchestrator:
             )
 
     @classmethod
+    def _critical_workflow_shortcut(
+        cls,
+        question: str,
+        model: str,
+        mcp_client: Any,
+        allowed_tools: list[str],
+    ) -> AgentChatResponse | None:
+        """Run safety-critical multi-source flows with deterministic evidence ordering."""
+
+        try:
+            result = run_critical_workflow(
+                cls._task_focus(question), mcp_client.execute, allowed_tools
+            )
+            if result is None:
+                return None
+            plan = Plan(
+                goal=question,
+                steps=[f"Thu thập bằng chứng từ {call.name}" for call in result.calls],
+                expected_tools=[call.name for call in result.calls],
+            )
+            trace = [
+                AgentStep(
+                    index=index,
+                    tool=call.name,
+                    arguments=cls._compact(call.arguments, 500),
+                    success=True,
+                    plan_check="CONTINUE" if index < len(result.calls) else "COMPLETE",
+                    reason=f"Workflow {result.name} đã xác thực bằng chứng theo đúng quan hệ phụ thuộc.",
+                )
+                for index, call in enumerate(result.calls, start=1)
+            ]
+            return cls._response(result.text, model, "COMPLETED", plan, trace, False)
+        except (McpToolError, KeyError, TypeError, ValueError) as exception:
+            plan = Plan(goal=question, steps=["Thu thập bằng chứng vận hành"], expected_tools=[])
+            return cls._response(
+                f"Tôi không thể hoàn tất workflow an toàn từ dữ liệu hệ thống: {exception}",
+                model,
+                "FAILED",
+                plan,
+                [],
+                False,
+            )
+
+    @classmethod
     def _deterministic_data_shortcut(
         cls,
         question: str,
@@ -1299,7 +1388,9 @@ class AgentOrchestrator:
         elif "tong ket" in normalized and "phan cong" in normalized:
             kind = "ASSIGNMENT_SUMMARY"
             calls = [("get_current_assignment", {})]
-        elif "phan cong hien tai" in normalized and "checklist" in normalized:
+        elif (
+            "phan cong hien tai" in normalized or "duoc phan cong hien tai" in normalized
+        ) and "checklist" in normalized:
             kind = "CURRENT_ASSIGNMENT"
             calls = [("get_current_assignment", {})]
         elif (
@@ -1417,7 +1508,19 @@ class AgentOrchestrator:
         results: dict[str, dict[str, Any]] = {}
         try:
             for index, (name, arguments) in enumerate(calls, start=1):
-                result = mcp_client.execute(name, arguments)
+                try:
+                    result = mcp_client.execute(name, arguments)
+                except McpToolError as exception:
+                    missing_warehouse_issue = (
+                        name == "get_warehouse_issue"
+                        and "không tìm thấy phiếu xuất kho" in str(exception).casefold()
+                    )
+                    if not missing_warehouse_issue:
+                        raise
+                    # A missing optional warehouse document is valid evidence, not
+                    # an infrastructure failure. Keep the workflow running so the
+                    # agent can state that the record does not exist.
+                    result = {"ok": True, "warehouseIssue": None, "notFound": True}
                 if not result.get("ok"):
                     raise McpToolError(str(result.get("error") or f"Tool {name} thất bại"))
                 results[name] = result
@@ -1479,6 +1582,12 @@ class AgentOrchestrator:
     ) -> str:
         if kind == "WAREHOUSE":
             issue = results["get_warehouse_issue"].get("warehouseIssue") or {}
+            if results["get_warehouse_issue"].get("notFound"):
+                trip = results["get_trip_detail"].get("trip") or {}
+                return (
+                    f"Dữ liệu hiện tại xác nhận chuyến {trip.get('id')} tồn tại nhưng chưa có "
+                    "phiếu xuất kho, nên chưa thể cung cấp mã phiếu hoặc số lượng đã giao."
+                )
             delivered = sum(float(item.get("deliveredQuantity") or 0) for item in issue.get("items") or [])
             delivered_text = str(int(delivered)) if delivered.is_integer() else str(delivered)
             return (
@@ -1489,6 +1598,12 @@ class AgentOrchestrator:
             issue = results["get_warehouse_issue"].get("warehouseIssue") or {}
             summary = results["get_trip_summary"].get("summary") or {}
             trip = summary.get("trip") or {}
+            if results["get_warehouse_issue"].get("notFound"):
+                return (
+                    f"Dữ liệu hiện tại cho thấy chuyến {trip.get('id')} ở trạng thái "
+                    f"{trip.get('status')}, tiến độ {trip.get('progress')}%, nhưng không có phiếu "
+                    "xuất kho để tính tỷ lệ giao hàng. Không tự suy đoán dữ liệu còn thiếu."
+                )
             items = issue.get("items") or []
             requested = sum(float(item.get("requestedQuantity") or 0) for item in items)
             issued = sum(float(item.get("issuedQuantity") or 0) for item in items)
@@ -1548,12 +1663,23 @@ class AgentOrchestrator:
             trip = results["get_trip_detail"].get("trip") or {}
             summary = results["get_trip_summary"].get("summary") or {}
             summary_trip = summary.get("trip") or {}
-            planned_start = datetime.fromisoformat(str(trip.get("plannedStartTime")))
-            actual_start = datetime.fromisoformat(str(trip.get("actualStartTime")))
-            estimated_end = datetime.fromisoformat(str(trip.get("estimatedEndTime")))
-            actual_end = datetime.fromisoformat(
-                str(trip.get("actualEndTime") or summary_trip.get("actualEndTime"))
-            )
+            temporal_values = {
+                "bắt đầu dự kiến": trip.get("plannedStartTime"),
+                "bắt đầu thực tế": trip.get("actualStartTime"),
+                "kết thúc dự kiến": trip.get("estimatedEndTime"),
+                "kết thúc thực tế": trip.get("actualEndTime")
+                or summary_trip.get("actualEndTime"),
+            }
+            missing = [label for label, value in temporal_values.items() if not value]
+            if missing:
+                return (
+                    f"Chuyến {trip.get('id')} chưa đủ dữ liệu để tính chênh lệch kế hoạch và "
+                    f"thực tế; còn thiếu: {', '.join(missing)}. Không tự suy đoán thời gian."
+                )
+            planned_start = datetime.fromisoformat(str(temporal_values["bắt đầu dự kiến"]))
+            actual_start = datetime.fromisoformat(str(temporal_values["bắt đầu thực tế"]))
+            estimated_end = datetime.fromisoformat(str(temporal_values["kết thúc dự kiến"]))
+            actual_end = datetime.fromisoformat(str(temporal_values["kết thúc thực tế"]))
             start_early_seconds = max(0, int((planned_start - actual_start).total_seconds()))
             actual_seconds = max(0, int(round((actual_end - actual_start).total_seconds())))
             end_early_seconds = max(0, int(round((estimated_end - actual_end).total_seconds())))
@@ -1618,6 +1744,11 @@ class AgentOrchestrator:
             assignment = results["get_current_assignment"].get("assignment") or {}
             assignment_id = int(((assignment.get("trip") or {}).get("id")) or 0)
             session = results["get_current_driving_session"].get("session") or {}
+            if not session:
+                return (
+                    f"Phân công hiện tại là chuyến {assignment_id} nhưng không có phiên lái "
+                    "ACTIVE; chưa thể đối chiếu hai trip ID và không thực hiện thao tác."
+                )
             session_id = int(session.get("tripId") or 0)
             session_status = str(session.get("status") or "UNKNOWN")
             if assignment_id != session_id:
@@ -1643,19 +1774,26 @@ class AgentOrchestrator:
                 f"{ratio:.2f}%".replace(".", ",")
                 + f". Safety hiện {safety.get('status')}, điểm {safety.get('safetyScore')} và "
                 f"totalTrips={safety.get('totalTrips')}; totalTrips của safety là phạm vi an toàn "
-                "hiện hành, không phải tổng lịch sử 11 chuyến nên không được đánh đồng."
+                "hiện hành, không phải tổng lịch sử nên không được đánh đồng."
             )
         if kind == "COMPLETION_RECONCILIATION":
             completed = results["list_completed_trips"].get("trips") or []
             all_trips = results["list_all_trips"].get("trips") or []
             report = results["get_monthly_report"].get("report") or {}
             ratio = len(completed) / len(all_trips) * 100 if all_trips else 0
+            reported_rate = float(report.get("completionRate") or 0)
+            difference = abs(ratio - reported_rate)
+            reconciliation = (
+                "hai tỷ lệ khớp trong sai số làm tròn."
+                if difference <= 0.51
+                else f"hai tỷ lệ chênh {difference:.2f} điểm phần trăm và cần đối soát."
+            )
             return (
                 f"Có {len(completed)} chuyến hoàn thành trên {len(all_trips)}, tức "
                 f"{ratio:.2f}%".replace(".", ",")
                 + f". Báo cáo tháng ghi completedTrips={report.get('completedTrips')}, "
                 f"totalTrips={report.get('totalTrips')} và completionRate="
-                f"{report.get('completionRate')}%; kết quả phù hợp vì báo cáo làm tròn 54,55% thành 55%."
+                f"{report.get('completionRate')}%; {reconciliation}"
             )
         if kind == "ALERT_RATIOS":
             notifications = results["list_notifications"].get("notifications") or []
@@ -1667,12 +1805,13 @@ class AgentOrchestrator:
             contents = sorted(
                 {str(item.get("content") or "").strip() for item in notifications if item.get("content")}
             )
+            content_text = ", ".join(contents) if contents else "không có thông báo chưa đọc"
             return (
                 f"Có {len(notifications)}/{total_alerts} thông báo chưa đọc, chiếm "
                 f"{unread_ratio:.2f}%".replace(".", ",")
                 + f"; cảnh báo nghiêm trọng là {critical}/{total_alerts}, chiếm "
                 + f"{critical_ratio:.2f}%".replace(".", ",")
-                + f". Nội dung gồm: {', '.join(contents)}."
+                + f". Nội dung: {content_text}."
             )
         if kind == "ALERT_DAYS":
             report = results["get_monthly_report"].get("report") or {}
@@ -1689,7 +1828,7 @@ class AgentOrchestrator:
                 "Cảnh báo tháng tập trung vào "
                 + "; ".join(parts)
                 + f". Có {len(notifications)} thông báo chưa đọc; số này không được đồng nhất với "
-                "số cảnh báo của riêng ngày 15/08."
+                "tổng cảnh báo theo ngày vì hai chỉ số có phạm vi khác nhau."
             )
         if kind == "SCOPE_RECONCILIATION":
             all_trips = results["list_all_trips"].get("trips") or []

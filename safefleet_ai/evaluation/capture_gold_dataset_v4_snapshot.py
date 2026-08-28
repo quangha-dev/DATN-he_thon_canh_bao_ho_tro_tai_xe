@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -35,7 +36,17 @@ def data(envelope: dict[str, Any]) -> Any:
 
 
 def get(base_url: str, path: str, token: str, timeout: int) -> Any:
-    return data(request_json(f"{base_url}{path}", token=token, timeout=timeout))
+    last_error: OSError | TimeoutError | None = None
+    for attempt in range(4):
+        try:
+            return data(request_json(f"{base_url}{path}", token=token, timeout=timeout))
+        except (OSError, TimeoutError) as exception:
+            last_error = exception
+            if attempt < 3:
+                time.sleep(0.5 * (2**attempt))
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Không thể đọc dữ liệu snapshot")
 
 
 def optional_get(base_url: str, path: str, token: str, timeout: int) -> Any:
